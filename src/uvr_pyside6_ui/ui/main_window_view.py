@@ -96,22 +96,19 @@ class MainWindowView(QMainWindow):
         self._create_menu_bar()
 
         # --- Trigger initial method population and selection ---
-        # The ModelSelectionPresenter's __init__ now calls self.view.set_process_methods,
-        # which if methods are available, sets the first one and should emit process_method_changed.
-        # The connection in ModelSelectionPresenter will call handle_method_change.
-        # This handle_method_change will then populate models and show the panel.
-        # We might need to ensure the first method is explicitly emitted if not already.
         if self.model_selection_view.method_combo.count() > 0:
             initial_method = self.model_selection_view.method_combo.currentText()
-            print(f"MainWindowView: Initial method from combo is '{initial_method}'. Triggering presenter.")
-            # Ensure the presenter is aware and acts on this initial state
-            self.presenters["model_selection"].handle_method_change(initial_method)
+            if initial_method:
+                print(f"MainWindowView: Triggering initial panel display for method '{initial_method}'")
+                # This call will now correctly find the panels in ModelSelectionView's stack
+                self.presenters["model_selection"].handle_method_change(initial_method)
         else:
-            print("MainWindowView: Method combo is empty on init. No initial method to set.")
+            # If no methods, ModelSelectionPresenter might need to clear/show a default empty panel
+            print("MainWindowView: Method combo is empty on init. Triggering presenter with empty method.")
+            self.presenters["model_selection"].handle_method_change("")
 
-        print("MainWindowView Fully Initialized (again).")
+        print("MainWindowView Fully Initialized.")
 
-    # ... (_create_menu_bar, _open_download_center_tab, _quit_application, _show_about_dialog, show_status_message remain the same) ...
     def _create_menu_bar(self):
         menu_bar = self.menuBar()
         menu_bar.setNativeMenuBar(False)

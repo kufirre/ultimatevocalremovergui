@@ -1,0 +1,210 @@
+# ==========================================
+# Build System Configuration
+# ==========================================
+# Specifies how the project should be built.
+# 'setuptools' is a common choice.
+[build-system]
+requires = ["setuptools>=61.0"]  # Minimum version of setuptools needed.
+build-backend = "setuptools.build_meta" # The function setuptools uses to build.
+
+# ==========================================
+# Core Project Metadata
+# ==========================================
+# Defines essential information about your project.
+[project]
+name = "uvr_pyside6_ui" # The name used when installing/publishing (e.g., via pip).
+version = "0.1.0"
+description = "A PySide6 UI rewrite for Ultimate Vocal Remover - advanced audio source separation."
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [
+    {name = "Kufirre Ebong", email = "kuffykeys@gmail.com"}
+]
+license = {text = "MIT"}
+keywords = ["audio", "vocal", "remover", "separation", "pyside6", "gui", "music"]
+classifiers = [
+    # Standard trove classifiers to categorize the project.
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Sound/Audio :: Analysis",
+    "Topic :: Multimedia :: Sound/Audio :: Editors",
+]
+
+# ==========================================
+# Dependencies
+# ==========================================
+# Lists the libraries your project needs to run.
+dependencies = [
+    "PySide6>=6.4.0,<7.0.0", # The core UI framework.
+    # Audio processing dependencies (common for UVR)
+    "torch>=1.13.0",        # ML framework.
+    "torchaudio>=0.13.0",   # Torch audio utilities.
+    "numpy>=1.21.0",        # Numerical Python.
+    "librosa>=0.9.0",       # Audio analysis.
+    "soundfile>=0.10.0",    # Reading/writing audio files.
+    "scipy>=1.7.0",         # Scientific computing.
+    # UI and utility dependencies
+    "Pillow>=8.0.0",        # Image handling (often needed for icons/assets).
+    "requests>=2.25.0",     # For potential downloads (models, updates).
+    # We will add more UVR core dependencies here as we identify them
+]
+
+# ==========================================
+# Optional Dependencies (Extras)
+# ==========================================
+# Dependencies that are not required for basic functionality but enable extra features.
+# Users can install these like: pip install uvr-pyside6-ui[dev,gpu]
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-qt>=4.0",
+    "pytest-mock>=3.0",
+    "black>=22.0",  # Code formatter.
+    "ruff>=0.1.0",  # Fast linter/formatter.
+    "mypy>=1.0",    # Static type checker.
+]
+gpu = [
+    # Optional GPU acceleration dependencies.
+    "torch[cuda]",      # Installs PyTorch with CUDA support.
+    "onnxruntime-gpu",  # GPU support for ONNX models (if used).
+]
+audio-extra = [
+    # Additional audio format support.
+    "pydub>=0.25.0",
+    "mutagen>=1.45.0",
+    "ffmpeg-python>=0.2.0", # Requires ffmpeg to be installed on the system.
+]
+
+# ==========================================
+# Project URLs
+# ==========================================
+# Provides helpful links related to your project.
+[project.urls]
+Homepage = "https://github.com/kufirre/ultimatevocalremovergui"
+Repository = "https://github.com/kufirre/ultimatevocalremovergui"
+Issues = "https://github.com/kufirre/ultimatevocalremovergui/issues"
+Documentation = "https://github.com/kufirre/ultimatevocalremovergui/wiki"
+"Original UVR" = "https://github.com/Anjok07/ultimatevocalremovergui"
+
+# ==========================================
+# Entry Points / Scripts
+# ==========================================
+# Defines commands that can be run from the command line after installation.
+[project.scripts]
+uvr-gui = "uvr_pyside6_ui.main:run" # Creates 'uvr-gui' which calls run() in main.py.
+
+# ==========================================
+# Setuptools Configuration
+# ==========================================
+# Specific settings for the 'setuptools' build backend.
+[tool.setuptools]
+# Tells setuptools that your code lives under the 'src' directory.
+package-dir = {"" = "src"}
+# Specifies which package(s) under 'src' should be included.
+packages = ["uvr_pyside6_ui"]
+
+# ==========================================
+# Pytest Configuration
+# ==========================================
+# Settings for the 'pytest' testing framework.
+[tool.pytest.ini_options]
+pythonpath = ["src"] # Helps pytest find your source code for imports.
+testpaths = ["tests"] # Specifies where to look for test files.
+addopts = [
+    # Additional command-line arguments for pytest.
+    "--strict-markers", # Ensures all @pytest.mark decorators are registered.
+    "--strict-config",  # Prevents issues with pytest configuration.
+    "--verbose",        # Provides more detailed test output.
+]
+markers = [
+    # Defines custom markers for categorizing tests.
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "gui: marks tests that require GUI interaction",
+]
+
+# ==========================================
+# Black (Code Formatter) Configuration
+# ==========================================
+# Settings for the 'black' code formatter.
+[tool.black]
+line-length = 88 # Max line length (common default).
+target-version = ['py38'] # Ensures formatting is compatible with Python 3.8+.
+include = '\.pyi?$' # File types to format.
+extend-exclude = '''
+/(
+  # Standard directories to ignore.
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+# ==========================================
+# Ruff (Linter) Configuration
+# ==========================================
+# Settings for the 'ruff' linter.
+[tool.ruff]
+target-version = "py38" # Target Python version for linting rules.
+line-length = 88 # Match black's line length.
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes (unused imports, undefined names)
+    "I",  # isort (import sorting)
+    "B",  # flake8-bugbear (potential bugs)
+    "C4", # flake8-comprehensions (unnecessary comprehensions)
+    "UP", # pyupgrade (suggests modern Python syntax)
+]
+ignore = [
+    "E501", # line too long, handled by black.
+    "B008", # do not perform function calls in argument defaults (can be debatable).
+]
+
+[tool.ruff.per-file-ignores]
+# Ignore 'unused import' errors (F401) in __init__.py files, as they often import for re-exporting.
+"__init__.py" = ["F401"]
+# Ignore specific rules within test files if needed.
+"tests/**/*" = ["B011"] # Example: Ignore 'assert False'.
+
+# ==========================================
+# MyPy (Static Type Checker) Configuration
+# ==========================================
+# Settings for 'mypy' for strict type checking.
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true # Warns if a function returns 'Any' when it shouldn't.
+warn_unused_configs = true # Warns about unused mypy config sections.
+disallow_untyped_defs = true # Requires functions to have type annotations.
+disallow_incomplete_defs = true # Requires all parts of a function signature to be typed.
+check_untyped_defs = true # Checks functions even if they don't have annotations.
+disallow_untyped_decorators = true # Requires decorators to be typed.
+no_implicit_optional = true # Requires 'Optional[T]' instead of just 'T' if 'None' is possible.
+warn_redundant_casts = true # Warns if you cast a variable to its own type.
+warn_unused_ignores = true # Warns about unnecessary '# type: ignore' comments.
+warn_no_return = true # Warns if a function is missing a return statement when expected.
+warn_unreachable = true # Warns about code that will never be executed.
+strict_equality = true # Ensures type-safe comparisons.
+
+[[tool.mypy.overrides]]
+# Ignores missing type information for certain libraries that may not have full stubs.
+module = [
+    "librosa.*",
+    "soundfile.*",
+    "torch.*",
+    "torchaudio.*",
+]
+ignore_missing_imports = true

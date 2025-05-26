@@ -23,6 +23,8 @@ from .ensemble_settings_presenter import EnsembleSettingsPresenter
 from .execution_control_presenter import ExecutionControlPresenter
 from .settings_dialog_presenter import SettingsDialogPresenter
 
+from ..core.uvr_core_adapter import UVRCoreAdapter
+
 
 class MainWindowView(QMainWindow):
     """
@@ -44,8 +46,11 @@ class MainWindowView(QMainWindow):
         self.setStatusBar(self.status_bar)
         self.status_bar.showMessage("Ready")
 
-        # Dictionary to hold presenters for inter-communication (e.g., for Exec Control)
+        # Dictionary to hold presenters for intercommunication (e.g., for Exec Control)
         self.presenters = {}
+
+        # Pass self as parent for QObject mgmt
+        self.adapter = UVRCoreAdapter(self)
 
         # --- Instantiate Settings Dialog Presenter (Needed for Menu) ---
         self.settings_dialog_presenter = SettingsDialogPresenter(self)
@@ -70,11 +75,13 @@ class MainWindowView(QMainWindow):
         self.ensemble_view = EnsembleSettingsView()
         self.presenters["ensemble"] = EnsembleSettingsPresenter(view=self.ensemble_view)
 
-        # 3. Model Selection (and add specific panels to its stack)
+        # Model Selection (Pass Adapter)
         self.model_selection_view = ModelSelectionView()
         self.presenters["model_selection"] = ModelSelectionPresenter(
-            view=self.model_selection_view
+            view=self.model_selection_view,
+            adapter=self.adapter
         )
+
         self.model_selection_view.add_settings_panel("VR Arch", self.vr_arch_view)
         self.model_selection_view.add_settings_panel("MDX-Net", self.mdx_net_view)
         self.model_selection_view.add_settings_panel("Demucs", self.demucs_view)
@@ -88,27 +95,25 @@ class MainWindowView(QMainWindow):
         )
         self.main_layout.addWidget(self.processing_settings_view)
 
-        # Execution Control
+        # Execution Control (Pass Adapter)
         self.execution_control_view = ExecutionControlView()
         self.presenters["execution"] = ExecutionControlPresenter(
             view=self.execution_control_view,
-            main_window_presenters=self.presenters  # Pass the dict!
+            main_window_presenters=self.presenters,
+            adapter=self.adapter  # Pass adapter
         )
         self.main_layout.addWidget(self.execution_control_view)
 
-        # Add a stretch to push everything UP except execution.
         self.main_layout.addStretch(1)
 
-        # --- Create Menu Bar ---
         self._create_menu_bar()
 
-        # --- Trigger initial display ---
-        # Now that panels are added, trigger the presenter to show the default.
+        # Trigger initial model selection & panel display
         self.presenters["model_selection"].handle_method_change(
             self.model_selection_view.method_combo.currentText()
         )
 
-        print("MainWindowView Fully Initialized.")
+        print("MainWindowView Initialized with Core Adapter.")
 
     def _create_menu_bar(self):
         """Creates and configures the main menu bar."""

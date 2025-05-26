@@ -1,105 +1,113 @@
-from PySide6.QtCore import QObject, Slot, QTimer  # QTimer for mock processing
+from PySide6.QtCore import QObject, Slot
 
+
+# No QTimer needed here now, as adapter handles it
 
 class ExecutionControlPresenter(QObject):
     """
     Presenter for Execution Control. Gathers all settings,
-    initiates processing via the adapter, and updates progress.
+    initiates processing via the adapter, and updates progress via signals.
     """
 
-    def __init__(self, view, main_window_presenters):
+    def __init__(self, view, main_window_presenters, adapter):  # Added adapter
         super().__init__()
         self.view = view
-        self.presenters = main_window_presenters  # Access to other presenters
-        # self.model = model # The uvr_core_adapter
+        self.presenters = main_window_presenters
+        self.adapter = adapter  # Store the adapter
 
         self._is_processing = False
 
-        # --- Connect Signals ---
+        # --- Connect View Signals ---
         self.view.start_processing_clicked.connect(self.handle_start_processing)
+        # TODO: Connect stop button later
 
-        # --- Initial State ---
+        # --- Connect Adapter Signals (NEW) ---
+        self.adapter.progress_updated.connect(self.on_progress_update)
+        self.adapter.processing_finished.connect(self.on_processing_finished)
+
         self.view.set_progress_text("Idle")
-        self.view.set_start_button_enabled(True)  # Enable by default, maybe validate later
+        self.view.set_start_button_enabled(True)
 
-        print("ExecutionControlPresenter Initialized.")
+        print("ExecutionControlPresenter Initialized (with Adapter).")
+
+    def _gather_all_settings(self) -> dict:
+        """Helper to collect settings from all relevant presenters."""
+        all_settings = {}
+
+        file_io = self.presenters["file_io"]
+        model_sel = self.presenters["model_selection"]
+        proc_set = self.presenters["processing_settings"]
+
+        input_path, output_path = file_io.get_paths()
+        model_details = model_sel.get_selection()
+        settings = proc_set.get_settings()
+
+        all_settings.update({
+            "input_path": input_path,
+            "output_path": output_path,
+        })
+        all_settings.update(model_details)
+        all_settings.update(settings)
+
+        # Add specific model settings based on selection
+        method = model_details['method']
+        if method in self.presenters:
+            all_settings.update(self.presenters[method].get_settings())
+
+        return all_settings
 
     @Slot()
     def handle_start_processing(self):
-        """Gathers settings and initiates the processing task."""
+        """Gathers settings and tells the adapter to start processing."""
         if self._is_processing:
             print("Presenter: Already processing!")
             return
 
         self.view.clear_logs()
-        self.view.append_log_message("Starting process...")
+        self.view.append_log_message("Requesting process start...")
         self.view.set_start_button_enabled(False)
-        self.view.set_start_button_text("Processing...")
+        self.view.set_start_button_text("Starting...")
         self._is_processing = True
 
-        # --- Gather Settings from Other Presenters ---
         try:
-            file_io = self.presenters["file_io"]
-            model_sel = self.presenters["model_selection"]
-            proc_set = self.presenters["processing_settings"]
-            vr_set = self.presenters.get("vr_arch")  # Use .get for optional ones
+            settings_dict = self._gather_all_settings()
 
-            input_path, output_path = file_io.get_paths()
-            model_details = model_sel.get_selection()
-            settings = proc_set.get_settings()
+            # Log collected settings
+            self.view.append_log_message("--- Settings ---")
+            for k, v in settings_dict.items():
+                self.view.append_log_message(f"  {k}: {v}")
+            self.view.append_log_message("------------------")
 
-            self.view.append_log_message(f"  Input: {input_path}")
-            self.view.append_log_message(f"  Output: {output_path}")
-            self.view.append_log_message(f"  Method: {model_details['method']}")
-            self.view.append_log_message(f"  Model: {model_details['model']}")
-            self.view.append_log_message(f"  GPU: {settings['use_gpu']}")
-            self.view.append_log_message(f"  Format: {settings['output_format']}")
-
-            if model_details['method'] == "VR Arch" and vr_set:
-                vr_details = vr_set.get_settings()
-                self.view.append_log_message(f"  VR Window: {vr_details['window_size']}")
-                self.view.append_log_message(f"  VR Aggression: {vr_details['aggression']}")
-
-            # TODO: Add validation here - are paths/models set?
-            if not input_path or not output_path:
+            if not settings_dict.get("input_path") or not settings_dict.get("output_path"):
                 raise ValueError("Input and Output paths must be set!")
 
-            # --- Call the Model/Adapter (Mocked) ---
-            self.view.append_log_message("Starting mock processing...")
-            self.mock_process()  # Start the fake processing simulation
+            # --- Call the Adapter (NEW) ---
+            self.adapter.start_processing(settings_dict)
+            self.view.set_start_button_text("Processing...")
+            self.view.set_progress_text("Waiting for process...")
 
         except Exception as e:
             self.view.append_log_message(f"ERROR: {e}")
-            self.processing_finished(success=False)
+            self.on_processing_finished(False, f"Setup Failed: {e}")
 
-    def mock_process(self):
-        """Simulates a processing task with progress updates."""
-        self.progress_step = 0
+    @Slot(int, str)
+    def on_progress_update(self, value: int, text: str):
+        """Updates the view when the adapter sends progress."""
+        if not self._is_processing: return  # Avoid updates after finishing
+        print(f"Presenter: Received progress {value}% - {text}")
+        self.view.set_progress_value(value)
+        self.view.set_progress_text(text)
+        # Optionally add key progress steps to the log
+        if value % 20 == 0 and value > 0:
+            self.view.append_log_message(f"  Progress: {value}%...")
 
-        def update():
-            self.progress_step += 10
-            if self.progress_step <= 100:
-                self.view.set_progress_value(self.progress_step)
-                self.view.set_progress_text(f"Working on step {self.progress_step // 10}/10")
-                self.view.append_log_message(f"  ... step {self.progress_step // 10} ...")
-                QTimer.singleShot(500, update)  # Wait 0.5 sec
-            else:
-                self.processing_finished(success=True)
-
-        # Start the first step
-        QTimer.singleShot(100, update)  # Start after 0.1 sec
-
-    def processing_finished(self, success=True):
-        """Cleans up the UI after processing finishes or fails."""
-        if success:
-            self.view.append_log_message("Processing finished successfully!")
-            self.view.set_progress_text("Completed")
-            self.view.set_progress_value(100)
-        else:
-            self.view.append_log_message("Processing FAILED.")
-            self.view.set_progress_text("Failed")
-            self.view.set_progress_value(0)  # Or maybe show last known value
-
+    @Slot(bool, str)
+    def on_processing_finished(self, success: bool, message: str):
+        """Updates the view when the adapter signals completion."""
+        print(f"Presenter: Received finished signal. Success: {success}, Msg: {message}")
         self._is_processing = False
+        self.view.append_log_message(message)
+        self.view.set_progress_value(100 if success else 0)
+        self.view.set_progress_text("Completed" if success else "Failed")
         self.view.set_start_button_enabled(True)
         self.view.set_start_button_text("Start Processing")

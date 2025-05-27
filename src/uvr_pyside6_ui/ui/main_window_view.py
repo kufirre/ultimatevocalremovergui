@@ -45,7 +45,9 @@ class MainWindowView(QMainWindow):
 
         self.presenters = {}
         self.adapter = UVRCoreAdapter(self)
-        self.settings_dialog_presenter = SettingsDialogPresenter(self)
+        # self.settings_dialog_presenter = SettingsDialogPresenter(self)
+
+        self.settings_dialog_presenter = SettingsDialogPresenter(adapter=self.adapter, parent_qt_object=self)
 
         # File I/O
         self.file_io_view = FileIOView()

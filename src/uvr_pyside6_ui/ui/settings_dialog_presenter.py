@@ -67,7 +67,7 @@ class SettingsDialogPresenter(QObject):
             print("Presenter (DC): Full online catalog is empty after all fallbacks.")
 
     @Slot(str)
-    def _on_dc_model_type_changed(self, ui_model_type: str):  # Unchanged from #32
+    def _on_dc_model_type_changed(self, ui_model_type: str):
         if not self.view or not self._full_online_catalog or not ui_model_type:
             print(f"Presenter (DC): View, catalog, or UI model type not ready. UI Type: '{ui_model_type}'")
             self.view.set_downloadable_models_list([])
@@ -82,33 +82,42 @@ class SettingsDialogPresenter(QObject):
             self.view.set_downloadable_models_list(user_friendly_names_to_download)
 
     @Slot()
-    def _on_dc_download_button_clicked(self):  # Unchanged from #32
+    def _on_dc_download_button_clicked(self):
         if not self.view or not self._full_online_catalog: return
+
         selected_ui_type = self.view.dc_model_type_combo.currentText()
         selected_list_items = self.view.dc_downloadable_models_list.selectedItems()
+
         if not selected_ui_type or not selected_list_items:
             message = "Status: Please select a model type and a model from the list to download."
-            print(f"Presenter (DC): {message}");
-            self.view.dc_status_label.setText(message);
+            print(f"Presenter (DC): {message}")
+            self.view.dc_status_label.setText(message)
             return
+
         user_friendly_model_name = selected_list_items[0].text()
+
         download_target_info = None
         online_catalog_source_keys = ac.ONLINE_CATALOG_MAP.get(selected_ui_type, [])
         for source_key in online_catalog_source_keys:
             models_in_online_category = self._full_online_catalog.get(source_key, {})
             if user_friendly_model_name in models_in_online_category:
-                download_target_info = models_in_online_category[user_friendly_model_name];
+                download_target_info = models_in_online_category[user_friendly_model_name]
                 break
+
         if download_target_info:
             self.view.dc_status_label.setText(f"Status: Starting download for {user_friendly_model_name}...")
+            self.view.dc_download_button.setEnabled(False)  # Disable button during download
+            self.view.dc_model_type_combo.setEnabled(False)  # Disable type selection
+            self.view.dc_downloadable_models_list.setEnabled(False)  # Disable list
+
             self.adapter.download_model_mock(selected_ui_type, user_friendly_model_name, download_target_info)
         else:
             message = f"Status: Error: Could not find download target info for '{user_friendly_model_name}' in catalog."
-            print(f"Presenter (DC): {message}");
+            print(f"Presenter (DC): {message}")
             self.view.dc_status_label.setText(message)
 
     @Slot()
-    def show_dialog(self, exec_dialog: bool = True):  # Unchanged from #32
+    def show_dialog(self, exec_dialog: bool = True):
         if not self.view:
             parent_widget = self.parent() if isinstance(self.parent(), QWidget) else None
             self.view = SettingsDialogView(parent=parent_widget)
@@ -134,14 +143,18 @@ class SettingsDialogPresenter(QObject):
             self.view.raise_()
 
     @Slot(str, int)
-    def _on_adapter_download_progress(self, model_name: str, percentage: int):  # Unchanged from #32
+    def _on_adapter_download_progress(self, model_name: str, percentage: int):
         if self.view and self.view.isVisible() and self.view.tab_widget.currentIndex() == 2:
             self.view.dc_status_label.setText(f"Downloading {model_name}: {percentage}%")
 
     @Slot(str, bool, str)
-    def _on_adapter_download_finished(self, model_name: str, success: bool, message: str):  # Unchanged from #32
+    def _on_adapter_download_finished(self, model_name: str, success: bool, message: str):
         if self.view and self.view.isVisible() and self.view.tab_widget.currentIndex() == 2:
             self.view.dc_status_label.setText(message)
+            self.view.dc_download_button.setEnabled(True)  # Re-enable button
+            self.view.dc_model_type_combo.setEnabled(True)  # Re-enable type selection
+            self.view.dc_downloadable_models_list.setEnabled(True)  # Re-enable list
+
             if success:
                 current_type = self.view.dc_model_type_combo.currentText()
                 if current_type:

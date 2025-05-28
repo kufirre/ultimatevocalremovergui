@@ -52,6 +52,7 @@ dependencies = [
     "soundfile>=0.10.0",    # Reading/writing audio files.
     "scipy>=1.7.0",         # Scientific computing.
     "natsort",
+    "requests",
     # UI and utility dependencies
     "Pillow>=8.0.0",        # Image handling (often needed for icons/assets).
     "requests>=2.25.0",     # For potential downloads (models, updates).

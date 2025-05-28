@@ -62,7 +62,7 @@ class MainWindowView(QMainWindow):
         self.demucs_view = DemucsSettingsView()
         self.presenters["demucs"] = DemucsSettingsPresenter(view=self.demucs_view)
         self.ensemble_view = EnsembleSettingsView()
-        self.presenters["ensemble"] = EnsembleSettingsPresenter(view=self.ensemble_view)
+        self.presenters["ensemble"] = EnsembleSettingsPresenter(view=self.ensemble_view, adapter=self.adapter)
 
         # Model Selection Module
         self.model_selection_view = ModelSelectionView()

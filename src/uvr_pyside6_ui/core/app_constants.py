@@ -52,4 +52,31 @@ FALLBACK_ONLINE_CATALOG = { # Unchanged
         "Fallback Demucs v2 tasnet": "tasnet-beb46fac.th"
     }
 }
-print("App Constants Updated for Ensemble visibility.")
+
+ENSEMBLE_MAIN_STEM_OPTIONS = [
+    "Vocals/Instrumental",
+    "Other/No Other",
+    "Drums/No Drums",
+    "Bass/No Bass",
+    "4 Stem Ensemble", # All 4 Demucs stems
+    "Multi-stem Ensemble" # All available stems from selected models
+] # Based on UVR.py's ENSEMBLE_MAIN_STEM
+
+ENSEMBLE_ALGORITHM_OPTIONS = [
+    "Max Spec/Min Spec",
+    "Max Spec/Max Spec",
+    "Max Spec/Average",
+    "Min Spec/Max Spec",
+    "Min Spec/Min Spec",
+    "Min Spec/Average",
+    "Average/Max Spec",
+    "Average/Min Spec",
+    "Average/Average"
+] # Based on UVR.py's ENSEMBLE_TYPE
+# For 4-Stem ensemble, UVR.py just uses Max Spec, Min Spec, Average directly. We can handle this in presenter.
+ENSEMBLE_ALGORITHM_4_STEM_OPTIONS = ["Max Spec", "Min Spec", "Average"]
+
+# Text for model selection combo when in Ensemble mode (it doesn't have its own primary models)
+ENSEMBLE_MODEL_INFO_TEXT = "[Select models from Ensemble panel below]"
+
+DOWNLOAD_MORE_MODELS_TEXT = "--- Download More Models ---"

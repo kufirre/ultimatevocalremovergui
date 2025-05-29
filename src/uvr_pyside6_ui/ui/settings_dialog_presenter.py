@@ -1,3 +1,5 @@
+"""Presenter for the settings and download center dialogs."""
+
 from pathlib import Path
 
 from PySide6.QtCore import QObject, Slot
@@ -8,6 +10,8 @@ from ..core import app_constants as ac
 
 
 class SettingsDialogPresenter(QObject):
+    """Handle user preferences and model downloads."""
+
     def __init__(self, adapter: UVRCoreAdapter, parent_qt_object: QObject = None):
         super().__init__(parent_qt_object)
         self.view: SettingsDialogView | None = None
@@ -62,19 +66,23 @@ class SettingsDialogPresenter(QObject):
             self.view.set_downloadable_models_list(["Error: Could not load any download catalog."])
 
     @Slot(str)
-    def _on_dc_model_type_changed(self, ui_model_type: str):  # Unchanged from #35
-        if not self.view or not self._full_online_catalog or not ui_model_type:
+    def _on_dc_model_type_changed(self, model_type_name: str) -> None:
+        """Populate the downloadable models list when the type changes."""
+        if not self.view or not self._full_online_catalog or not model_type_name:
             self.view.set_downloadable_models_list([])
             return
-        downloadable_models_dict = self.adapter.get_downloadable_models_for_type(ui_model_type)
+        downloadable_models_dict = self.adapter.get_downloadable_models_for_type(model_type_name)
         user_friendly_names_to_download = list(downloadable_models_dict.keys())
         if not user_friendly_names_to_download:
-            self.view.set_downloadable_models_list([f"No new models to download for {ui_model_type}."])
+            self.view.set_downloadable_models_list([
+                f"No new models to download for {model_type_name}."
+            ])
         else:
             self.view.set_downloadable_models_list(user_friendly_names_to_download)
 
     @Slot()
-    def _on_dc_download_button_clicked(self):
+    def _on_dc_download_button_clicked(self) -> None:
+        """Start downloading the selected model."""
         if not self.view or not self._full_online_catalog or self._is_download_in_progress:
             return
 
@@ -89,28 +97,28 @@ class SettingsDialogPresenter(QObject):
             return
 
         user_friendly_model_name = selected_list_items[0].text()
-        download_target_info = None
+        target_model_info = None
         online_catalog_source_keys = ac.ONLINE_CATALOG_MAP.get(selected_ui_type, [])
         for source_key in online_catalog_source_keys:
             models_in_online_category = self._full_online_catalog.get(source_key, {})
             if user_friendly_model_name in models_in_online_category:
-                download_target_info = models_in_online_category[user_friendly_model_name];
+                target_model_info = models_in_online_category[user_friendly_model_name]
                 break
 
-        if download_target_info:
+        if target_model_info:
             self._is_download_in_progress = True
             self.view.set_download_in_progress_state(True)  # Disable controls in view
             self.view.dc_status_label.setText(f"Status: Starting download for {user_friendly_model_name}...")
-            self.adapter.download_model_mock(selected_ui_type, user_friendly_model_name, download_target_info)
+            self.adapter.download_model_mock(selected_ui_type, user_friendly_model_name, target_model_info)
         else:
             # ... (message handling as before) ...
             message = f"Status: Error: Could not find download target info for '{user_friendly_model_name}' in catalog."
-            print(f"Presenter (DC): {message}");
+            print(f"Presenter (DC): {message}")
             self.view.dc_status_label.setText(message)
 
-    # MODIFIED show_dialog
     @Slot()
-    def show_dialog(self, exec_dialog: bool = True, default_model_type: str | None = None):
+    def show_dialog(self, exec_dialog: bool = True, default_model_type: str | None = None) -> None:
+        """Display the settings dialog, optionally modal."""
         if not self.view:
             parent_widget = self.parent() if isinstance(self.parent(), QWidget) else None
             self.view = SettingsDialogView(parent=parent_widget)
@@ -120,7 +128,7 @@ class SettingsDialogPresenter(QObject):
             self.adapter.download_progress.connect(self._on_adapter_download_progress)
             self.adapter.download_finished.connect(self._on_adapter_download_finished)
 
-        settings_to_load = self._load_settings_from_store();
+        settings_to_load = self._load_settings_from_store()
         self.view.load_settings(settings_to_load)
 
         # Pass default_model_type to setup function
@@ -135,8 +143,9 @@ class SettingsDialogPresenter(QObject):
                 print("Presenter: Settings Dialog was Rejected.")
         else:
             print("Presenter: Ensuring Settings Dialog is visible (non-modal).")
-            if not self.view.isVisible(): self.view.show()
-            self.view.activateWindow();
+            if not self.view.isVisible():
+                self.view.show()
+            self.view.activateWindow()
             self.view.raise_()
 
     @Slot(str, int)

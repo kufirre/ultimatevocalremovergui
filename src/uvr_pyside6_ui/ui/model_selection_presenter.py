@@ -32,29 +32,40 @@ class ModelSelectionPresenter(QObject):
     # ... remove handle_advanced_ensemble_options_change method ...
     # ... update get_selection to remove ensemble_advanced_opts ...
     @Slot(str, str, bool, str)
-    def _on_model_downloaded_elsewhere(self, model_type_ui_name: str, model_display_name: str, success: bool,
-                                       message: str):
+    def _on_model_downloaded_elsewhere(
+        self,
+        model_type_ui_name: str,
+        model_display_name: str,
+        success: bool,
+        message: str,
+    ):
         if success and model_type_ui_name == self._current_method:
             self.handle_method_change(self._current_method)
 
     @Slot(str)
     def handle_method_change(self, method: str):
         if not method:
-            self.view.set_models([], "");
-            self._current_method = "";
+            self.view.set_models([], "")
+            self._current_method = ""
             self._current_model = ""
-            self.view.show_settings_panel("");
+            self.view.show_settings_panel("")
             return
         self._current_method = method
         programmatically_selected_model = ""
         if method == ac.ENSEMBLE_MODELS_KEY:
-            programmatically_selected_model = self.view.set_models([], current_method=method)
+            programmatically_selected_model = self.view.set_models(
+                [], current_method=method
+            )
         else:
             models_for_method = self.adapter.get_available_models(method)
-            programmatically_selected_model = self.view.set_models(models_for_method, current_method=method)
-        if programmatically_selected_model and \
-                programmatically_selected_model != ac.DOWNLOAD_MORE_MODELS_TEXT and \
-                programmatically_selected_model != ac.ENSEMBLE_MODEL_INFO_TEXT:
+            programmatically_selected_model = self.view.set_models(
+                models_for_method, current_method=method
+            )
+        if (
+            programmatically_selected_model
+            and programmatically_selected_model != ac.DOWNLOAD_MORE_MODELS_TEXT
+            and programmatically_selected_model != ac.ENSEMBLE_MODEL_INFO_TEXT
+        ):
             self._current_model = programmatically_selected_model
         else:
             self._current_model = ""
@@ -63,17 +74,26 @@ class ModelSelectionPresenter(QObject):
     @Slot(str)
     def handle_model_selection_by_user(self, selected_text: str):
         if selected_text == ac.DOWNLOAD_MORE_MODELS_TEXT:
-            self.request_show_download_center.emit(self._current_method if self._current_method else "")
-            self.view.set_current_model_text(self._current_model if self._current_model else "")
+            self.request_show_download_center.emit(
+                self._current_method if self._current_method else ""
+            )
+            self.view.set_current_model_text(
+                self._current_model if self._current_model else ""
+            )
         elif selected_text and selected_text != ac.ENSEMBLE_MODEL_INFO_TEXT:
-            if self._current_model != selected_text: self._current_model = selected_text
+            if self._current_model != selected_text:
+                self._current_model = selected_text
         elif not selected_text and self._current_model:
             self._current_model = ""
 
     def get_selection(self):
         actual_model_name = self._current_model
-        if actual_model_name == ac.DOWNLOAD_MORE_MODELS_TEXT or \
-                (
-                        self._current_method == ac.ENSEMBLE_MODELS_KEY and actual_model_name == ac.ENSEMBLE_MODEL_INFO_Text):  # Check ac.ENSEMBLE_MODEL_INFO_TEXT
+        if actual_model_name == ac.DOWNLOAD_MORE_MODELS_TEXT or (
+            self._current_method == ac.ENSEMBLE_MODELS_KEY
+            and actual_model_name == ac.ENSEMBLE_MODEL_INFO_TEXT
+        ):
             actual_model_name = ""
-        return {"method": self._current_method, "model": actual_model_name}  # Removed ensemble_advanced_opts
+        return {
+            "method": self._current_method,
+            "model": actual_model_name,
+        }

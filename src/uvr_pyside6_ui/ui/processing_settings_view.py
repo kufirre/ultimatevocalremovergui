@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QGroupBox, QCheckBox, QHBoxLayout, QLabel, QComboBox
+    QWidget, QVBoxLayout, QGroupBox, QCheckBox, QHBoxLayout, QLabel, QComboBox, QGridLayout
 )
-from PySide6.QtCore import Signal, Slot
+from PySide6.QtCore import Signal, Slot, Qt
 
 
 class ProcessingSettingsView(QWidget):
@@ -12,74 +12,67 @@ class ProcessingSettingsView(QWidget):
     gpu_conversion_changed = Signal(bool)
     normalize_output_changed = Signal(bool)
     output_format_changed = Signal(str)
-    # NEW Signals
     primary_stem_only_changed = Signal(bool)
     secondary_stem_only_changed = Signal(bool)
     sample_mode_changed = Signal(bool)
 
-    # sample_duration_changed = Signal(int) # For later, with a QSpinBox
-
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)  # GroupBox will provide margins
+        main_container_layout = QVBoxLayout(self)
+        main_container_layout.setContentsMargins(0, 0, 0, 0)
 
-        settings_group = QGroupBox("Processing Options")  # Renamed for clarity
-        settings_layout = QVBoxLayout(settings_group)
+        settings_group = QGroupBox("Processing Options")
+        grid_layout = QGridLayout(settings_group) # Use QGridLayout directly in GroupBox
 
-        # --- Top Row: GPU and Output Format ---
-        gpu_format_layout = QHBoxLayout()
+        # Row 0: GPU Conversion, Output Format
         self.gpu_checkbox = QCheckBox("GPU Conversion")
         self.gpu_checkbox.setToolTip("Enable GPU acceleration if a compatible GPU is available.")
         self.gpu_checkbox.toggled.connect(self.gpu_conversion_changed)
-        gpu_format_layout.addWidget(self.gpu_checkbox)
-
-        gpu_format_layout.addStretch(1)
+        grid_layout.addWidget(self.gpu_checkbox, 0, 0)
 
         format_label = QLabel("Output Format:")
         self.format_combo = QComboBox()
         self.format_combo.addItems(["WAV", "FLAC", "MP3"])
         self.format_combo.setToolTip("Select the desired audio format for output files.")
         self.format_combo.currentTextChanged.connect(self.output_format_changed)
-        gpu_format_layout.addWidget(format_label)
-        gpu_format_layout.addWidget(self.format_combo)
-        settings_layout.addLayout(gpu_format_layout)
+        
+        format_layout = QHBoxLayout() # To keep label and combo together
+        format_layout.addStretch(1) # Push to right
+        format_layout.addWidget(format_label)
+        format_layout.addWidget(self.format_combo)
+        grid_layout.addLayout(format_layout, 0, 1, Qt.AlignRight) # Add QHBoxLayout to grid cell
 
-        # --- Middle Row: Stem Saving Options ---
-        stem_save_layout = QHBoxLayout()
+        # Row 1: Stem Saving Options
         self.primary_stem_checkbox = QCheckBox("Primary Stem Only")
         self.primary_stem_checkbox.setToolTip("Save only the primary target stem (e.g., Vocals).")
         self.primary_stem_checkbox.toggled.connect(self.primary_stem_only_changed)
+        grid_layout.addWidget(self.primary_stem_checkbox, 1, 0)
 
         self.secondary_stem_checkbox = QCheckBox("Secondary Stem Only")
         self.secondary_stem_checkbox.setToolTip("Save only the secondary stem (e.g., Instrumental).")
         self.secondary_stem_checkbox.toggled.connect(self.secondary_stem_only_changed)
+        grid_layout.addWidget(self.secondary_stem_checkbox, 1, 1, Qt.AlignLeft) # Align to left in its cell
 
-        stem_save_layout.addWidget(self.primary_stem_checkbox)
-        stem_save_layout.addWidget(self.secondary_stem_checkbox)
-        stem_save_layout.addStretch(1)
-        settings_layout.addLayout(stem_save_layout)
-
-        # --- Bottom Row: Other Options ---
-        other_opts_layout = QHBoxLayout()
+        # Row 2: Other Options
         self.normalize_checkbox = QCheckBox("Normalize Output")
         self.normalize_checkbox.setToolTip("Normalize audio output to prevent clipping.")
         self.normalize_checkbox.toggled.connect(self.normalize_output_changed)
+        grid_layout.addWidget(self.normalize_checkbox, 2, 0)
 
         self.sample_mode_checkbox = QCheckBox("Sample Mode")
         self.sample_mode_checkbox.setToolTip(
             "Process only a short sample of the audio (duration configured in Preferences).")
         self.sample_mode_checkbox.toggled.connect(self.sample_mode_changed)
+        grid_layout.addWidget(self.sample_mode_checkbox, 2, 1, Qt.AlignLeft) # Align to left
 
-        other_opts_layout.addWidget(self.normalize_checkbox)
-        other_opts_layout.addWidget(self.sample_mode_checkbox)
-        other_opts_layout.addStretch(1)
-        settings_layout.addLayout(other_opts_layout)
+        # Set column stretch to push second column content to the right if space allows
+        grid_layout.setColumnStretch(0, 0) # First column takes preferred size
+        grid_layout.setColumnStretch(1, 1) # Second column takes available stretch
 
-        layout.addWidget(settings_group)
-        self.setLayout(layout)
-        print("ProcessingSettingsView Initialized with new checkboxes.")
+        main_container_layout.addWidget(settings_group)
+        self.setLayout(main_container_layout)
+        print("ProcessingSettingsView Initialized with QGridLayout.")
 
     # --- Slots (Called by Presenter) ---
     @Slot(bool)

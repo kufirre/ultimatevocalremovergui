@@ -53,6 +53,8 @@ class VRArchSettingsView(QWidget):
         self.high_end_checkbox = QCheckBox("High End Process")
         self.high_end_checkbox.toggled.connect(self.high_end_changed)
         settings_layout.addWidget(self.high_end_checkbox)
+        
+        settings_layout.addStretch(1) # Push elements to the top
 
         layout.addWidget(settings_group)
         self.setLayout(layout)

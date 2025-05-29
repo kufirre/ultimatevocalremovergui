@@ -43,7 +43,7 @@ class ModelSelectionView(QWidget):
         # self.ensemble_checkbox was here - REMOVED
 
         self.settings_stack = QStackedWidget()
-        self.settings_stack.setMinimumHeight(280)  # Increased minimum height for settings panels
+        # Removed setMinimumHeight to allow dynamic sizing based on content
         model_layout.addWidget(self.settings_stack)
 
         self.widget_map: Dict[str, QWidget] = {}

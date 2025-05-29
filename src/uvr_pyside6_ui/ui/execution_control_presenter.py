@@ -39,7 +39,7 @@ class ExecutionControlPresenter(QObject):
         proc_set = self.presenters["processing_settings"]
 
         input_path, output_path = file_io.get_paths()
-        model_details = model_sel.get_selection()
+        model_details = model_sel.get_current_selection()
         settings = proc_set.get_settings()
 
         all_settings.update({

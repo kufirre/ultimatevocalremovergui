@@ -1,17 +1,24 @@
+"""View components for configuring ensemble processing in the UI."""
+
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QGroupBox, QLabel, QListWidget,
-    QPushButton, QHBoxLayout, QComboBox, QListWidgetItem
+    QWidget,
+    QVBoxLayout,
+    QGroupBox,
+    QLabel,
+    QListWidget,
+    QPushButton,
+    QHBoxLayout,
+    QComboBox,
+    QListWidgetItem,
 )
 from PySide6.QtCore import Signal, Slot, Qt
 from typing import List
 from ..core import app_constants as ac  # For options
+import natsort
 
 
 class EnsembleSettingsView(QWidget):
-    """
-    View for configuring Ensemble Mode.
-    Allows selecting main stem pair, ensemble algorithm, and multiple models.
-    """
+    """Widget for configuring ensemble processing options."""
     main_stem_pair_changed = Signal(str)
     ensemble_algorithm_changed = Signal(str)
     selected_models_changed = Signal(list)  # List of selected model display names
@@ -54,7 +61,9 @@ class EnsembleSettingsView(QWidget):
         settings_layout.addWidget(avail_models_label)
         self.available_models_list = QListWidget()
         self.available_models_list.setSelectionMode(QListWidget.MultiSelection)
-        self.available_models_list.itemSelectionChanged.connect(self._emit_selected_models)
+        self.available_models_list.itemSelectionChanged.connect(
+            self._notify_selected_models
+        )
         settings_layout.addWidget(self.available_models_list, 1)
 
         # --- Ensemble Management Buttons/Combo ---
@@ -74,7 +83,8 @@ class EnsembleSettingsView(QWidget):
         self.setLayout(layout)
         print("EnsembleSettingsView Redesigned.")
 
-    def _emit_selected_models(self):
+    def _notify_selected_models(self) -> None:
+        """Emit a list of currently selected model names."""
         selected_items = [item.text() for item in self.available_models_list.selectedItems()]
         self.selected_models_changed.emit(selected_items)
 

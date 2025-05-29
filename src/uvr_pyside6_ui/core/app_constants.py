@@ -79,4 +79,9 @@ ENSEMBLE_ALGORITHM_4_STEM_OPTIONS = ["Max Spec", "Min Spec", "Average"]
 # Text for model selection combo when in Ensemble mode (it doesn't have its own primary models)
 ENSEMBLE_MODEL_INFO_TEXT = "[Select models from Ensemble panel below]"
 
+# Ensemble Action Constants (for EnsembleSettingsView action combo)
+ENSEMBLE_ACTION_LOAD = "Load Saved Ensemble..."
+ENSEMBLE_ACTION_SAVE_AS = "Save Current Ensemble As..."
+ENSEMBLE_ACTION_CLEAR_SELECTION = "Clear Model Selection"
+
 DOWNLOAD_MORE_MODELS_TEXT = "--- Download More Models ---"

@@ -123,25 +123,33 @@ class EnsembleSettingsView(QWidget):
 
         layout.addWidget(settings_group)
         self.setLayout(layout)
-        # --- Double-click available model to add to ensemble ---
+        
+        # --- Connect Signals ---
+        # Double-click available model to add to ensemble
         self.available_models_list.itemDoubleClicked.connect(self._on_add_to_ensemble_double_click)
-
-    def _on_add_to_ensemble_double_click(self, item):
-        # Find all selected items (including double-clicked)
-        selected = list(set([item] + self.available_models_list.selectedItems()))
-        for item in selected:
-            new_item = QListWidgetItem(item.text())
-            self.selected_models_list.addItem(new_item)
-        self._emit_ensemble_model_list_changed()
-
-        # Connect new button signals
+        # Transfer buttons
         self.add_to_ensemble_button.clicked.connect(self._on_add_to_ensemble)
         self.remove_from_ensemble_button.clicked.connect(self._on_remove_from_ensemble)
         # When items in selected_models_list change (e.g. due to add/remove/clear), notify presenter
         self.selected_models_list.model().rowsInserted.connect(self._emit_ensemble_model_list_changed)
         self.selected_models_list.model().rowsRemoved.connect(self._emit_ensemble_model_list_changed)
         
-        print("EnsembleSettingsView Redesigned with two-panel layout.")
+        print("EnsembleSettingsView Initialized with two-panel layout.")
+
+    def _on_add_to_ensemble_double_click(self, item: QListWidgetItem):
+        """Handles double-clicking an item in the available_models_list."""
+        item_text = item.text()
+        
+        # Add to selected_models_list if not already there
+        if not self.selected_models_list.findItems(item_text, Qt.MatchExactly):
+            self.selected_models_list.addItem(item_text)
+            self.selected_models_list.sortItems()
+
+        # Remove from available_models_list
+        row = self.available_models_list.row(item)
+        self.available_models_list.takeItem(row)
+        
+        self._emit_ensemble_model_list_changed()
 
     # Method _notify_selected_models is no longer needed as selection changes are handled by _emit_ensemble_model_list_changed
     # def _notify_selected_models(self) -> None:
@@ -174,12 +182,17 @@ class EnsembleSettingsView(QWidget):
 
     @Slot()
     def _on_remove_from_ensemble(self):
-        selected_items_to_remove = self.selected_models_list.selectedItems()
-        for item in selected_items_to_remove:
-            # Add back to available_models_list if not already there (maintains uniqueness)
-            if not self.available_models_list.findItems(item.text(), Qt.MatchExactly):
-                self.available_models_list.addItem(item.text())
-            self.selected_models_list.takeItem(self.selected_models_list.row(item))
+        selected_item_texts = [item.text() for item in self.selected_models_list.selectedItems()]
+        
+        for item_text in selected_item_texts:
+            # Add back to available_models_list if not already there
+            if not self.available_models_list.findItems(item_text, Qt.MatchExactly):
+                self.available_models_list.addItem(item_text)
+            
+            # Remove from selected_models_list
+            items_in_selected = self.selected_models_list.findItems(item_text, Qt.MatchExactly)
+            if items_in_selected: # Should always find at least one
+                self.selected_models_list.takeItem(self.selected_models_list.row(items_in_selected[0]))
         
         self.available_models_list.sortItems() # Sort the source list after adding items back
         self._emit_ensemble_model_list_changed()

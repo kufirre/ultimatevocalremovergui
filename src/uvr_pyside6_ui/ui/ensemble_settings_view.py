@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QHBoxLayout,
     QComboBox,
-    QListWidgetItem,
+    QListWidgetItem, QGridLayout,
 )
 from PySide6.QtCore import Signal, Slot, Qt
 from typing import List
@@ -28,65 +28,89 @@ class EnsembleSettingsView(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 
+
+        from PySide6.QtWidgets import QSizePolicy, QScrollArea
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 5, 0, 5)
 
+        # Create the main group
         settings_group = QGroupBox("Ensemble Configuration")
-        settings_v_layout = QVBoxLayout(settings_group) # Main vertical layout for the group
+        # Don't force a large minimum, let scroll handle overflow
+        settings_group.setSizePolicy(settings_group.sizePolicy().horizontalPolicy(), QSizePolicy.Expanding)
 
-        # --- Top Config: Stem Pair and Algorithm (using QHBoxLayout as per current file state) ---
-        stem_pair_layout = QHBoxLayout()
+        # Main content layout inside group
+        settings_grid = QGridLayout()
+        settings_grid.setContentsMargins(8, 8, 8, 8)
+        settings_grid.setSpacing(6)
+
+        # --- Algorithm/Selector Row ---
         stem_pair_label = QLabel("Main Stem Pair:")
         self.stem_pair_combo = QComboBox()
         self.stem_pair_combo.addItems(ac.ENSEMBLE_MAIN_STEM_OPTIONS)
         self.stem_pair_combo.currentTextChanged.connect(self.main_stem_pair_changed)
-        stem_pair_layout.addWidget(stem_pair_label)
-        stem_pair_layout.addWidget(self.stem_pair_combo, 1)
-        settings_v_layout.addLayout(stem_pair_layout)
 
-        algo_layout = QHBoxLayout()
         algo_label = QLabel("Ensemble Algorithm:")
         self.algorithm_combo = QComboBox()
         self.algorithm_combo.currentTextChanged.connect(self.ensemble_algorithm_changed)
-        algo_layout.addWidget(algo_label)
-        algo_layout.addWidget(self.algorithm_combo, 1)
-        settings_v_layout.addLayout(algo_layout)
 
-        # --- Model Selection Area (Available, Transfer, Selected) ---
-        model_selection_h_layout = QHBoxLayout()
+        settings_grid.addWidget(stem_pair_label, 0, 0)
+        settings_grid.addWidget(self.stem_pair_combo, 0, 1)
+        settings_grid.addWidget(algo_label, 0, 2)
+        settings_grid.addWidget(self.algorithm_combo, 0, 3)
 
-        # Available Models
+        # --- Model Selection Section ---
         available_models_group = QGroupBox("Available Models (Local Library)")
-        available_models_group_layout = QVBoxLayout(available_models_group)
+        available_models_layout = QVBoxLayout(available_models_group)
         self.available_models_list = QListWidget()
-        self.available_models_list.setSelectionMode(QListWidget.ExtendedSelection) # Changed from MultiSelection
-        available_models_group_layout.addWidget(self.available_models_list)
-        model_selection_h_layout.addWidget(available_models_group, 2) # Stretch factor
+        self.available_models_list.setSelectionMode(QListWidget.ExtendedSelection)
+        # Remove minimum height, let scroll area manage height
+        self.available_models_list.setSizePolicy(self.available_models_list.sizePolicy().horizontalPolicy(), QSizePolicy.Expanding)
+        available_models_layout.addWidget(self.available_models_list)
 
-        # Transfer Buttons
-        transfer_buttons_layout = QVBoxLayout()
+        transfer_buttons_widget = QWidget()
+        transfer_buttons_layout = QVBoxLayout(transfer_buttons_widget)
         transfer_buttons_layout.addStretch()
         self.add_to_ensemble_button = QPushButton(">")
         self.add_to_ensemble_button.setToolTip("Add selected to ensemble list")
         self.remove_from_ensemble_button = QPushButton("<")
         self.remove_from_ensemble_button.setToolTip("Remove selected from ensemble list")
+        self.add_to_ensemble_button.setMaximumWidth(36)
+        self.remove_from_ensemble_button.setMaximumWidth(36)
         transfer_buttons_layout.addWidget(self.add_to_ensemble_button)
         transfer_buttons_layout.addWidget(self.remove_from_ensemble_button)
         transfer_buttons_layout.addStretch()
-        model_selection_h_layout.addLayout(transfer_buttons_layout)
 
-        # Selected Models for Ensemble
         selected_models_group = QGroupBox("Models for Ensemble")
-        selected_models_group_layout = QVBoxLayout(selected_models_group)
-        self.selected_models_list = QListWidget() # New list widget
+        selected_models_layout = QVBoxLayout(selected_models_group)
+        self.selected_models_list = QListWidget()
         self.selected_models_list.setSelectionMode(QListWidget.ExtendedSelection)
-        selected_models_group_layout.addWidget(self.selected_models_list)
-        model_selection_h_layout.addWidget(selected_models_group, 2) # Stretch factor
-        
-        settings_v_layout.addLayout(model_selection_h_layout, 1) # Give this area vertical stretch
+        self.selected_models_list.setSizePolicy(self.selected_models_list.sizePolicy().horizontalPolicy(), QSizePolicy.Expanding)
+        selected_models_layout.addWidget(self.selected_models_list)
 
-        # --- Ensemble Management Actions (using QHBoxLayout) ---
-        # This part remains similar, just added to settings_v_layout
+        # Set relative sizing using stretch on grid columns/rows
+        settings_grid.addWidget(available_models_group, 1, 0, 1, 2)
+        settings_grid.addWidget(transfer_buttons_widget, 1, 2)
+        settings_grid.addWidget(selected_models_group, 1, 3, 1, 1)
+        settings_grid.setColumnStretch(0, 2)
+        settings_grid.setColumnStretch(1, 2)
+        settings_grid.setColumnStretch(2, 0)
+        settings_grid.setColumnStretch(3, 2)
+        settings_grid.setRowStretch(1, 1)
+
+        # Place the grid into a widget (for scroll area compatibility)
+        grid_widget = QWidget()
+        grid_widget.setLayout(settings_grid)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(grid_widget)
+
+        # Place scroll area inside group
+        group_layout = QVBoxLayout(settings_group)
+        group_layout.addWidget(scroll)
+
+        # --- Ensemble Management Actions ---
         ensemble_actions_layout = QHBoxLayout()
         self.ensemble_actions_combo = QComboBox()
         self.ensemble_actions_combo.addItem("--- Ensemble Actions ---")
@@ -94,11 +118,21 @@ class EnsembleSettingsView(QWidget):
         self.ensemble_actions_combo.addItem(ac.ENSEMBLE_ACTION_SAVE_AS)
         self.ensemble_actions_combo.addItem(ac.ENSEMBLE_ACTION_CLEAR_SELECTION)
         self.ensemble_actions_combo.activated[int].connect(self._handle_ensemble_action_by_index)
-        ensemble_actions_layout.addWidget(self.ensemble_actions_combo, 1) # Combobox takes available space
-        settings_v_layout.addLayout(ensemble_actions_layout)
+        ensemble_actions_layout.addWidget(self.ensemble_actions_combo, 1)
+        settings_grid.addLayout(ensemble_actions_layout, 2, 0, 1, 4)
 
         layout.addWidget(settings_group)
         self.setLayout(layout)
+        # --- Double-click available model to add to ensemble ---
+        self.available_models_list.itemDoubleClicked.connect(self._on_add_to_ensemble_double_click)
+
+    def _on_add_to_ensemble_double_click(self, item):
+        # Find all selected items (including double-clicked)
+        selected = list(set([item] + self.available_models_list.selectedItems()))
+        for item in selected:
+            new_item = QListWidgetItem(item.text())
+            self.selected_models_list.addItem(new_item)
+        self._emit_ensemble_model_list_changed()
 
         # Connect new button signals
         self.add_to_ensemble_button.clicked.connect(self._on_add_to_ensemble)

@@ -26,12 +26,7 @@ class EnsembleSettingsPresenter(QObject):
         self.view.main_stem_pair_changed.connect(self.on_main_stem_pair_changed)
         self.view.ensemble_algorithm_changed.connect(self.on_ensemble_algorithm_changed)
         self.view.selected_models_changed.connect(self.on_models_selected_for_ensemble)
-
-        # CORRECTED: Connect to the new signal from the view
         self.view.ensemble_action_requested.connect(self.handle_ensemble_action)
-        # REMOVED: self.view.save_ensemble_clicked.connect(self.on_save_ensemble)
-        # REMOVED: self.view.load_ensemble_clicked.connect(self.on_load_ensemble)
-        # REMOVED: self.view.clear_model_selection_clicked.connect(self.on_clear_model_selection)
 
         self._initialize_settings()
         print("EnsembleSettingsPresenter Initialized.")
@@ -50,30 +45,37 @@ class EnsembleSettingsPresenter(QObject):
 
         # TODO: Load saved ensembles from a persistent file (e.g., JSON)
         # self._load_saved_ensembles_from_store()
-        self.view.populate_saved_ensembles_list(natsort.natsorted(list(self._saved_ensembles.keys())))
+        # The view's action combo is now static, so we don't populate it with saved ensembles here.
+        # Saved ensembles will be loaded via a dialog or a separate mechanism.
 
-    # NEW SLOT to handle actions from the ensemble action combobox
     @Slot(str)
     def handle_ensemble_action(self, action_text: str):
         print(f"EnsemblePresenter: Action '{action_text}' received.")
-        if action_text == "Save Current Ensemble As...":
+        if action_text == ac.ENSEMBLE_ACTION_SAVE_AS:
             self.on_save_ensemble()
-        elif action_text == "Clear Model Selection":
+        elif action_text == ac.ENSEMBLE_ACTION_CLEAR_SELECTION:
             self.on_clear_model_selection()
-        elif action_text == "Load Saved Ensemble":
-            # This is tricky with a single combo. Ideally, saved ensembles are listed separately.
-            # For now, if user clicks this, we could pop up another dialog to choose which saved one.
-            # Or, if the combo was populated with saved names, this slot would get the chosen saved name.
-            # The current EnsembleSettingsView's _handle_ensemble_action emits the *selected item text*.
-            # So if user selected a saved ensemble name from the combo *then* "Load Selected Ensemble",
-            # this logic path is complex. Let's assume it means "Load the ensemble chosen in the other part of combo".
-            # This requires the view to populate saved ensembles into the *same* combo.
-            QMessageBox.information(self.view, "Load Ensemble",
-                                    "Load functionality for selected ensemble is TBD.\nPlease select a saved ensemble directly from the dropdown if populated.")
-            # If the view's combo directly contains saved ensemble names, then action_text *would be* the ensemble_name_to_load.
-            # self.on_load_ensemble(action_text) # Call this if action_text IS the ensemble name
-        else:  # Assumes action_text IS a saved ensemble name
-            self.on_load_ensemble(action_text)
+        elif action_text == ac.ENSEMBLE_ACTION_LOAD:
+            # Placeholder: In a real app, this would open a dialog to select a saved ensemble.
+            # For now, let's just list available saved ensembles in a message box.
+            saved_ensemble_names = natsort.natsorted(
+                [data.get("display_name", name) for name, data in self._saved_ensembles.items()]
+            )
+            if not saved_ensemble_names:
+                QMessageBox.information(self.view.window(), "Load Ensemble", "No saved ensembles available to load.")
+                return
+
+            chosen_ensemble, ok = QInputDialog.getItem(
+                self.view.window(),
+                "Load Ensemble",
+                "Select an ensemble to load:",
+                saved_ensemble_names,
+                0,  # current item index
+                False # editable?
+            )
+            if ok and chosen_ensemble:
+                self.on_load_ensemble(chosen_ensemble)
+        # No 'else' needed here as the combo only contains predefined actions now.
 
     @Slot(str)
     def on_main_stem_pair_changed(self, stem_pair: str):
@@ -135,23 +137,13 @@ class EnsembleSettingsPresenter(QObject):
             # TODO: Save self._saved_ensembles to a persistent file
             print(
                 f"EnsemblePresenter: Ensemble '{ensemble_name}' saved (mock): {self._saved_ensembles[clean_ensemble_name]}")
-
-            # Refresh list of saved ensembles in the action combo
-            display_names_of_saved = [data.get("display_name", name) for name, data in self._saved_ensembles.items()]
-            self.view.populate_saved_ensembles_list(natsort.natsorted(display_names_of_saved))
-
-            # Try to set the combo to the newly saved one if it was added directly
-            idx = self.view.load_ensemble_combo.findText(ensemble_name)  # Find by display name
-            if idx != -1:
-                self.view.load_ensemble_combo.setCurrentIndex(idx)
-            else:
-                self.view.load_ensemble_combo.setCurrentIndex(0)
-
-
+            # The view's action combo is static, no need to update it with saved ensemble names.
+            # The presenter will handle loading via a dialog.
+            QMessageBox.information(self.view.window(), "Ensemble Saved", f"Ensemble '{ensemble_name}' has been saved.")
         else:
             print("EnsemblePresenter: Save ensemble cancelled or no name entered.")
 
-    # @Slot(str) # This is now triggered by handle_ensemble_action if action_text is a saved name
+    # This method is called by handle_ensemble_action after user selects from a dialog.
     def on_load_ensemble(self, ensemble_display_name_to_load: str):  # Keep internal method
         if not ensemble_display_name_to_load:
             print("EnsemblePresenter: Invalid or no ensemble name provided to load.")

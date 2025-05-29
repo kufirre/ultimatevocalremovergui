@@ -22,10 +22,8 @@ class EnsembleSettingsView(QWidget):
     main_stem_pair_changed = Signal(str)
     ensemble_algorithm_changed = Signal(str)
     selected_models_changed = Signal(list)  # List of selected model display names
-    save_ensemble_clicked = Signal()
     # Renamed: This will emit the action string after getting it from index
-    ensemble_action_requested = Signal(str)
-    clear_model_selection_clicked = Signal()
+    ensemble_action_requested = Signal(str) # Covers Load, Save As, Clear
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -68,15 +66,15 @@ class EnsembleSettingsView(QWidget):
 
         # --- Ensemble Management Buttons/Combo ---
         ensemble_manage_layout = QHBoxLayout()
-        self.load_ensemble_combo = QComboBox()
-        self.load_ensemble_combo.addItem("--- Ensemble Actions ---")  # Placeholder/Instruction
-        self.load_ensemble_combo.addItem("Load Saved Ensemble")
-        self.load_ensemble_combo.addItem("Save Current Ensemble As...")
-        self.load_ensemble_combo.addItem("Clear Model Selection")
+        self.ensemble_actions_combo = QComboBox()
+        self.ensemble_actions_combo.addItem("--- Ensemble Actions ---")  # Placeholder/Instruction
+        self.ensemble_actions_combo.addItem(ac.ENSEMBLE_ACTION_LOAD) # "Load Saved Ensemble..."
+        self.ensemble_actions_combo.addItem(ac.ENSEMBLE_ACTION_SAVE_AS) # "Save Current Ensemble As..."
+        self.ensemble_actions_combo.addItem(ac.ENSEMBLE_ACTION_CLEAR_SELECTION) # "Clear Model Selection"
         # CORRECTED SIGNAL CONNECTION:
-        self.load_ensemble_combo.activated[int].connect(self._handle_ensemble_action_by_index)
+        self.ensemble_actions_combo.activated[int].connect(self._handle_ensemble_action_by_index)
 
-        ensemble_manage_layout.addWidget(self.load_ensemble_combo, 1)
+        ensemble_manage_layout.addWidget(self.ensemble_actions_combo, 1)
         settings_layout.addLayout(ensemble_manage_layout)
 
         layout.addWidget(settings_group)
@@ -93,12 +91,12 @@ class EnsembleSettingsView(QWidget):
     def _handle_ensemble_action_by_index(self, index: int):
         """Handles user activation of an item in the ensemble action combobox."""
         if index >= 0:  # Ensure a valid index is received
-            action_text = self.load_ensemble_combo.itemText(index)
-            print(f"EnsembleSettingsView: User activated ensemble action: '{action_text}'")
+            action_text = self.ensemble_actions_combo.itemText(index)
+            # print(f"EnsembleSettingsView: User activated ensemble action: '{action_text}'") # Keep for debug if needed
             if action_text != "--- Ensemble Actions ---":  # Don't emit for the placeholder
                 self.ensemble_action_requested.emit(action_text)
             # Reset to placeholder after action to allow re-selection of same action
-            self.load_ensemble_combo.setCurrentIndex(0)
+            self.ensemble_actions_combo.setCurrentIndex(0)
 
     # --- Slots to be called by Presenter ---
     @Slot(list)
@@ -106,38 +104,8 @@ class EnsembleSettingsView(QWidget):
         self.available_models_list.clear()
         self.available_models_list.addItems(model_names)
 
-    @Slot(list)
-    def populate_saved_ensembles_list(self, ensemble_names: List[str]):  # Renamed for clarity
-        """Populates the 'Load Saved Ensemble' part of the action combo, or a dedicated combo."""
-        # This method might need more complex logic if 'Load Saved Ensemble'
-        # is meant to dynamically populate another list/combo.
-        # For now, assuming the action combo's items are relatively static beyond the placeholder.
-        # If you want a dynamic list of saved ensembles to pick from before clicking "Load",
-        # this would need a separate QComboBox for saved_ensembles.
-        # For simplicity, we'll assume the presenter handles the "Load" action when user clicks "Load Saved Ensemble"
-        # and then perhaps shows another dialog to pick which one.
-        # The current self.load_ensemble_combo is an ACTION combo.
-
-        # If you intend for the load_ensemble_combo to *also* list saved ensembles:
-        self.load_ensemble_combo.blockSignals(True)
-        # Keep placeholder and static actions
-        static_actions = [self.load_ensemble_combo.itemText(i) for i in
-                          range(self.load_ensemble_combo.count())]  # Keep existing static actions
-        self.load_ensemble_combo.clear()
-        self.load_ensemble_combo.addItem("--- Ensemble Actions ---")  # Placeholder
-        if ensemble_names:
-            self.load_ensemble_combo.addItems(natsort.natsorted(ensemble_names))  # Add sorted saved names
-            self.load_ensemble_combo.insertSeparator(1 + len(ensemble_names))  # Separator after loaded names
-
-        # Re-add static actions if they were not part of ensemble_names
-        for action in static_actions:
-            if action not in ensemble_names and action != "--- Ensemble Actions ---" and self.load_ensemble_combo.findText(
-                    action) == -1:
-                self.load_ensemble_combo.addItem(action)
-
-        self.load_ensemble_combo.setCurrentIndex(0)  # Default to placeholder
-        self.load_ensemble_combo.blockSignals(False)
-        print(f"EnsembleSettingsView: Saved ensembles list updated in action combo.")
+    # REMOVED populate_saved_ensembles_list slot as it's no longer used by the view directly.
+    # The presenter will handle loading saved ensembles, likely via a dialog.
 
     @Slot(list)
     def set_selected_models_in_list(self, model_names_to_select: List[str]):

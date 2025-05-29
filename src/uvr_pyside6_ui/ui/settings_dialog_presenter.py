@@ -84,9 +84,8 @@ class SettingsDialogPresenter(QObject):
         if not selected_ui_type or not selected_list_items:
             # ... (message handling as before) ...
             message = "Status: Please select a model type and a model from the list to download."
-            print(f"Presenter (DC): {message}");
-            self.view.dc_status_label.setText(message);
-            return
+            print(f"Presenter (DC): {message}")
+            self.view.dc_status_label.setText(message)
             return
 
         user_friendly_model_name = selected_list_items[0].text()

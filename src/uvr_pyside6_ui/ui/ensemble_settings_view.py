@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Signal, Slot, Qt
 from typing import List
 from ..core import app_constants as ac  # For options
+import natsort
 
 
 class EnsembleSettingsView(QWidget):

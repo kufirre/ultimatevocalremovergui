@@ -36,6 +36,7 @@ class ModelSelectionPresenter(QObject):
         success: bool,
         message: str,
     ):
+    
         """Refresh models if a download from another presenter completes."""
         if success and model_type_ui_name == self._current_method:
             self.handle_method_change(self._current_method)
@@ -52,11 +53,14 @@ class ModelSelectionPresenter(QObject):
         self._current_method = method
         auto_selected_model = ""
         if method == ac.ENSEMBLE_MODELS_KEY:
+
             auto_selected_model = self.view.set_models(
+
                 [], current_method=method
             )
         else:
             models_for_method = self.adapter.get_available_models(method)
+
             auto_selected_model = self.view.set_models(
                 models_for_method, current_method=method
             )
@@ -66,6 +70,7 @@ class ModelSelectionPresenter(QObject):
             and auto_selected_model != ac.ENSEMBLE_MODEL_INFO_TEXT
         ):
             self._current_model = auto_selected_model
+
         else:
             self._current_model = ""
         self.view.show_settings_panel(self._current_method)

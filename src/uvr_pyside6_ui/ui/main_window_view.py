@@ -91,31 +91,18 @@ class MainWindowView(QMainWindow):
             main_window_presenters=self.presenters,
             adapter=self.adapter
         )
-        bottom_controls_layout.addWidget(self.execution_control_view, 1)  # Give it stretch factor
+        bottom_controls_layout.addWidget(self.execution_control_view, 1)
+        # Settings button is now removed. Access settings via Edit > Preferences menu.
+        self.main_layout.addLayout(bottom_controls_layout)
 
-        # Settings Button (mimicking UVR.py's help/settings icon button)
-        self.settings_button = QPushButton()
-        # Try to find a built-in Qt icon for settings, or use text
-        # Standard Qt icons can be accessed via QStyle
-        style = self.style()
-        # settings_icon = style.standardIcon(QStyle.SP_FileDialogDetailedView) # Example
-        # A common icon for settings is QStyle.SP_ComputerIcon or QStyle.SP_FileDialogListView
-        # Or use a gear icon if available with themes or QRC resources later.
-        # For now, simple text if icon is not easily found:
-        # self.settings_button.setIcon(settings_icon)
-        # self.settings_button.setIconSize(QSize(24,24)) # Adjust size
-        self.settings_button.setText("⚙️")  # Gear emoji as placeholder
-        self.settings_button.setToolTip("Open Settings, Download Center & Help")
-        self.settings_button.setFixedSize(QSize(40, 40))  # Make it squarish
-        self.settings_button.clicked.connect(
-            lambda: self.settings_dialog_presenter.show_dialog(default_model_type=None)
-        )
-        bottom_controls_layout.addWidget(self.settings_button)
-        self.main_layout.addLayout(bottom_controls_layout)  # Add this row
+        self.main_layout.addStretch(0)
 
-        self.main_layout.addStretch(0)  # Minimal stretch at the bottom if needed, or remove
+        self.main_content_container.setLayout(self.main_layout)
 
-        self.main_content_container.setLayout(self.main_layout)  # Set layout on the container
+        # Settings Button previously in status_bar is also removed.
+        # self.settings_button = QPushButton()
+        # ... (rest of old status_bar button code removed)
+        # self.status_bar.addPermanentWidget(self.settings_button)
 
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)

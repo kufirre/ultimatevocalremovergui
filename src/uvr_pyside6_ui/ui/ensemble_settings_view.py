@@ -90,30 +90,29 @@ class EnsembleSettingsView(QWidget):
     @Slot(int)
     def _handle_ensemble_action_by_index(self, index: int):
         """Handles user activation of an item in the ensemble action combobox."""
-        if index >= 0:  # Ensure a valid index is received
+        if index >= 0:
             action_text = self.ensemble_actions_combo.itemText(index)
-            # print(f"EnsembleSettingsView: User activated ensemble action: '{action_text}'") # Keep for debug if needed
-            if action_text != "--- Ensemble Actions ---":  # Don't emit for the placeholder
+            if action_text != "--- Ensemble Actions ---":
+                # Let presenter handle all actions, including UI updates for "Clear"
                 self.ensemble_action_requested.emit(action_text)
-            # Reset to placeholder after action to allow re-selection of same action
             self.ensemble_actions_combo.setCurrentIndex(0)
 
     # --- Slots to be called by Presenter ---
     @Slot(list)
     def populate_available_models(self, model_names: List[str]):
+        """Populates the list of models available for selection."""
         self.available_models_list.clear()
-        self.available_models_list.addItems(model_names)
-
-    # REMOVED populate_saved_ensembles_list slot as it's no longer used by the view directly.
-    # The presenter will handle loading saved ensembles, likely via a dialog.
+        self.available_models_list.addItems(natsort.natsorted(model_names))
+        # self.available_models_list.sortItems() # Use natsort if available and needed
 
     @Slot(list)
     def set_selected_models_in_list(self, model_names_to_select: List[str]):
-        self.available_models_list.clearSelection()
-        for i in range(self.available_models_list.count()):
-            item = self.available_models_list.item(i)
-            if item.text() in model_names_to_select:
-                item.setSelected(True)
+        """Populates the list of models currently in the ensemble."""
+        self.selected_models_list.clear()
+        self.selected_models_list.addItems(natsort.natsorted(model_names_to_select))
+        # self.selected_models_list.sortItems() # Use natsort if available and needed
+        # This method implicitly changes the ensemble content, so we should notify.
+        self._emit_ensemble_model_list_changed()
 
     @Slot(str)
     def set_current_stem_pair(self, stem_pair: str):

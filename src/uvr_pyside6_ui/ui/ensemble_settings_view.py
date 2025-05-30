@@ -166,15 +166,15 @@ class EnsembleSettingsView(QWidget):
         while self._main_vbox.count() > 0 and self._main_vbox.itemAt(self._main_vbox.count()-1) is not None and self._main_vbox.itemAt(self._main_vbox.count()-1).spacerItem() is not None:
             self._main_vbox.takeAt(self._main_vbox.count()-1)
         if is_expanded:
-            self._settings_group.setMinimumHeight(500)  # Only for this view, makes the group visually larger
+            self._settings_group.setMinimumHeight(320)  # Reduced height
             self._settings_group.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
             self._scroll.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
-            self._settings_group.setMaximumHeight(900)
+            self._settings_group.setMaximumHeight(900) # Keep a reasonable max if needed
             self._scroll.setMaximumHeight(900)
-            # Optionally, show more rows in the lists
-            self.available_models_list.setMinimumHeight(180)
-            self.selected_models_list.setMinimumHeight(180)
-            self._main_vbox.addStretch(1)
+            # Reduce list heights
+            self.available_models_list.setMinimumHeight(100) # Reduced height
+            self.selected_models_list.setMinimumHeight(100)  # Reduced height
+            self._main_vbox.addStretch(1) # Keep stretch to push content up
             self.show()
         else:
             # When not expanded, allow the widget to shrink to its preferred size or less

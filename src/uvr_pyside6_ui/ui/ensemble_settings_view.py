@@ -205,8 +205,6 @@ class EnsembleSettingsView(QWidget):
         self.selected_models_list.model().rowsInserted.connect(self._emit_ensemble_model_list_changed)
         self.selected_models_list.model().rowsRemoved.connect(self._emit_ensemble_model_list_changed)
         
-        # print("EnsembleSettingsView Initialized with two-panel layout.") # Removed unprofessional comment
-
     def _on_add_to_ensemble_double_click(self, item: QListWidgetItem):
         """Handles double-clicking an item in the available_models_list."""
         item_text = item.text()

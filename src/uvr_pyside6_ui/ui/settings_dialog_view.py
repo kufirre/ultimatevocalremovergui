@@ -68,7 +68,7 @@ class SettingsDialogView(QDialog):
         self.button_box.rejected.connect(self.reject)
         main_layout.addWidget(self.button_box)
         self.setLayout(main_layout)
-        print("SettingsDialogView Initialized.")
+        # print("SettingsDialogView Initialized.") # Removed unprofessional comment
         self.dc_downloadable_models_list.itemSelectionChanged.connect(
             lambda: self.dc_download_button.setEnabled(
                 bool(self.dc_downloadable_models_list.selectedItems()) and not self._is_download_in_progress
@@ -107,7 +107,7 @@ class SettingsDialogView(QDialog):
             QMessageBox.warning(self, "Download in Progress",
                                 "Cannot save settings while a download is in progress.")
             return
-        print("OK Clicked - Emitting general/path settings.")
+        # print("OK Clicked - Emitting general/path settings.") # Removed unprofessional comment
         self.settings_saved.emit(self.get_settings())
         super().accept()
 
@@ -116,7 +116,7 @@ class SettingsDialogView(QDialog):
             QMessageBox.warning(self, "Download in Progress",
                                 "Cannot cancel dialog while a download is in progress. Please wait.")
             return
-        print("Cancel Clicked.")
+        # print("Cancel Clicked.") # Removed unprofessional comment
         super().reject()
 
     # ... (set_download_center_model_types, set_downloadable_models_list, get_settings, load_settings as in response #33) ...
@@ -149,4 +149,4 @@ class SettingsDialogView(QDialog):
         self.theme_combo.setCurrentText(settings_data.get("theme", "Default"))
         self.default_output_edit.setText(settings_data.get("default_output", ""))
         self.models_dir_edit.setText(settings_data.get("models_dir", ""))
-        print("Settings loaded into dialog.")
+        # print("Settings loaded into dialog.") # Removed unprofessional comment

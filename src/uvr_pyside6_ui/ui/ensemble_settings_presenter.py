@@ -29,7 +29,7 @@ class EnsembleSettingsPresenter(QObject):
         self.view.ensemble_action_requested.connect(self.handle_ensemble_action)
 
         self._initialize_settings()
-        print("EnsembleSettingsPresenter Initialized.")
+        # print("EnsembleSettingsPresenter Initialized.") # Removed unprofessional comment
 
     def _initialize_settings(self):
         self._all_local_models_by_type = {
@@ -50,7 +50,7 @@ class EnsembleSettingsPresenter(QObject):
 
     @Slot(str)
     def handle_ensemble_action(self, action_text: str):
-        print(f"EnsemblePresenter: Action '{action_text}' received.")
+        # print(f"EnsemblePresenter: Action '{action_text}' received.") # Removed unprofessional comment
         if action_text == ac.ENSEMBLE_ACTION_SAVE_AS:
             self.on_save_ensemble()
         elif action_text == ac.ENSEMBLE_ACTION_CLEAR_SELECTION:
@@ -80,7 +80,7 @@ class EnsembleSettingsPresenter(QObject):
     @Slot(str)
     def on_main_stem_pair_changed(self, stem_pair: str):
         # ... (Keep as before, ensure _current_algorithm is updated after set_ensemble_algorithms) ...
-        print(f"EnsemblePresenter: Main Stem Pair changed to: {stem_pair}")
+        # print(f"EnsemblePresenter: Main Stem Pair changed to: {stem_pair}") # Removed unprofessional comment
         self._current_main_stem_pair = stem_pair
 
         if stem_pair == ac.ENSEMBLE_MAIN_STEM_OPTIONS[4]:  # "4 Stem Ensemble"
@@ -101,12 +101,12 @@ class EnsembleSettingsPresenter(QObject):
 
     @Slot(str)
     def on_ensemble_algorithm_changed(self, algorithm: str):  # Unchanged
-        print(f"EnsemblePresenter: Algorithm changed to: {algorithm}")
+        # print(f"EnsemblePresenter: Algorithm changed to: {algorithm}") # Removed unprofessional comment
         self._current_algorithm = algorithm
 
     @Slot(list)
     def on_models_selected_for_ensemble(self, selected_models: List[str]):  # Unchanged
-        print(f"EnsemblePresenter: Models selected for ensemble: {selected_models}")
+        # print(f"EnsemblePresenter: Models selected for ensemble: {selected_models}") # Removed unprofessional comment
         self._currently_selected_models_for_ensemble = selected_models
 
     # @Slot() # This is now triggered by handle_ensemble_action
@@ -135,21 +135,22 @@ class EnsembleSettingsPresenter(QObject):
                 "models": self._currently_selected_models_for_ensemble
             }
             # TODO: Save self._saved_ensembles to a persistent file
-            print(
-                f"EnsemblePresenter: Ensemble '{ensemble_name}' saved (mock): {self._saved_ensembles[clean_ensemble_name]}")
+            # print(
+            #     f"EnsemblePresenter: Ensemble '{ensemble_name}' saved (mock): {self._saved_ensembles[clean_ensemble_name]}") # Removed unprofessional comment
             # The view's action combo is static, no need to update it with saved ensemble names.
             # The presenter will handle loading via a dialog.
             QMessageBox.information(self.view.window(), "Ensemble Saved", f"Ensemble '{ensemble_name}' has been saved.")
         else:
-            print("EnsemblePresenter: Save ensemble cancelled or no name entered.")
+            # print("EnsemblePresenter: Save ensemble cancelled or no name entered.") # Removed unprofessional comment
+            pass # Or log this event
 
     # This method is called by handle_ensemble_action after user selects from a dialog.
     def on_load_ensemble(self, ensemble_display_name_to_load: str):  # Keep internal method
         if not ensemble_display_name_to_load:
-            print("EnsemblePresenter: Invalid or no ensemble name provided to load.")
+            # print("EnsemblePresenter: Invalid or no ensemble name provided to load.") # Removed unprofessional comment
             return
 
-        print(f"EnsemblePresenter: Load ensemble requested for display name: {ensemble_display_name_to_load}")
+        # print(f"EnsemblePresenter: Load ensemble requested for display name: {ensemble_display_name_to_load}") # Removed unprofessional comment
 
         # Find the internal key (name_with_underscores) from the display name
         internal_key_to_load = None
@@ -179,7 +180,7 @@ class EnsembleSettingsPresenter(QObject):
             QTimer.singleShot(0, lambda: self.view.set_selected_models_in_list(
                 self._currently_selected_models_for_ensemble))
 
-            print(f"Ensemble '{ensemble_display_name_to_load}' (key: {internal_key_to_load}) loaded into state.")
+            # print(f"Ensemble '{ensemble_display_name_to_load}' (key: {internal_key_to_load}) loaded into state.") # Removed unprofessional comment
         else:
             # This case should ideally not be reached if lookup by display name worked
             QMessageBox.warning(self.view.window(), "Load Ensemble",
@@ -187,8 +188,9 @@ class EnsembleSettingsPresenter(QObject):
 
     # @Slot() # This is now triggered by handle_ensemble_action
     def on_clear_model_selection(self):  # Keep internal method
-        print("EnsemblePresenter: Clear model selection clicked.")
-        self.view.available_models_list.clearSelection()
+        # print("EnsemblePresenter: Clear model selection clicked.") # Removed unprofessional comment
+        self.view.available_models_list.clearSelection() # This might be redundant if view handles it
+        self.view.set_selected_models_in_list([]) # Ensure presenter and view are in sync
         self._currently_selected_models_for_ensemble = []
 
     def get_settings(self):

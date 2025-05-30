@@ -58,6 +58,6 @@ class VRArchSettingsView(QWidget):
 
         layout.addWidget(settings_group)
         self.setLayout(layout)
-        print("VRArchSettingsView Initialized.")
+        # print("VRArchSettingsView Initialized.") # Removed unprofessional comment
 
     # Add Slots here later if Presenter needs to set values.

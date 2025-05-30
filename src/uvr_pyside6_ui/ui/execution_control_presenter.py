@@ -28,7 +28,7 @@ class ExecutionControlPresenter(QObject):
         self.view.set_progress_text("Idle")
         self.view.set_start_button_enabled(True)
 
-        print("ExecutionControlPresenter Initialized (with Adapter).")
+        # print("ExecutionControlPresenter Initialized (with Adapter).") # Removed unprofessional comment
 
     def _gather_all_settings(self) -> dict:
         """Helper to collect settings from all relevant presenters."""
@@ -60,7 +60,8 @@ class ExecutionControlPresenter(QObject):
     def handle_start_processing(self):
         """Gathers settings and tells the adapter to start processing."""
         if self._is_processing:
-            print("Presenter: Already processing!")
+            # print("Presenter: Already processing!") # Removed unprofessional comment
+            self.view.append_log_message("Process is already running.")
             return
 
         self.view.clear_logs()
@@ -94,7 +95,7 @@ class ExecutionControlPresenter(QObject):
     def on_progress_update(self, value: int, text: str):
         """Updates the view when the adapter sends progress."""
         if not self._is_processing: return  # Avoid updates after finishing
-        print(f"Presenter: Received progress {value}% - {text}")
+        # print(f"Presenter: Received progress {value}% - {text}") # Removed unprofessional comment
         self.view.set_progress_value(value)
         self.view.set_progress_text(text)
         # Optionally add key progress steps to the log
@@ -104,7 +105,7 @@ class ExecutionControlPresenter(QObject):
     @Slot(bool, str)
     def on_processing_finished(self, success: bool, message: str):
         """Updates the view when the adapter signals completion."""
-        print(f"Presenter: Received finished signal. Success: {success}, Msg: {message}")
+        # print(f"Presenter: Received finished signal. Success: {success}, Msg: {message}") # Removed unprofessional comment
         self._is_processing = False
         self.view.append_log_message(message)
         self.view.set_progress_value(100 if success else 0)

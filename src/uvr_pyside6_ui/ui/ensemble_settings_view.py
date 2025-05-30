@@ -166,14 +166,14 @@ class EnsembleSettingsView(QWidget):
         while self._main_vbox.count() > 0 and self._main_vbox.itemAt(self._main_vbox.count()-1) is not None and self._main_vbox.itemAt(self._main_vbox.count()-1).spacerItem() is not None:
             self._main_vbox.takeAt(self._main_vbox.count()-1)
         if is_expanded:
-            self._settings_group.setMinimumHeight(350)  # Slightly increased height
+            self._settings_group.setMinimumHeight(320)  # Reverted height
             self._settings_group.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
             self._scroll.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
             self._settings_group.setMaximumHeight(900) # Keep a reasonable max if needed
             self._scroll.setMaximumHeight(900)
-            # Increase list heights
-            self.available_models_list.setMinimumHeight(120) # Slightly increased height
-            self.selected_models_list.setMinimumHeight(120)  # Slightly increased height
+            # Reverted list heights
+            self.available_models_list.setMinimumHeight(100) # Reverted height
+            self.selected_models_list.setMinimumHeight(100)  # Reverted height
             self._main_vbox.addStretch(1) # Keep stretch to push content up
             self.show()
         else:
@@ -205,7 +205,7 @@ class EnsembleSettingsView(QWidget):
         self.selected_models_list.model().rowsInserted.connect(self._emit_ensemble_model_list_changed)
         self.selected_models_list.model().rowsRemoved.connect(self._emit_ensemble_model_list_changed)
         
-        print("EnsembleSettingsView Initialized with two-panel layout.")
+        # print("EnsembleSettingsView Initialized with two-panel layout.") # Removed unprofessional comment
 
     def _on_add_to_ensemble_double_click(self, item: QListWidgetItem):
         """Handles double-clicking an item in the available_models_list."""

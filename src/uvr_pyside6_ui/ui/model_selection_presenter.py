@@ -26,7 +26,7 @@ class ModelSelectionPresenter(QObject):
             self._current_method = self.view.method_combo.currentText()
 
             # self.view.set_ensemble_checked(self._is_advanced_ensemble_options) # REMOVED
-        print("ModelSelectionPresenter Initialized.")
+        # print("ModelSelectionPresenter Initialized.") # Removed unprofessional comment
 
     @Slot(str, str, bool, str)
     def _on_model_downloaded_elsewhere(
@@ -85,7 +85,8 @@ class ModelSelectionPresenter(QObject):
                 # Ensure ensemble panel is contracted if another method is chosen
                 ensemble_view_widget.set_expanded_mode(False)
         elif method == ac.ENSEMBLE_MODELS_KEY:
-            print(f"ModelSelectionPresenter: WARNING - Ensemble view widget not found or missing 'set_expanded_mode'.")
+            # print(f"ModelSelectionPresenter: WARNING - Ensemble view widget not found or missing 'set_expanded_mode'.") # Removed unprofessional comment
+            pass # Log this properly
 
         self.view.show_settings_panel(self._current_method)
 

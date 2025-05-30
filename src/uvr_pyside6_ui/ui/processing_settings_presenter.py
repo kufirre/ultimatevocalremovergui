@@ -22,7 +22,7 @@ class ProcessingSettingsPresenter(QObject):
         self.view.sample_mode_changed.connect(self.handle_sample_mode_change)
 
         self._update_view_with_current_settings()
-        print("ProcessingSettingsPresenter Initialized with new options.")
+        # print("ProcessingSettingsPresenter Initialized with new options.") # Removed unprofessional comment
 
     def _update_view_with_current_settings(self):
         """Helper to set all view elements from current state."""
@@ -43,25 +43,25 @@ class ProcessingSettingsPresenter(QObject):
     def handle_gpu_change(self, is_checked: bool):
         if self._use_gpu != is_checked:
             self._use_gpu = is_checked
-            print(f"Presenter: Use GPU set to {self._use_gpu}")
+            # print(f"Presenter: Use GPU set to {self._use_gpu}") # Removed unprofessional comment
 
     @Slot(bool)
     def handle_normalize_change(self, is_checked: bool):
         if self._normalize != is_checked:
             self._normalize = is_checked
-            print(f"Presenter: Normalize Output set to {self._normalize}")
+            # print(f"Presenter: Normalize Output set to {self._normalize}") # Removed unprofessional comment
 
     @Slot(str)
     def handle_format_change(self, format_str: str):
         if self._output_format != format_str:
             self._output_format = format_str
-            print(f"Presenter: Output Format set to {self._output_format}")
+            # print(f"Presenter: Output Format set to {self._output_format}") # Removed unprofessional comment
 
     @Slot(bool)
     def handle_primary_stem_change(self, is_checked: bool):
         if self._primary_stem_only != is_checked:
             self._primary_stem_only = is_checked
-            print(f"Presenter: Primary Stem Only set to {self._primary_stem_only}")
+            # print(f"Presenter: Primary Stem Only set to {self._primary_stem_only}") # Removed unprofessional comment
             if is_checked and self._secondary_stem_only:  # Mutually exclusive
                 self._secondary_stem_only = False
                 self.view.set_secondary_stem_only_checked(False)  # Update view
@@ -70,7 +70,7 @@ class ProcessingSettingsPresenter(QObject):
     def handle_secondary_stem_change(self, is_checked: bool):
         if self._secondary_stem_only != is_checked:
             self._secondary_stem_only = is_checked
-            print(f"Presenter: Secondary Stem Only set to {self._secondary_stem_only}")
+            # print(f"Presenter: Secondary Stem Only set to {self._secondary_stem_only}") # Removed unprofessional comment
             if is_checked and self._primary_stem_only:  # Mutually exclusive
                 self._primary_stem_only = False
                 self.view.set_primary_stem_only_checked(False)  # Update view
@@ -79,7 +79,7 @@ class ProcessingSettingsPresenter(QObject):
     def handle_sample_mode_change(self, is_checked: bool):
         if self._sample_mode != is_checked:
             self._sample_mode = is_checked
-            print(f"Presenter: Sample Mode set to {self._sample_mode}")
+            # print(f"Presenter: Sample Mode set to {self._sample_mode}") # Removed unprofessional comment
             # sample_duration = self.get_app_setting("sample_duration", 30) # Placeholder
             # self.view.sample_mode_checkbox.setText(f"Sample Mode ({sample_duration}s)" if is_checked else "Sample Mode")
 

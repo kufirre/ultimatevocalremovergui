@@ -23,24 +23,24 @@ class SettingsDialogPresenter(QObject):
             "models_dir": str(Path.home() / "Documents" / "UVR_Models"),
         }
         self._is_download_in_progress = False  # NEW state variable
-        print("SettingsDialogPresenter Initialized.")
+        # print("SettingsDialogPresenter Initialized.") # Removed unprofessional comment
 
     # ... (_load_settings_from_store, _save_settings_to_store as before) ...
     def _load_settings_from_store(self) -> dict:
-        print("Presenter: Loading app settings from store (mocked).")
+        # print("Presenter: Loading app settings from store (mocked).") # Removed unprofessional comment
         return self._current_settings.copy()
 
     @Slot(dict)
     def _save_settings_to_store(self, settings_data: dict):
-        print(f"Presenter: Saving app settings to store: {settings_data}")
+        # print(f"Presenter: Saving app settings to store: {settings_data}") # Removed unprofessional comment
         self._current_settings.update(settings_data)
 
     def _populate_download_center_on_show(self, default_model_type: str | None = None):
         if not self.view: return
 
         if not isinstance(self.adapter, UVRCoreAdapter):  # Should not happen with proper init
-            print(f"Presenter (DC): ERROR - self.adapter is not correctly configured!")
-            self.view.set_downloadable_models_list(["Error: Adapter unavailable."])
+            # print(f"Presenter (DC): ERROR - self.adapter is not correctly configured!") # Removed unprofessional comment
+            self.view.set_downloadable_models_list(["Error: Adapter unavailable."]) # Keep this user-facing error
             return
 
         if not self._full_online_catalog:
@@ -92,7 +92,7 @@ class SettingsDialogPresenter(QObject):
         if not selected_ui_type or not selected_list_items:
             # ... (message handling as before) ...
             message = "Status: Please select a model type and a model from the list to download."
-            print(f"Presenter (DC): {message}")
+            # print(f"Presenter (DC): {message}") # Removed unprofessional comment
             self.view.dc_status_label.setText(message)
             return
 
@@ -113,7 +113,7 @@ class SettingsDialogPresenter(QObject):
         else:
             # ... (message handling as before) ...
             message = f"Status: Error: Could not find download target info for '{user_friendly_model_name}' in catalog."
-            print(f"Presenter (DC): {message}")
+            # print(f"Presenter (DC): {message}") # Removed unprofessional comment
             self.view.dc_status_label.setText(message)
 
     @Slot()
@@ -135,14 +135,14 @@ class SettingsDialogPresenter(QObject):
         self._populate_download_center_on_show(default_model_type=default_model_type)
 
         if exec_dialog:
-            print("Presenter: Showing Settings Dialog (modal).")
+            # print("Presenter: Showing Settings Dialog (modal).") # Removed unprofessional comment
             result = self.view.exec()
-            if result == SettingsDialogView.Accepted:
-                print("Presenter: Settings Dialog was Accepted.")
-            else:
-                print("Presenter: Settings Dialog was Rejected.")
+            # if result == SettingsDialogView.Accepted:
+                # print("Presenter: Settings Dialog was Accepted.") # Removed unprofessional comment
+            # else:
+                # print("Presenter: Settings Dialog was Rejected.") # Removed unprofessional comment
         else:
-            print("Presenter: Ensuring Settings Dialog is visible (non-modal).")
+            # print("Presenter: Ensuring Settings Dialog is visible (non-modal).") # Removed unprofessional comment
             if not self.view.isVisible():
                 self.view.show()
             self.view.activateWindow()
@@ -162,6 +162,6 @@ class SettingsDialogPresenter(QObject):
             if self.view.tab_widget.currentIndex() == 2:  # If Download Center is active tab
                 self.view.dc_status_label.setText(message)
                 if success:
-                    print(f"Presenter (DC): Download finished for '{model_display_name}' of type '{model_type_ui_name}'"
-                          f", refreshing DC list.")
+                    # print(f"Presenter (DC): Download finished for '{model_display_name}' of type '{model_type_ui_name}'"
+                    #       f", refreshing DC list.") # Removed unprofessional comment
                     self._on_dc_model_type_changed(model_type_ui_name)  # Use the type from the signal

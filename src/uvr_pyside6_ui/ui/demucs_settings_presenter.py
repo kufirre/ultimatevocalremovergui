@@ -12,22 +12,22 @@ class DemucsSettingsPresenter(QObject):
         self.view.segments_changed.connect(self.set_segments)
         self.view.shifts_changed.connect(self.set_shifts)
         self.view.split_changed.connect(self.set_split)
-        print("DemucsSettingsPresenter Initialized.")
+        # print("DemucsSettingsPresenter Initialized.") # Removed unprofessional comment
 
     @Slot(int)
     def set_segments(self, value):
         self._segments = value
-        print(f"Presenter (Demucs): Segments = {value}")
+        # print(f"Presenter (Demucs): Segments = {value}") # Removed unprofessional comment
 
     @Slot(int)
     def set_shifts(self, value):
         self._shifts = value
-        print(f"Presenter (Demucs): Shifts = {value}")
+        # print(f"Presenter (Demucs): Shifts = {value}") # Removed unprofessional comment
 
     @Slot(bool)
     def set_split(self, value):
         self._split = value
-        print(f"Presenter (Demucs): Split = {value}")
+        # print(f"Presenter (Demucs): Split = {value}") # Removed unprofessional comment
 
     def get_settings(self):
         return {

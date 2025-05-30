@@ -13,22 +13,22 @@ class VRArchSettingsPresenter(QObject):
         self.view.window_size_changed.connect(self.set_window_size)
         self.view.aggression_changed.connect(self.set_aggression)
         self.view.high_end_changed.connect(self.set_high_end)
-        print("VRArchSettingsPresenter Initialized.")
+        # print("VRArchSettingsPresenter Initialized.") # Removed unprofessional comment
 
     @Slot(str)
     def set_window_size(self, value):
         self._window_size = value
-        print(f"Presenter (VR): Window Size = {value}")
+        # print(f"Presenter (VR): Window Size = {value}") # Removed unprofessional comment
 
     @Slot(int)
     def set_aggression(self, value):
         self._aggression = value
-        print(f"Presenter (VR): Aggression = {value}")
+        # print(f"Presenter (VR): Aggression = {value}") # Removed unprofessional comment
 
     @Slot(bool)
     def set_high_end(self, value):
         self._high_end = value
-        print(f"Presenter (VR): High End = {value}")
+        # print(f"Presenter (VR): High End = {value}") # Removed unprofessional comment
 
     def get_settings(self):
         return {

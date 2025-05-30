@@ -22,19 +22,19 @@ class FileIOPresenter(QObject):
         self.view.input_path_changed.connect(self.handle_input_path_update)
         self.view.output_path_changed.connect(self.handle_output_path_update)
 
-        # print("FileIOPresenter Initialized.") # Removed unprofessional comment
+        # Debug print removed
 
     @Slot()
     def handle_select_input(self):
         """Handles the 'Browse...' click for input."""
-        # print("Presenter: Input browse clicked. Telling View to show dialog.") # Removed unprofessional comment
+        # Debug print removed
         # Tell the View to perform the action of showing the dialog.
         self.view.show_input_file_dialog()
 
     @Slot()
     def handle_select_output(self):
         """Handles the 'Browse...' click for output."""
-        # print("Presenter: Output browse clicked. Telling View to show dialog.") # Removed unprofessional comment
+        # Debug print removed
         self.view.show_output_folder_dialog()
 
     @Slot(str)
@@ -42,7 +42,7 @@ class FileIOPresenter(QObject):
         """Updates the internal state when input path changes."""
         if self._input_path != path:
             self._input_path = path
-            # print(f"Presenter: Input path is now '{self._input_path}'") # Removed unprofessional comment
+            # Debug print removed
             # Here you would typically:
             # - Validate the path.
             # - Update the model or application state.
@@ -54,7 +54,7 @@ class FileIOPresenter(QObject):
         """Updates the internal state when output path changes."""
         if self._output_path != path:
             self._output_path = path
-            # print(f"Presenter: Output path is now '{self._output_path}'") # Removed unprofessional comment
+            # Debug print removed
             # Add validation and model updates here too.
 
     # --- Public methods (if needed by other parts) ---

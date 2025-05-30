@@ -12,22 +12,22 @@ class MDXNetSettingsPresenter(QObject):
         self.view.segment_size_changed.connect(self.set_segment_size)
         self.view.overlap_changed.connect(self.set_overlap)
         self.view.match_method_changed.connect(self.set_match_method)
-        # print("MDXNetSettingsPresenter Initialized.") # Removed unprofessional comment
+        # Debug print removed
 
     @Slot(int)
     def set_segment_size(self, value):
         self._segment_size = value
-        # print(f"Presenter (MDX): Segment Size = {value}") # Removed unprofessional comment
+        # Debug print removed
 
     @Slot(float)
     def set_overlap(self, value):
         self._overlap = value
-        # print(f"Presenter (MDX): Overlap = {value:.2f}") # Removed unprofessional comment
+        # Debug print removed
 
     @Slot(str)
     def set_match_method(self, value):
         self._match_method = value
-        # print(f"Presenter (MDX): Match Method = {value}") # Removed unprofessional comment
+        # Debug print removed
 
     def get_settings(self):
         return {

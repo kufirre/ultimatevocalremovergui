@@ -57,7 +57,7 @@ class FileIOView(QWidget):
         layout.addWidget(io_group)
         self.setLayout(layout)
 
-        # print("FileIOView Initialized.") # Removed unprofessional comment
+        # Debug print removed
 
     # --- Slots (Called by the Presenter) ---
 

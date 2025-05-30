@@ -49,7 +49,7 @@ class ExecutionControlView(QWidget):
         layout.addWidget(exec_group)
         self.setLayout(layout)
 
-        # print("ExecutionControlView Initialized.") # Removed unprofessional comment
+        # Debug print removed
 
     # --- Slots (Called by the Presenter) ---
 

@@ -120,7 +120,7 @@ class MainWindowView(QMainWindow):
         else:
             self.presenters["model_selection"].handle_method_change("")
 
-        # print("MainWindowView Fully Initialized with ScrollArea, new checkboxes, and settings button.") # Removed unprofessional comment
+        # Debug print removed
 
     # ... (_create_menu_bar, _open_download_center_tab, _quit_application,
     #      _show_about_dialog, show_status_message methods remain unchanged from response #37) ...

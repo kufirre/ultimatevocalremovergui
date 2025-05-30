@@ -54,4 +54,4 @@ class DemucsSettingsView(QWidget):
 
         layout.addWidget(settings_group)
         self.setLayout(layout)
-        # print("DemucsSettingsView Initialized.") # Removed unprofessional comment
+        # Debug print removed

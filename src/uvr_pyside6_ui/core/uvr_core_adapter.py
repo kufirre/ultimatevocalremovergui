@@ -32,7 +32,7 @@ class MockProcessingWorker(QObject):  # Unchanged
         super().__init__(); self.settings = settings_dict; self._is_running = True
 
     def run(self):
-        # print("Adapter Worker: Starting simulation...") # Removed unprofessional comment
+        # Debug print removed
         try:
             for i in range(11):
                 if not self._is_running: self.processing_finished.emit(False, "Processing Canceled"); return
@@ -61,7 +61,7 @@ class UVRCoreAdapter(QObject):
         self.worker = None
         self._online_catalog_data_cache: dict | None = None
         self._local_catalog_cache_file_path = self._get_local_catalog_cache_file_path()
-        # print(f"UVRCoreAdapter Initialized. Cache path: {self._local_catalog_cache_file_path}") # Removed unprofessional comment
+        # Debug print removed
 
     # ... (_get_project_models_dir, _get_local_catalog_cache_file_path,
     #      _fetch_and_cache_online_catalog, get_online_catalog,
@@ -74,7 +74,7 @@ class UVRCoreAdapter(QObject):
             project_root = current_file_path.parents[3]
             models_path = project_root / "models"
             if models_path.is_dir(): return models_path
-            # print(f"Adapter: WARNING: 'models' directory not found at expected project root: {models_path}") # Removed unprofessional comment
+            # Debug print removed
             cwd_candidate = Path.cwd() / "models"
             if cwd_candidate.is_dir(): return cwd_candidate
             return None
@@ -99,12 +99,12 @@ class UVRCoreAdapter(QObject):
             try:
                 with open(self._local_catalog_cache_file_path, 'w', encoding='utf-8') as f:
                     json.dump(catalog, f, indent=4)
-            except IOError as e:
-                # print(f"Adapter: ERROR caching: {e}") # Removed unprofessional comment
-                pass # Log this properly in a real app
+            except IOError:
+                # Consider logging this error if a logging system is in place.
+                pass
             return catalog
-        except requests.exceptions.RequestException as e:
-            # print(f"Adapter: ERROR fetching: {e}"); # Removed unprofessional comment
+        except requests.exceptions.RequestException:
+            # Consider logging this error.
             return {}
 
     def get_online_catalog(self) -> dict:  # Unchanged
@@ -114,8 +114,8 @@ class UVRCoreAdapter(QObject):
             try:
                 with open(self._local_catalog_cache_file_path, 'r', encoding='utf-8') as f:
                     catalog = json.load(f)
-            except Exception as e:
-                # print(f"Adapter: ERROR loading cache: {e}"); # Removed unprofessional comment
+            except Exception:
+                # Consider logging this error.
                 catalog = {}
         if not catalog: catalog = ac.FALLBACK_ONLINE_CATALOG.copy()
         self._online_catalog_data_cache = catalog
@@ -188,8 +188,7 @@ class UVRCoreAdapter(QObject):
         target_filename = self._get_primary_filename_from_download_info(download_target_info)
         if not target_filename: target_filename = "UnknownFile_" + model_display_name.replace(" ", "_")
 
-        # print(
-        #     f"Adapter: Mock download requested for '{model_display_name}' (Target: {target_filename}) for type '{model_type_ui_name}'") # Removed unprofessional comment
+        # Debug print removed
 
         self._current_download_step = 0
         # Store model_type_ui_name as well for the finished signal
@@ -211,13 +210,13 @@ class UVRCoreAdapter(QObject):
                     try:
                         with open(save_path, 'w') as f:
                             f.write("mock model data for " + target_filename)
-                        # print(f"Adapter: Mock downloaded and placed '{target_filename}' at '{save_path}'") # Removed unprofessional comment
+                        # Debug print removed
                         # Emit with model_type_ui_name
                         self.download_finished.emit(self._current_download_model_type,
                                                     self._current_download_display_name, True,
                                                     f"'{self._current_download_display_name}' downloaded (mock).")
-                    except IOError as e:
-                        # print(f"Adapter: ERROR creating mock file {save_path}: {e}") # Removed unprofessional comment
+                    except IOError:
+                        # Consider logging this error.
                         self.download_finished.emit(self._current_download_model_type,
                                                     self._current_download_display_name, False,
                                                     f"Error saving mock '{self._current_download_display_name}'.")
@@ -252,9 +251,9 @@ class UVRCoreAdapter(QObject):
                 with open(mapper_file_path, 'r', encoding='utf-8') as f:
                     mapper_content = json.load(f)
                     return mapper_content
-            except Exception as e:
-                # print(f"Adapter: ERROR loading name mapper {mapper_file_path.name}: {e}") # Removed unprofessional comment
-                pass # Log this properly in a real app
+            except Exception:
+                # Consider logging this error.
+                pass
         return {}
 
     def _get_display_name_from_mapper(self, scanned_identifier: str, name_mapper: dict) -> tuple[str, bool]:
@@ -265,7 +264,7 @@ class UVRCoreAdapter(QObject):
         return scanned_identifier, False
 
     def get_available_methods(self) -> list:  # Corrected in response #35
-        # print("Adapter: Getting available UI method names.") # Removed unprofessional comment
+        # Debug print removed
         return [ac.VR_ARCH_MODELS_KEY, ac.MDX_NET_MODELS_KEY, ac.DEMUCS_MODELS_KEY, ac.ENSEMBLE_MODELS_KEY]
 
     def get_available_models(self, method_name: str) -> list:  # Logic from response #35
@@ -300,9 +299,9 @@ class UVRCoreAdapter(QObject):
         return natsort.natsorted(list(set(final_display_names)))
 
     def start_processing(self, settings_dict: dict):  # Unchanged
-        # print(f"Adapter: Received request to start processing.") # Removed unprofessional comment
+        # Debug print removed
         if self.processing_thread and self.processing_thread.isRunning():
-            # print("Adapter: Processing is already running.") # Removed unprofessional comment
+            # Debug print removed
             return # Or raise an error/emit a signal
         self.worker = MockProcessingWorker(settings_dict)
         self.processing_thread = QThread()
@@ -313,13 +312,13 @@ class UVRCoreAdapter(QObject):
         self.worker.processing_finished.connect(self.processing_thread.quit)
         self.worker.processing_finished.connect(self.worker.deleteLater)
         self.processing_thread.finished.connect(self.processing_thread.deleteLater)
-        # print("Adapter: Starting processing thread...") # Removed unprofessional comment
+        # Debug print removed
         self.processing_thread.start()
 
     def stop_processing(self):  # Unchanged
         if self.worker and self.processing_thread and self.processing_thread.isRunning():
-            # print("Adapter: Requesting worker to stop...") # Removed unprofessional comment
+            # Debug print removed
             self.worker.stop()
         else:
-            # print("Adapter: No process running to stop.") # Removed unprofessional comment
+            # Debug print removed
             pass # Or emit a signal

@@ -6,7 +6,7 @@ from .ui.main_window_view import MainWindowView
 
 def run():
     """Initializes and runs the PySide6 application."""
-    # print("Starting UVR PySide6 GUI...") # Removed unprofessional comment
+    # Debug print removed
     app = QApplication(sys.argv)
 
     # You might want to apply a style or theme here later
@@ -15,7 +15,7 @@ def run():
     main_window = MainWindowView()
     main_window.show()
 
-    # print("Main window shown. Entering event loop.") # Removed unprofessional comment
+    # Debug print removed
     sys.exit(app.exec())
 
 

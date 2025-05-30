@@ -61,4 +61,4 @@ class MDXNetSettingsView(QWidget):
 
         layout.addWidget(settings_group)
         self.setLayout(layout)
-        # print("MDXNetSettingsView Initialized.") # Removed unprofessional comment
+        # Debug print removed

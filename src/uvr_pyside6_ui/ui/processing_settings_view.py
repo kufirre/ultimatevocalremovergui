@@ -47,12 +47,12 @@ class ProcessingSettingsView(QWidget):
         self.primary_stem_checkbox = QCheckBox("Primary Stem Only")
         self.primary_stem_checkbox.setToolTip("Save only the primary target stem (e.g., Vocals).")
         self.primary_stem_checkbox.toggled.connect(self.primary_stem_only_changed)
-        grid_layout.addWidget(self.primary_stem_checkbox, 1, 0)
+        grid_layout.addWidget(self.primary_stem_checkbox, 1, 0, 1, 1, Qt.AlignLeft)
 
         self.secondary_stem_checkbox = QCheckBox("Secondary Stem Only")
         self.secondary_stem_checkbox.setToolTip("Save only the secondary stem (e.g., Instrumental).")
         self.secondary_stem_checkbox.toggled.connect(self.secondary_stem_only_changed)
-        grid_layout.addWidget(self.secondary_stem_checkbox, 1, 1, Qt.AlignLeft) # Align to left in its cell
+        grid_layout.addWidget(self.secondary_stem_checkbox, 1, 1, 1, 1, Qt.AlignLeft) # Align to left in its cell
 
         # Row 2: Other Options
         self.normalize_checkbox = QCheckBox("Normalize Output")
@@ -67,8 +67,10 @@ class ProcessingSettingsView(QWidget):
         grid_layout.addWidget(self.sample_mode_checkbox, 2, 1, Qt.AlignLeft) # Align to left
 
         # Set column stretch to push second column content to the right if space allows
-        grid_layout.setColumnStretch(0, 0) # First column takes preferred size
-        grid_layout.setColumnStretch(1, 1) # Second column takes available stretch
+        grid_layout.setColumnStretch(0, 1)
+        grid_layout.setColumnStretch(1, 1)
+        grid_layout.setHorizontalSpacing(16)
+        grid_layout.setVerticalSpacing(10)
 
         main_container_layout.addWidget(settings_group)
         self.setLayout(main_container_layout)

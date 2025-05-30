@@ -11,6 +11,9 @@ from PySide6.QtWidgets import (
     QComboBox,
     QListWidgetItem, QGridLayout,
 )
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QGroupBox, QLabel, QListWidget, QPushButton, QHBoxLayout, QComboBox, QListWidgetItem, QGridLayout, QSizePolicy, QScrollArea
+)
 from PySide6.QtCore import Signal, Slot, Qt
 from typing import List
 from ..core import app_constants as ac  # For options
@@ -29,7 +32,6 @@ class EnsembleSettingsView(QWidget):
         super().__init__(parent)
 
 
-        from PySide6.QtWidgets import QSizePolicy, QScrollArea
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 5, 0, 5)
@@ -37,74 +39,104 @@ class EnsembleSettingsView(QWidget):
         # Create the main group
         settings_group = QGroupBox("Ensemble Configuration")
         # Don't force a large minimum, let scroll handle overflow
-        settings_group.setSizePolicy(settings_group.sizePolicy().horizontalPolicy(), QSizePolicy.Expanding)
+        from PySide6.QtWidgets import QSizePolicy
+        settings_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        # Do not set a fixed minimum width here; control it dynamically
+        self._settings_group = settings_group  # For dynamic sizing
 
         # Main content layout inside group
-        settings_grid = QGridLayout()
-        settings_grid.setContentsMargins(8, 8, 8, 8)
-        settings_grid.setSpacing(6)
+        from PySide6.QtWidgets import QSizePolicy
+        from PySide6.QtCore import Qt
+        main_vbox = QVBoxLayout()
+        main_vbox.setContentsMargins(8, 8, 8, 8)
+        main_vbox.setSpacing(14)
 
         # --- Algorithm/Selector Row ---
+        algo_row = QHBoxLayout()
+        algo_row.setSpacing(18)
         stem_pair_label = QLabel("Main Stem Pair:")
         self.stem_pair_combo = QComboBox()
         self.stem_pair_combo.addItems(ac.ENSEMBLE_MAIN_STEM_OPTIONS)
         self.stem_pair_combo.currentTextChanged.connect(self.main_stem_pair_changed)
-
         algo_label = QLabel("Ensemble Algorithm:")
         self.algorithm_combo = QComboBox()
         self.algorithm_combo.currentTextChanged.connect(self.ensemble_algorithm_changed)
-
-        settings_grid.addWidget(stem_pair_label, 0, 0)
-        settings_grid.addWidget(self.stem_pair_combo, 0, 1)
-        settings_grid.addWidget(algo_label, 0, 2)
-        settings_grid.addWidget(self.algorithm_combo, 0, 3)
+        algo_row.addWidget(stem_pair_label)
+        algo_row.addWidget(self.stem_pair_combo)
+        algo_row.addSpacing(24)
+        algo_row.addWidget(algo_label)
+        algo_row.addWidget(self.algorithm_combo)
+        algo_row.addStretch(1)
+        main_vbox.addLayout(algo_row)
 
         # --- Model Selection Section ---
+        models_hbox = QHBoxLayout()
+        models_hbox.setSpacing(8)
+        # Available Models
         available_models_group = QGroupBox("Available Models (Local Library)")
+        available_models_group.setMinimumWidth(200)
+        available_models_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         available_models_layout = QVBoxLayout(available_models_group)
         self.available_models_list = QListWidget()
         self.available_models_list.setSelectionMode(QListWidget.ExtendedSelection)
-        # Remove minimum height, let scroll area manage height
-        self.available_models_list.setSizePolicy(self.available_models_list.sizePolicy().horizontalPolicy(), QSizePolicy.Expanding)
+        self.available_models_list.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         available_models_layout.addWidget(self.available_models_list)
-
+        # Transfer Buttons
         transfer_buttons_widget = QWidget()
         transfer_buttons_layout = QVBoxLayout(transfer_buttons_widget)
-        transfer_buttons_layout.addStretch()
+        transfer_buttons_layout.setContentsMargins(0, 0, 0, 0)
+        transfer_buttons_layout.setSpacing(4)
+        transfer_buttons_layout.addStretch(1)
         self.add_to_ensemble_button = QPushButton(">")
         self.add_to_ensemble_button.setToolTip("Add selected to ensemble list")
         self.remove_from_ensemble_button = QPushButton("<")
         self.remove_from_ensemble_button.setToolTip("Remove selected from ensemble list")
-        self.add_to_ensemble_button.setMaximumWidth(36)
-        self.remove_from_ensemble_button.setMaximumWidth(36)
+        self.add_to_ensemble_button.setFixedWidth(32)
+        self.remove_from_ensemble_button.setFixedWidth(32)
         transfer_buttons_layout.addWidget(self.add_to_ensemble_button)
         transfer_buttons_layout.addWidget(self.remove_from_ensemble_button)
-        transfer_buttons_layout.addStretch()
-
+        transfer_buttons_layout.addStretch(1)
+        # Models for Ensemble
         selected_models_group = QGroupBox("Models for Ensemble")
+        selected_models_group.setMinimumWidth(200)
+        selected_models_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         selected_models_layout = QVBoxLayout(selected_models_group)
         self.selected_models_list = QListWidget()
         self.selected_models_list.setSelectionMode(QListWidget.ExtendedSelection)
-        self.selected_models_list.setSizePolicy(self.selected_models_list.sizePolicy().horizontalPolicy(), QSizePolicy.Expanding)
+        self.selected_models_list.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         selected_models_layout.addWidget(self.selected_models_list)
+        # Add to models_hbox
+        models_hbox.addWidget(available_models_group, 3)
+        models_hbox.addWidget(transfer_buttons_widget, 0)
+        models_hbox.addWidget(selected_models_group, 3)
+        main_vbox.addLayout(models_hbox, 2)
+        # Only add vertical stretch in expanded mode
+        self._main_vbox = main_vbox  # Save for dynamic stretch control
+        # main_vbox.addStretch(1)  # Will be added/removed dynamically
 
-        # Set relative sizing using stretch on grid columns/rows
-        settings_grid.addWidget(available_models_group, 1, 0, 1, 2)
-        settings_grid.addWidget(transfer_buttons_widget, 1, 2)
-        settings_grid.addWidget(selected_models_group, 1, 3, 1, 1)
-        settings_grid.setColumnStretch(0, 2)
-        settings_grid.setColumnStretch(1, 2)
-        settings_grid.setColumnStretch(2, 0)
-        settings_grid.setColumnStretch(3, 2)
-        settings_grid.setRowStretch(1, 1)
+        # --- Ensemble Management Actions ---
+        ensemble_actions_layout = QHBoxLayout()
+        self.ensemble_actions_combo = QComboBox()
+        self.ensemble_actions_combo.addItem("--- Ensemble Actions ---")
+        self.ensemble_actions_combo.addItem(ac.ENSEMBLE_ACTION_LOAD)
+        self.ensemble_actions_combo.addItem(ac.ENSEMBLE_ACTION_SAVE_AS)
+        self.ensemble_actions_combo.addItem(ac.ENSEMBLE_ACTION_CLEAR_SELECTION)
+        self.ensemble_actions_combo.activated[int].connect(self._handle_ensemble_action_by_index)
+        ensemble_actions_layout.addWidget(self.ensemble_actions_combo, 1)
+        main_vbox.addLayout(ensemble_actions_layout)
 
-        # Place the grid into a widget (for scroll area compatibility)
-        grid_widget = QWidget()
-        grid_widget.setLayout(settings_grid)
+        # Place the main_vbox into a widget for scroll area compatibility
+        content_widget = QWidget()
+        content_widget.setLayout(main_vbox)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setWidget(grid_widget)
+        scroll.setWidget(content_widget)
+        # Do not set minimum/maximum width/height here; control it dynamically
+        self._scroll = scroll  # For dynamic sizing
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll.setStyleSheet("QScrollArea { border: none; }")
 
         # Place scroll area inside group
         group_layout = QVBoxLayout(settings_group)
@@ -119,11 +151,46 @@ class EnsembleSettingsView(QWidget):
         self.ensemble_actions_combo.addItem(ac.ENSEMBLE_ACTION_CLEAR_SELECTION)
         self.ensemble_actions_combo.activated[int].connect(self._handle_ensemble_action_by_index)
         ensemble_actions_layout.addWidget(self.ensemble_actions_combo, 1)
-        settings_grid.addLayout(ensemble_actions_layout, 2, 0, 1, 4)
+
 
         layout.addWidget(settings_group)
         self.setLayout(layout)
-        
+
+        # Default to compact mode
+        self.set_expanded_mode(False)
+
+    def set_expanded_mode(self, is_expanded: bool):
+        """
+        Dynamically adjust the size of the ensemble settings panel.
+        Call with True when ensemble mode is selected, False otherwise.
+        """
+        from PySide6.QtWidgets import QSizePolicy
+        # Remove all stretches at the end
+        while self._main_vbox.count() > 0 and self._main_vbox.itemAt(self._main_vbox.count()-1) is not None and self._main_vbox.itemAt(self._main_vbox.count()-1).spacerItem() is not None:
+            self._main_vbox.takeAt(self._main_vbox.count()-1)
+        if is_expanded:
+            self._settings_group.setMinimumHeight(500)  # Only for this view, makes the group visually larger
+            self._settings_group.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
+            self._scroll.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
+            self._settings_group.setMaximumHeight(900)
+            self._scroll.setMaximumHeight(900)
+            # Optionally, show more rows in the lists
+            self.available_models_list.setMinimumHeight(180)
+            self.selected_models_list.setMinimumHeight(180)
+            self._main_vbox.addStretch(1)
+            self.show()
+        else:
+            self._settings_group.setMinimumHeight(0)
+            self._settings_group.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+            self._scroll.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+            self._settings_group.setMaximumHeight(200)
+            self._scroll.setMaximumHeight(200)
+            # Optionally, shrink the lists
+            self.available_models_list.setMinimumHeight(40)
+            self.selected_models_list.setMinimumHeight(40)
+            # Optionally: self.hide()  # Uncomment to hide panel entirely when not in ensemble mode
+
+
         # --- Connect Signals ---
         # Double-click available model to add to ensemble
         self.available_models_list.itemDoubleClicked.connect(self._on_add_to_ensemble_double_click)

@@ -71,7 +71,7 @@ class EnsembleSettingsView(QWidget):
         models_hbox.setSpacing(5) # Reduced spacing
         # Available Models
         available_models_group = QGroupBox("Available Models (Local Library)")
-        available_models_group.setMinimumWidth(150) # Reduced minimum width
+        available_models_group.setMinimumWidth(120) # Further reduced minimum width
         available_models_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         available_models_layout = QVBoxLayout(available_models_group)
         self.available_models_list = QListWidget()
@@ -95,7 +95,7 @@ class EnsembleSettingsView(QWidget):
         transfer_buttons_layout.addStretch(1)
         # Models for Ensemble
         selected_models_group = QGroupBox("Models for Ensemble")
-        selected_models_group.setMinimumWidth(150) # Reduced minimum width
+        selected_models_group.setMinimumWidth(120) # Further reduced minimum width
         selected_models_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         selected_models_layout = QVBoxLayout(selected_models_group)
         self.selected_models_list = QListWidget()
@@ -166,14 +166,14 @@ class EnsembleSettingsView(QWidget):
         while self._main_vbox.count() > 0 and self._main_vbox.itemAt(self._main_vbox.count()-1) is not None and self._main_vbox.itemAt(self._main_vbox.count()-1).spacerItem() is not None:
             self._main_vbox.takeAt(self._main_vbox.count()-1)
         if is_expanded:
-            self._settings_group.setMinimumHeight(320)  # Reduced height
+            self._settings_group.setMinimumHeight(350)  # Slightly increased height
             self._settings_group.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
             self._scroll.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
             self._settings_group.setMaximumHeight(900) # Keep a reasonable max if needed
             self._scroll.setMaximumHeight(900)
-            # Reduce list heights
-            self.available_models_list.setMinimumHeight(100) # Reduced height
-            self.selected_models_list.setMinimumHeight(100)  # Reduced height
+            # Increase list heights
+            self.available_models_list.setMinimumHeight(120) # Slightly increased height
+            self.selected_models_list.setMinimumHeight(120)  # Slightly increased height
             self._main_vbox.addStretch(1) # Keep stretch to push content up
             self.show()
         else:
@@ -196,6 +196,8 @@ class EnsembleSettingsView(QWidget):
         # --- Connect Signals ---
         # Double-click available model to add to ensemble
         self.available_models_list.itemDoubleClicked.connect(self._on_add_to_ensemble_double_click)
+        # Double-click selected model to remove from ensemble
+        self.selected_models_list.itemDoubleClicked.connect(self._on_remove_from_ensemble_double_click)
         # Transfer buttons
         self.add_to_ensemble_button.clicked.connect(self._on_add_to_ensemble)
         self.remove_from_ensemble_button.clicked.connect(self._on_remove_from_ensemble)
@@ -217,6 +219,22 @@ class EnsembleSettingsView(QWidget):
         # Remove from available_models_list
         row = self.available_models_list.row(item)
         self.available_models_list.takeItem(row)
+        
+        self._emit_ensemble_model_list_changed()
+
+    @Slot(QListWidgetItem)
+    def _on_remove_from_ensemble_double_click(self, item: QListWidgetItem):
+        """Handles double-clicking an item in the selected_models_list."""
+        item_text = item.text()
+        
+        # Add to available_models_list if not already there
+        if not self.available_models_list.findItems(item_text, Qt.MatchExactly):
+            self.available_models_list.addItem(item_text)
+            self.available_models_list.sortItems()
+
+        # Remove from selected_models_list
+        row = self.selected_models_list.row(item)
+        self.selected_models_list.takeItem(row)
         
         self._emit_ensemble_model_list_changed()
 

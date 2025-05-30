@@ -43,7 +43,7 @@ class ExecutionControlView(QWidget):
         # --- END OF CORRECTION ---
         
         self.log_text_edit.setFixedHeight(100) # Give it a fixed height for now
-        self.log_text_edit.setStyleSheet("font-family: monospace; font-size: 10px;")
+        self.log_text_edit.setStyleSheet("font-family: \"Courier New\", Courier, monospace; font-size: 10px;")
         exec_layout.addWidget(self.log_text_edit)
 
         layout.addWidget(exec_group)

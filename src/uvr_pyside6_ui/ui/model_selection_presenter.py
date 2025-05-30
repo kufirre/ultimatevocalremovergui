@@ -73,6 +73,20 @@ class ModelSelectionPresenter(QObject):
 
         else:
             self._current_model = ""
+
+        # Manage ensemble view expansion state
+        # Ensure ensemble_view is accessed correctly via self.view (ModelSelectionView)
+        # which should have a way to get its panels, e.g., through widget_map.
+        ensemble_view_widget = self.view.widget_map.get(ac.ENSEMBLE_MODELS_KEY)
+        if ensemble_view_widget and hasattr(ensemble_view_widget, 'set_expanded_mode'):
+            if method == ac.ENSEMBLE_MODELS_KEY:
+                ensemble_view_widget.set_expanded_mode(True)
+            else:
+                # Ensure ensemble panel is contracted if another method is chosen
+                ensemble_view_widget.set_expanded_mode(False)
+        elif method == ac.ENSEMBLE_MODELS_KEY:
+            print(f"ModelSelectionPresenter: WARNING - Ensemble view widget not found or missing 'set_expanded_mode'.")
+
         self.view.show_settings_panel(self._current_method)
 
     @Slot(str)

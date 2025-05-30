@@ -9,12 +9,12 @@ from PySide6.QtWidgets import (
     QPushButton,
     QHBoxLayout,
     QComboBox,
-    QListWidgetItem, QGridLayout,
+    QListWidgetItem,
+    QGridLayout,
+    QSizePolicy,  # Moved from __init__ and set_expanded_mode
+    QScrollArea
 )
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QGroupBox, QLabel, QListWidget, QPushButton, QHBoxLayout, QComboBox, QListWidgetItem, QGridLayout, QSizePolicy, QScrollArea
-)
-from PySide6.QtCore import Signal, Slot, Qt
+from PySide6.QtCore import Signal, Slot, Qt # Qt was already here
 from typing import List
 from ..core import app_constants as ac  # For options
 import natsort
@@ -39,14 +39,11 @@ class EnsembleSettingsView(QWidget):
         # Create the main group
         settings_group = QGroupBox("Ensemble Configuration")
         # Don't force a large minimum, let scroll handle overflow
-        from PySide6.QtWidgets import QSizePolicy
         settings_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         # Do not set a fixed minimum width here; control it dynamically
         self._settings_group = settings_group  # For dynamic sizing
 
         # Main content layout inside group
-        from PySide6.QtWidgets import QSizePolicy
-        from PySide6.QtCore import Qt
         main_vbox = QVBoxLayout()
         main_vbox.setContentsMargins(8, 8, 8, 8)
         main_vbox.setSpacing(14)
@@ -164,7 +161,7 @@ class EnsembleSettingsView(QWidget):
         Dynamically adjust the size of the ensemble settings panel.
         Call with True when ensemble mode is selected, False otherwise.
         """
-        from PySide6.QtWidgets import QSizePolicy
+        # QSizePolicy is now imported at the top of the file
         # Remove all stretches at the end
         while self._main_vbox.count() > 0 and self._main_vbox.itemAt(self._main_vbox.count()-1) is not None and self._main_vbox.itemAt(self._main_vbox.count()-1).spacerItem() is not None:
             self._main_vbox.takeAt(self._main_vbox.count()-1)
@@ -180,16 +177,21 @@ class EnsembleSettingsView(QWidget):
             self._main_vbox.addStretch(1)
             self.show()
         else:
-            self._settings_group.setMinimumHeight(0)
+            # When not expanded, allow the widget to shrink to its preferred size or less
+            self._settings_group.setMinimumHeight(0) 
+            self._settings_group.setMaximumHeight(16777215) # QWIDGETSIZE_MAX (allow it to be as tall as needed by other panels)
             self._settings_group.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+            
+            self._scroll.setMaximumHeight(16777215) # QWIDGETSIZE_MAX
             self._scroll.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-            self._settings_group.setMaximumHeight(200)
-            self._scroll.setMaximumHeight(200)
-            # Optionally, shrink the lists
-            self.available_models_list.setMinimumHeight(40)
-            self.selected_models_list.setMinimumHeight(40)
-            # Optionally: self.hide()  # Uncomment to hide panel entirely when not in ensemble mode
+            
+            # Reset list heights to something small or rely on their content sizeHint
+            self.available_models_list.setMinimumHeight(40) # Small default when not expanded
+            self.selected_models_list.setMinimumHeight(40)  # Small default when not expanded
 
+        # Update the layout to reflect size policy changes and inform parent layouts
+        self.layout().activate() 
+        self.updateGeometry()
 
         # --- Connect Signals ---
         # Double-click available model to add to ensemble

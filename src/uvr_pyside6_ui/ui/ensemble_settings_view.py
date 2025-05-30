@@ -45,12 +45,12 @@ class EnsembleSettingsView(QWidget):
 
         # Main content layout inside group
         main_vbox = QVBoxLayout()
-        main_vbox.setContentsMargins(8, 8, 8, 8)
-        main_vbox.setSpacing(14)
+        main_vbox.setContentsMargins(5, 5, 5, 5) # Reduced margins
+        main_vbox.setSpacing(10) # Reduced spacing
 
         # --- Algorithm/Selector Row ---
         algo_row = QHBoxLayout()
-        algo_row.setSpacing(18)
+        algo_row.setSpacing(10) # Reduced spacing
         stem_pair_label = QLabel("Main Stem Pair:")
         self.stem_pair_combo = QComboBox()
         self.stem_pair_combo.addItems(ac.ENSEMBLE_MAIN_STEM_OPTIONS)
@@ -60,7 +60,7 @@ class EnsembleSettingsView(QWidget):
         self.algorithm_combo.currentTextChanged.connect(self.ensemble_algorithm_changed)
         algo_row.addWidget(stem_pair_label)
         algo_row.addWidget(self.stem_pair_combo)
-        algo_row.addSpacing(24)
+        algo_row.addSpacing(10) # Reduced spacing
         algo_row.addWidget(algo_label)
         algo_row.addWidget(self.algorithm_combo)
         algo_row.addStretch(1)
@@ -68,10 +68,10 @@ class EnsembleSettingsView(QWidget):
 
         # --- Model Selection Section ---
         models_hbox = QHBoxLayout()
-        models_hbox.setSpacing(8)
+        models_hbox.setSpacing(5) # Reduced spacing
         # Available Models
         available_models_group = QGroupBox("Available Models (Local Library)")
-        available_models_group.setMinimumWidth(200)
+        available_models_group.setMinimumWidth(150) # Reduced minimum width
         available_models_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         available_models_layout = QVBoxLayout(available_models_group)
         self.available_models_list = QListWidget()
@@ -95,7 +95,7 @@ class EnsembleSettingsView(QWidget):
         transfer_buttons_layout.addStretch(1)
         # Models for Ensemble
         selected_models_group = QGroupBox("Models for Ensemble")
-        selected_models_group.setMinimumWidth(200)
+        selected_models_group.setMinimumWidth(150) # Reduced minimum width
         selected_models_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         selected_models_layout = QVBoxLayout(selected_models_group)
         self.selected_models_list = QListWidget()

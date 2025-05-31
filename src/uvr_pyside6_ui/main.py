@@ -9,8 +9,7 @@ def run():
     # Debug print removed
     app = QApplication(sys.argv)
 
-    # You might want to apply a style or theme here later
-    # For example: app.setStyle("Fusion")
+    app.setStyle("Fusion") # Apply Fusion style
 
     main_window = MainWindowView()
     main_window.show()

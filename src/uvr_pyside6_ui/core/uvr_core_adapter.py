@@ -1,12 +1,14 @@
-from PySide6.QtCore import QObject, Signal, QTimer, QThread, QStandardPaths
-import time
+from PySide6.QtCore import QObject, Signal, QTimer, QStandardPaths # QThread removed
+import time # For download_model_mock's QTimer and time.sleep if used elsewhere
 from pathlib import Path
-import os
+# import os # Removed as pathlib should cover its uses
 import json
 import natsort
 import requests
 
 from . import app_constants as ac
+# Import the new ProcessingThread
+from .processing_worker import ProcessingThread
 
 # ... (MODEL_SUBDIRS and other constants as in response #35, ensure ac.ENSEMBLE_MODELS_KEY is used) ...
 MODEL_SUBDIRS = {
@@ -24,41 +26,17 @@ MAPPER_FILE_REL_PATH = Path("model_data") / "model_name_mapper.json"
 EXCLUDED_FILENAMES_STEMS = ["model_data", "model_name_mapper", "download_links"]
 
 
-class MockProcessingWorker(QObject):  # Unchanged
-    progress_updated = Signal(int, str)
-    processing_finished = Signal(bool, str)
-
-    def __init__(self, settings_dict):
-        super().__init__(); self.settings = settings_dict; self._is_running = True
-
-    def run(self):
-        # Debug print removed
-        try:
-            for i in range(11):
-                if not self._is_running: self.processing_finished.emit(False, "Processing Canceled"); return
-                progress = i * 10
-                message = f"Processing step {i}/10..."
-                self.progress_updated.emit(progress, message)
-                time.sleep(0.5)
-            self.processing_finished.emit(True, "Processing Completed Successfully!")
-        except Exception as e:
-            self.processing_finished.emit(False, f"Error during processing: {e}")
-
-    def stop(self):
-        self._is_running = False
-
-
 class UVRCoreAdapter(QObject):
-    progress_updated = Signal(int, str)
-    processing_finished = Signal(bool, str)
+    progress_updated = Signal(int, str) # Emitted by RealProcessingWorker, relayed by ProcessingThread
+    processing_finished = Signal(bool, str) # Emitted by RealProcessingWorker, relayed by ProcessingThread
     download_progress = Signal(str, int)  # model_display_name, percentage
     # MODIFIED SIGNAL: Add model_type_ui_name
     download_finished = Signal(str, str, bool, str)  # model_type_ui_name, model_display_name, success, message
 
-    def __init__(self, parent=None):  # Unchanged
+    def __init__(self, parent=None):
         super().__init__(parent)
-        self.processing_thread = None
-        self.worker = None
+        self.processing_thread: ProcessingThread | None = None # Use the new ProcessingThread
+        # self.worker is now managed by ProcessingThread, so it's removed from here
         self._online_catalog_data_cache: dict | None = None
         self._local_catalog_cache_file_path = self._get_local_catalog_cache_file_path()
         # Debug print removed
@@ -298,27 +276,32 @@ class UVRCoreAdapter(QObject):
                 final_display_names.append(display_name)
         return natsort.natsorted(list(set(final_display_names)))
 
-    def start_processing(self, settings_dict: dict):  # Unchanged
+    def start_processing(self, settings_dict: dict):
         # Debug print removed
         if self.processing_thread and self.processing_thread.isRunning():
             # Debug print removed
-            return # Or raise an error/emit a signal
-        self.worker = MockProcessingWorker(settings_dict)
-        self.processing_thread = QThread()
-        self.worker.moveToThread(self.processing_thread)
-        self.processing_thread.started.connect(self.worker.run)
-        self.worker.progress_updated.connect(self.progress_updated)
-        self.worker.processing_finished.connect(self.processing_finished)
-        self.worker.processing_finished.connect(self.processing_thread.quit)
-        self.worker.processing_finished.connect(self.worker.deleteLater)
+            # Optionally, emit a signal here indicating processing is already active
+            return
+
+        # Use the new ProcessingThread
+        self.processing_thread = ProcessingThread(settings_dict)
+        
+        # Connect signals from the thread (which relays them from the worker)
+        self.processing_thread.progress_updated.connect(self.progress_updated)
+        self.processing_thread.processing_finished.connect(self.processing_finished)
+        
+        # Clean up thread when finished
         self.processing_thread.finished.connect(self.processing_thread.deleteLater)
+        
         # Debug print removed
         self.processing_thread.start()
 
-    def stop_processing(self):  # Unchanged
-        if self.worker and self.processing_thread and self.processing_thread.isRunning():
+    def stop_processing(self):
+        if self.processing_thread and self.processing_thread.isRunning():
             # Debug print removed
-            self.worker.stop()
+            self.processing_thread.stop_processing() # Call the method on our ProcessingThread
+            # The thread will manage stopping its worker.
+            # We might want to wait for it to actually finish or provide a timeout.
         else:
             # Debug print removed
             pass # Or emit a signal

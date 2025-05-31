@@ -1,0 +1,62 @@
+/* Basic QSS Stylesheet for UVR PySide6 App */
+
+QWidget {
+    /* font-family: "Century Gothic"; */ /* Example: We'll need to load fonts properly */
+    /* color: #e0e0e0; */ /* Light text for a dark theme */
+    /* background-color: #2c2c2c; */ /* Dark background */
+}
+
+QMainWindow {
+    /* background-color: #232323; */ /* Slightly different for main window */
+}
+
+QPushButton {
+    /* background-color: #4a4a4a; */
+    /* border: 1px solid #5a5a5a; */
+    /* padding: 5px; */
+    /* border-radius: 3px; */
+}
+
+QPushButton:hover {
+    /* background-color: #5a5a5a; */
+}
+
+QPushButton:pressed {
+    /* background-color: #6a6a6a; */
+}
+
+QLineEdit, QTextEdit, QSpinBox, QDoubleSpinBox, QComboBox {
+    /* background-color: #3c3c3c; */
+    /* border: 1px solid #5a5a5a; */
+    /* padding: 3px; */
+    /* border-radius: 3px; */
+}
+
+QProgressBar {
+    /* border: 1px solid #5a5a5a; */
+    /* border-radius: 3px; */
+    /* text-align: center; */
+}
+
+QProgressBar::chunk {
+    /* background-color: #0078d7; */ /* A blue accent color */
+    /* width: 10px; */
+    /* margin: 0.5px; */
+}
+
+QGroupBox {
+    /* font-weight: bold; */
+    /* border: 1px solid #4a4a4a; */
+    /* margin-top: 10px; */
+    /* padding-top: 10px; */
+    /* border-radius: 3px; */
+}
+
+QGroupBox::title {
+    /* subcontrol-origin: margin; */
+    /* subcontrol-position: top left; */
+    /* padding: 0 3px; */
+    /* left: 7px; */
+}
+
+/* Add more specific styles as needed */

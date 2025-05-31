@@ -1,0 +1,31 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource prefix="/uvr">
+    <file alias="fonts/CenturyGothic.ttf">../../gui_data/fonts/centurygothic/GOTHIC.ttf</file>
+    <file alias="fonts/Montserrat.ttf">../../gui_data/fonts/Montserrat/Montserrat.ttf</file>
+
+    <file alias="img/clear.png">../../gui_data/img/clear.png</file>
+    <file alias="img/copy.png">../../gui_data/img/copy.png</file>
+    <file alias="img/credits.png">../../gui_data/img/credits.png</file>
+    <file alias="img/donate.png">../../gui_data/img/donate.png</file>
+    <file alias="img/down.png">../../gui_data/img/down.png</file>
+    <file alias="img/download.png">../../gui_data/img/download.png</file>
+    <file alias="img/File.png">../../gui_data/img/File.png</file>
+    <file alias="img/GUI-Icon.ico">../../gui_data/img/GUI-Icon.ico</file>
+    <file alias="img/GUI-Icon.png">../../gui_data/img/GUI-Icon.png</file>
+    <file alias="img/help.png">../../gui_data/img/help.png</file>
+    <file alias="img/key.png">../../gui_data/img/key.png</file>
+    <file alias="img/left.png">../../gui_data/img/left.png</file>
+    <file alias="img/pause.png">../../gui_data/img/pause.png</file>
+    <file alias="img/play.png">../../gui_data/img/play.png</file>
+    <file alias="img/right.png">../../gui_data/img/right.png</file>
+    <file alias="img/splash.bmp">../../gui_data/img/splash.bmp</file>
+    <file alias="img/stop_player.png">../../gui_data/img/stop_player.png</file>
+    <file alias="img/stop.png">../../gui_data/img/stop.png</file>
+    <file alias="img/up.png">../../gui_data/img/up.png</file>
+    <file alias="img/UVR_v5.6.png">../../gui_data/img/UVR_v5.6.png</file>
+    <file alias="img/UVR-banner.png">../../gui_data/img/UVR-banner.png</file>
+    <file alias="img/UVR.icns">../../gui_data/img/UVR.icns</file>
+    
+    <file alias="theme/style.qss">ui/theme/style.qss</file>
+</qresource>
+</RCC>

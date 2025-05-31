@@ -1,9 +1,9 @@
 """Presenter for the settings and download center dialogs."""
 
 from pathlib import Path
-
-from PySide6.QtCore import QObject, Slot
-from PySide6.QtWidgets import QWidget, QMessageBox  # Added QMessageBox
+import json
+from PySide6.QtCore import QObject, Slot, QStandardPaths
+from PySide6.QtWidgets import QWidget, QMessageBox
 from .settings_dialog_view import SettingsDialogView
 from ..core.uvr_core_adapter import UVRCoreAdapter
 from ..core import app_constants as ac
@@ -17,23 +17,48 @@ class SettingsDialogPresenter(QObject):
         self.view: SettingsDialogView | None = None
         self.adapter = adapter
         self._full_online_catalog: dict = {}
-        self._current_settings = {
+        self._settings_file_path = self._get_settings_file_path()
+        self._current_settings = self._load_settings_from_store()
+        self._is_download_in_progress = False
+
+    def _get_settings_file_path(self) -> Path:
+        """Determines the path for the settings JSON file."""
+        # Using QStandardPaths for platform-agnostic config location
+        config_dir = Path(QStandardPaths.writableLocation(QStandardPaths.AppConfigLocation))
+        config_dir.mkdir(parents=True, exist_ok=True)
+        return config_dir / ac.APP_SETTINGS_FILENAME
+
+    def _load_settings_from_store(self) -> dict:
+        default_settings = {
             "check_updates": True, "theme": "Default",
             "default_output": str(Path.home() / "Music" / "UVR_Output"),
-            "models_dir": str(Path.home() / "Documents" / "UVR_Models"),
+            "models_dir": str(Path.home() / "Documents" / "UVR_Models"), # Default models dir
         }
-        self._is_download_in_progress = False  # NEW state variable
-        # Debug print removed
-
-    # ... (_load_settings_from_store, _save_settings_to_store as before) ...
-    def _load_settings_from_store(self) -> dict:
-        # Debug print removed
-        return self._current_settings.copy()
+        if self._settings_file_path.exists():
+            try:
+                with open(self._settings_file_path, 'r', encoding='utf-8') as f:
+                    loaded_settings = json.load(f)
+                    # Merge with defaults to ensure all keys are present
+                    default_settings.update(loaded_settings)
+                    return default_settings
+            except (json.JSONDecodeError, IOError) as e:
+                print(f"Error loading settings from {self._settings_file_path}: {e}. Using defaults.")
+                return default_settings
+        return default_settings
 
     @Slot(dict)
     def _save_settings_to_store(self, settings_data: dict):
-        # Debug print removed
         self._current_settings.update(settings_data)
+        try:
+            with open(self._settings_file_path, 'w', encoding='utf-8') as f:
+                json.dump(self._current_settings, f, indent=4)
+            if self.view: # Update status if view is available
+                 self.view.show_status_message("Settings saved.", 2000)
+        except IOError as e:
+            print(f"Error saving settings to {self._settings_file_path}: {e}")
+            if self.view:
+                QMessageBox.warning(self.view, "Save Error", f"Could not save settings: {e}")
+
 
     def _populate_download_center_on_show(self, default_model_type: str | None = None):
         if not self.view: return

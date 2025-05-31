@@ -1,5 +1,6 @@
 # src/uvr_pyside6_ui/core/app_constants.py
 from pathlib import Path
+import platform
 
 # --- Online Catalog and Cache ---
 DOWNLOAD_CHECKS_URL = "https://raw.githubusercontent.com/TRvlvr/application_data/main/filelists/download_checks.json"

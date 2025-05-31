@@ -43,7 +43,7 @@ class ExecutionControlPresenter(QObject):
         settings = proc_set.get_settings()
 
         all_settings.update({
-            "input_path": input_path,
+            "input_paths": [input_path] if input_path else [], # Pass as a list
             "output_path": output_path,
         })
         all_settings.update(model_details)
@@ -78,10 +78,10 @@ class ExecutionControlPresenter(QObject):
                 self.view.append_log_message(f"  {k}: {v}")
             self.view.append_log_message("------------------")
 
-            if not settings_dict.get("input_path") or not settings_dict.get("output_path"):
+            if not settings_dict.get("input_paths") or not settings_dict.get("output_path"): # Check input_paths
                 raise ValueError("Input and Output paths must be set!")
 
-            # --- Call the Adapter (NEW) ---
+            # --- Call the Adapter ---
             self.adapter.start_processing(settings_dict)
             self.view.set_start_button_text("Processing...")
             self.view.set_progress_text("Waiting for process...")

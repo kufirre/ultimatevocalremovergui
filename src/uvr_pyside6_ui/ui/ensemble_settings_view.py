@@ -2,10 +2,11 @@
 
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QGroupBox, QLabel, QListWidget, QPushButton, QHBoxLayout,
     QComboBox, QListWidgetItem, QGridLayout)
-from PySide6.QtCore import Signal, Slot, Qt
+from PySide6.QtGui import QIcon # Import QIcon
+from PySide6.QtCore import Signal, Slot, Qt, QSize # Import QSize
 from PySide6.QtWidgets import QSizePolicy, QScrollArea
 from typing import List
-from ..core import app_constants as ac  # For options
+from ..core import app_constants as ac
 import natsort
 
 
@@ -31,39 +32,66 @@ class EnsembleSettingsView(QWidget):
         # Main content layout inside group
         settings_grid = QGridLayout()
         settings_grid.setContentsMargins(8, 8, 8, 8)
-        settings_grid.setSpacing(6)
+        settings_grid.setSpacing(10)
 
-        # --- Algorithm/Selector Row ---
+        # --- Algorithm/Selector Row (Row 0) ---
+        # This row will span 3 logical columns of the main model selection area below.
+        # Group stem pair controls
+        stem_pair_controls_layout = QHBoxLayout()
         stem_pair_label = QLabel("Main Stem Pair:")
         self.stem_pair_combo = QComboBox()
         self.stem_pair_combo.addItems(ac.ENSEMBLE_MAIN_STEM_OPTIONS)
         self.stem_pair_combo.currentTextChanged.connect(self.main_stem_pair_changed)
-
+        stem_pair_controls_layout.addWidget(stem_pair_label)
+        stem_pair_controls_layout.addWidget(self.stem_pair_combo, 1)
+        
+        # Group algorithm controls
+        algo_controls_layout = QHBoxLayout()
         algo_label = QLabel("Ensemble Algorithm:")
         self.algorithm_combo = QComboBox()
         self.algorithm_combo.currentTextChanged.connect(self.ensemble_algorithm_changed)
+        algo_controls_layout.addWidget(algo_label)
+        algo_controls_layout.addWidget(self.algorithm_combo, 1)
 
-        settings_grid.addWidget(stem_pair_label, 0, 0)
-        settings_grid.addWidget(self.stem_pair_combo, 0, 1)
-        settings_grid.addWidget(algo_label, 0, 2)
-        settings_grid.addWidget(self.algorithm_combo, 0, 3)
+        # Add these groups to the grid.
+        # To make them appear side-by-side and reasonably balanced over 3 main columns:
+        # Add stem_pair_controls_layout to col 0, spanning 1 logical column.
+        # Add algo_controls_layout to col 1, spanning 2 logical columns.
+        settings_grid.addLayout(stem_pair_controls_layout, 0, 0) # Takes up grid column 0
+        settings_grid.addLayout(algo_controls_layout, 0, 1, 1, 2) # Takes up grid columns 1 and 2
 
-        # --- Model Selection Section ---
+        # --- Model Selection Section (Row 1) ---
         available_models_group = QGroupBox("Available Models (Local Library)")
         available_models_layout = QVBoxLayout(available_models_group)
         self.available_models_list = QListWidget()
         self.available_models_list.setSelectionMode(QListWidget.ExtendedSelection)
-        # Remove minimum height, let scroll area manage height
+        self.available_models_list.setMinimumHeight(180)
         self.available_models_list.setSizePolicy(self.available_models_list.sizePolicy().horizontalPolicy(), QSizePolicy.Expanding)
         available_models_layout.addWidget(self.available_models_list)
 
         transfer_buttons_widget = QWidget()
         transfer_buttons_layout = QVBoxLayout(transfer_buttons_widget)
         transfer_buttons_layout.addStretch()
-        self.add_to_ensemble_button = QPushButton(">")
+        self.add_to_ensemble_button = QPushButton("")
         self.add_to_ensemble_button.setToolTip("Add selected to ensemble list")
-        self.remove_from_ensemble_button = QPushButton("<")
+        try:
+            add_icon = QIcon(":/uvr/img/right.png")
+            if not add_icon.isNull():
+                self.add_to_ensemble_button.setIcon(add_icon)
+                self.add_to_ensemble_button.setIconSize(QSize(20, 20))
+        except Exception as e:
+            print(f"Error loading add_icon for ensemble button: {e}")
+        
+        self.remove_from_ensemble_button = QPushButton("")
         self.remove_from_ensemble_button.setToolTip("Remove selected from ensemble list")
+        try:
+            remove_icon = QIcon(":/uvr/img/left.png")
+            if not remove_icon.isNull():
+                self.remove_from_ensemble_button.setIcon(remove_icon)
+                self.remove_from_ensemble_button.setIconSize(QSize(20, 20))
+        except Exception as e:
+            print(f"Error loading remove_icon for ensemble button: {e}")
+
         self.add_to_ensemble_button.setMaximumWidth(36)
         self.remove_from_ensemble_button.setMaximumWidth(36)
         transfer_buttons_layout.addWidget(self.add_to_ensemble_button)
@@ -74,18 +102,34 @@ class EnsembleSettingsView(QWidget):
         selected_models_layout = QVBoxLayout(selected_models_group)
         self.selected_models_list = QListWidget()
         self.selected_models_list.setSelectionMode(QListWidget.ExtendedSelection)
+        self.selected_models_list.setMinimumHeight(180) # Increased minimum height
         self.selected_models_list.setSizePolicy(self.selected_models_list.sizePolicy().horizontalPolicy(), QSizePolicy.Expanding)
         selected_models_layout.addWidget(self.selected_models_list)
 
-        # Set relative sizing using stretch on grid columns/rows
-        settings_grid.addWidget(available_models_group, 1, 0, 1, 2)
-        settings_grid.addWidget(transfer_buttons_widget, 1, 2)
-        settings_grid.addWidget(selected_models_group, 1, 3, 1, 1)
-        settings_grid.setColumnStretch(0, 2)
-        settings_grid.setColumnStretch(1, 2)
-        settings_grid.setColumnStretch(2, 0)
-        settings_grid.setColumnStretch(3, 2)
+        # Add widgets for Row 1 (Model lists and transfer buttons)
+        settings_grid.addWidget(available_models_group, 1, 0)
+        settings_grid.addWidget(transfer_buttons_widget, 1, 1, Qt.AlignCenter) # Buttons centered in their column
+        settings_grid.addWidget(selected_models_group, 1, 2)
+
+        # Set column stretches for the 3-column layout of Row 1
+        settings_grid.setColumnStretch(0, 1)  # Available Models list takes 1 part of stretchable space
+        settings_grid.setColumnStretch(1, 0)  # Transfer buttons column takes minimal space
+        settings_grid.setColumnStretch(2, 1)  # Selected Models list takes 1 part of stretchable space
+        
+        # Ensure Row 1 (containing the lists) can expand vertically
         settings_grid.setRowStretch(1, 1)
+
+        # --- Ensemble Management Actions (Row 2) ---
+        # This row will span all 3 columns of the model selection area.
+        ensemble_actions_layout = QHBoxLayout()
+        self.ensemble_actions_combo = QComboBox()
+        self.ensemble_actions_combo.addItem("--- Ensemble Actions ---")
+        self.ensemble_actions_combo.addItem(ac.ENSEMBLE_ACTION_LOAD)
+        self.ensemble_actions_combo.addItem(ac.ENSEMBLE_ACTION_SAVE_AS)
+        self.ensemble_actions_combo.addItem(ac.ENSEMBLE_ACTION_CLEAR_SELECTION)
+        self.ensemble_actions_combo.activated[int].connect(self._handle_ensemble_action_by_index)
+        ensemble_actions_layout.addWidget(self.ensemble_actions_combo, 1) # Combo takes available space
+        settings_grid.addLayout(ensemble_actions_layout, 2, 0, 1, 3) # Span 3 columns
 
         # Place the grid into a widget (for scroll area compatibility)
         grid_widget = QWidget()
@@ -99,16 +143,8 @@ class EnsembleSettingsView(QWidget):
         group_layout = QVBoxLayout(settings_group)
         group_layout.addWidget(scroll)
 
-        # --- Ensemble Management Actions ---
-        ensemble_actions_layout = QHBoxLayout()
-        self.ensemble_actions_combo = QComboBox()
-        self.ensemble_actions_combo.addItem("--- Ensemble Actions ---")
-        self.ensemble_actions_combo.addItem(ac.ENSEMBLE_ACTION_LOAD)
-        self.ensemble_actions_combo.addItem(ac.ENSEMBLE_ACTION_SAVE_AS)
-        self.ensemble_actions_combo.addItem(ac.ENSEMBLE_ACTION_CLEAR_SELECTION)
-        self.ensemble_actions_combo.activated[int].connect(self._handle_ensemble_action_by_index)
-        ensemble_actions_layout.addWidget(self.ensemble_actions_combo, 1)
-        settings_grid.addLayout(ensemble_actions_layout, 2, 0, 1, 4)
+        # The ensemble_actions_layout is now correctly defined and added to settings_grid earlier,
+        # spanning 3 columns. This redundant block with a 4-column span is removed.
 
         layout.addWidget(settings_group)
         self.setLayout(layout)
@@ -122,8 +158,8 @@ class EnsembleSettingsView(QWidget):
         # When items in selected_models_list change (e.g. due to add/remove/clear), notify presenter
         self.selected_models_list.model().rowsInserted.connect(self._emit_ensemble_model_list_changed)
         self.selected_models_list.model().rowsRemoved.connect(self._emit_ensemble_model_list_changed)
-        
-        print("EnsembleSettingsView Initialized with two-panel layout.")
+        # Double-click selected model to remove from ensemble
+        self.selected_models_list.itemDoubleClicked.connect(self._on_remove_from_ensemble_double_click)
 
     def _on_add_to_ensemble_double_click(self, item: QListWidgetItem):
         """Handles double-clicking an item in the available_models_list."""
@@ -136,7 +172,24 @@ class EnsembleSettingsView(QWidget):
 
         # Remove from available_models_list
         row = self.available_models_list.row(item)
-        self.available_models_list.takeItem(row)
+        if row != -1: # Ensure item is still in the list
+            self.available_models_list.takeItem(row)
+        
+        self._emit_ensemble_model_list_changed()
+
+    def _on_remove_from_ensemble_double_click(self, item: QListWidgetItem):
+        """Handles double-clicking an item in the selected_models_list."""
+        item_text = item.text()
+
+        # Add back to available_models_list if not already there
+        if not self.available_models_list.findItems(item_text, Qt.MatchExactly):
+            self.available_models_list.addItem(item_text)
+            self.available_models_list.sortItems() # Sort after adding
+
+        # Remove from selected_models_list
+        row = self.selected_models_list.row(item)
+        if row != -1: # Ensure item is still in the list
+            self.selected_models_list.takeItem(row)
         
         self._emit_ensemble_model_list_changed()
 

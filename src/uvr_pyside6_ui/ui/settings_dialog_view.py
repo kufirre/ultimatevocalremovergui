@@ -1,10 +1,10 @@
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QTabWidget, QWidget, QFormLayout,
     QLineEdit, QCheckBox, QPushButton, QDialogButtonBox,
-    QLabel, QComboBox, QListWidget, QHBoxLayout, QMessageBox  # Added QMessageBox
+    QLabel, QComboBox, QListWidget, QHBoxLayout, QMessageBox
 )
-from PySide6.QtCore import Signal, Slot
-from PySide6.QtGui import QCloseEvent  # Added QCloseEvent
+from PySide6.QtGui import QIcon, QCloseEvent
+from PySide6.QtCore import Signal, Slot, QSize
 
 
 class SettingsDialogView(QDialog):
@@ -31,7 +31,13 @@ class SettingsDialogView(QDialog):
         self.theme_combo.addItems(["Default", "Dark", "Light"])
         general_layout.addRow(self.check_updates_checkbox)
         general_layout.addRow(QLabel("Theme:"), self.theme_combo)
-        self.tab_widget.addTab(general_tab, "General")
+        try:
+            general_icon = QIcon(":/uvr/img/key.png")
+            self.tab_widget.addTab(general_tab, general_icon, "General")
+        except Exception as e:
+            print(f"Error loading general_icon for settings tab: {e}")
+            self.tab_widget.addTab(general_tab, "General")
+
 
         # Paths Tab
         paths_tab = QWidget()
@@ -40,7 +46,12 @@ class SettingsDialogView(QDialog):
         self.models_dir_edit = QLineEdit()
         paths_layout.addRow(QLabel("Default Output Folder:"), self.default_output_edit)
         paths_layout.addRow(QLabel("Models Directory:"), self.models_dir_edit)
-        self.tab_widget.addTab(paths_tab, "Paths")
+        try:
+            paths_icon = QIcon(":/uvr/img/File.png")
+            self.tab_widget.addTab(paths_tab, paths_icon, "Paths")
+        except Exception as e:
+            print(f"Error loading paths_icon for settings tab: {e}")
+            self.tab_widget.addTab(paths_tab, "Paths")
 
         # Download Center Tab
         self.download_center_tab = QWidget()
@@ -57,11 +68,23 @@ class SettingsDialogView(QDialog):
         dc_main_layout.addWidget(dc_list_label)
         dc_main_layout.addWidget(self.dc_downloadable_models_list, 1)
         self.dc_download_button = QPushButton("Download Selected Model")
+        try:
+            download_icon = QIcon(":/uvr/img/download.png")
+            if not download_icon.isNull():
+                self.dc_download_button.setIcon(download_icon)
+                self.dc_download_button.setIconSize(QSize(16,16)) # Adjust as needed
+        except Exception as e:
+            print(f"Error loading download_icon for button: {e}")
         self.dc_download_button.setEnabled(False)
         dc_main_layout.addWidget(self.dc_download_button)
         self.dc_status_label = QLabel("Status: Idle")
         dc_main_layout.addWidget(self.dc_status_label)
-        self.tab_widget.addTab(self.download_center_tab, "Download Center")
+        try:
+            dc_tab_icon = QIcon(":/uvr/img/download.png")
+            self.tab_widget.addTab(self.download_center_tab, dc_tab_icon, "Download Center")
+        except Exception as e:
+            print(f"Error loading dc_tab_icon for settings tab: {e}")
+            self.tab_widget.addTab(self.download_center_tab, "Download Center")
 
         self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         self.button_box.accepted.connect(self.accept)

@@ -1,10 +1,10 @@
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QGroupBox, QPushButton, 
-    QProgressBar, QTextEdit # <-- Make sure QTextEdit is here
+    QWidget, QVBoxLayout, QGroupBox, QPushButton,
+    QProgressBar, QTextEdit
 )
-from PySide6.QtCore import Signal, Slot
-# We don't need QTextOption for this anymore
-# from PySide6.QtGui import QTextOption 
+from PySide6.QtGui import QIcon # Import QIcon
+from PySide6.QtCore import Signal, Slot, QSize # Import QSize
+
 
 class ExecutionControlView(QWidget):
     """
@@ -24,7 +24,16 @@ class ExecutionControlView(QWidget):
 
         # --- Start/Stop Button ---
         self.start_button = QPushButton("Start Processing")
-        self.start_button.setStyleSheet("font-size: 14px; padding: 10px;") # A bit more prominent
+        self.start_button.setObjectName("prominentButton") # Set object name for QSS
+        try:
+            play_icon = QIcon(":/uvr/img/play.png")
+            if not play_icon.isNull():
+                self.start_button.setIcon(play_icon)
+                self.start_button.setIconSize(QSize(18, 18)) # Adjust size as needed
+            else:
+                print("Warning: Could not load play.png icon for Start button.")
+        except Exception as e:
+            print(f"Error loading play icon: {e}")
         self.start_button.clicked.connect(self.start_processing_clicked)
         exec_layout.addWidget(self.start_button)
 
@@ -38,18 +47,14 @@ class ExecutionControlView(QWidget):
         self.log_text_edit = QTextEdit()
         self.log_text_edit.setReadOnly(True)
         
-        # --- THIS IS THE CORRECTED LINE ---
-        self.log_text_edit.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap) 
-        # --- END OF CORRECTION ---
+        self.log_text_edit.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
         
         self.log_text_edit.setFixedHeight(100) # Give it a fixed height for now
-        self.log_text_edit.setStyleSheet("font-family: \"Courier New\", Courier, monospace; font-size: 10px;")
+        self.log_text_edit.setObjectName("logConsole") # Set object name for QSS
         exec_layout.addWidget(self.log_text_edit)
 
         layout.addWidget(exec_group)
         self.setLayout(layout)
-
-        # Debug print removed
 
     # --- Slots (Called by the Presenter) ---
 

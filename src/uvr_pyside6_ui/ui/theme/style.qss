@@ -163,3 +163,17 @@ QToolTip {
     padding: 4px;
     border-radius: 3px;
 }
+
+/* Specific object styles */
+QPushButton#prominentButton {
+    font-size: 12pt; /* Adjusted from 14px to 12pt for consistency with 10pt base */
+    padding: 10px 15px; /* Adjusted padding */
+    /* You can add other specific properties here if needed, like a different background or border */
+}
+
+QTextEdit#logConsole {
+    font-family: "Courier New", Courier, monospace;
+    font-size: 9pt; /* Adjusted from 10px to 9pt */
+    background-color: #1a252f; /* Slightly different background for log */
+    color: #c0c0c0; /* Lighter grey for log text */
+}

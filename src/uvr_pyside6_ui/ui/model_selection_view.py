@@ -1,9 +1,9 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QGroupBox, QComboBox,
-    QLabel, QHBoxLayout, QStackedWidget  # QCheckBox removed if it was only for ensemble
+    QLabel, QHBoxLayout, QStackedWidget
 )
 from PySide6.QtCore import Signal, Slot, Qt
-from PySide6.QtGui import QStandardItemModel, QStandardItem
+from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon # Import QIcon
 from typing import List, Dict
 from ..core import app_constants as ac
 
@@ -87,7 +87,16 @@ class ModelSelectionView(QWidget):
             has_actual_models = bool(models)
             if has_actual_models:
                 for model_name in models: self.model_combo_model.appendRow(QStandardItem(model_name))
-            self.model_combo_model.appendRow(QStandardItem(ac.DOWNLOAD_MORE_MODELS_TEXT))
+            
+            download_item = QStandardItem(ac.DOWNLOAD_MORE_MODELS_TEXT)
+            try:
+                dl_icon = QIcon(":/uvr/img/download.png")
+                if not dl_icon.isNull():
+                    download_item.setIcon(dl_icon)
+            except Exception as e:
+                print(f"Error loading download icon for model_combo item: {e}")
+            self.model_combo_model.appendRow(download_item)
+
             if has_actual_models:
                 self.model_combo.setCurrentIndex(0)
                 programmatic_selection_text = self.model_combo_model.item(0).text()

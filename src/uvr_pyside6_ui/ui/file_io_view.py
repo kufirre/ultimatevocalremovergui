@@ -2,7 +2,8 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QGroupBox, QHBoxLayout,
     QLineEdit, QPushButton, QFileDialog
 )
-from PySide6.QtCore import Signal, Slot
+from PySide6.QtGui import QIcon
+from PySide6.QtCore import Signal, Slot, QSize
 
 
 class FileIOView(QWidget):
@@ -33,10 +34,16 @@ class FileIOView(QWidget):
         input_hbox = QHBoxLayout()
         self.input_path_edit = QLineEdit()
         self.input_path_edit.setPlaceholderText("Select Input File(s) or Folder...")
-        # Connect textChanged to our signal
         self.input_path_edit.textChanged.connect(self.input_path_changed)
+        
         self.select_input_button = QPushButton("Browse...")
-        # Connect clicked to our signal
+        try:
+            browse_icon = QIcon(":/uvr/img/File.png")
+            if not browse_icon.isNull():
+                self.select_input_button.setIcon(browse_icon)
+                self.select_input_button.setIconSize(QSize(16, 16)) # Adjust as needed
+        except Exception as e:
+            print(f"Error loading browse_icon for input button: {e}")
         self.select_input_button.clicked.connect(self.select_input_clicked)
         input_hbox.addWidget(self.input_path_edit)
         input_hbox.addWidget(self.select_input_button)
@@ -47,7 +54,15 @@ class FileIOView(QWidget):
         self.output_path_edit = QLineEdit()
         self.output_path_edit.setPlaceholderText("Select Output Folder...")
         self.output_path_edit.textChanged.connect(self.output_path_changed)
+
         self.select_output_button = QPushButton("Browse...")
+        try:
+            browse_icon = QIcon(":/uvr/img/File.png") # Re-use the same icon object or QIcon(":/uvr/img/File.png")
+            if not browse_icon.isNull():
+                self.select_output_button.setIcon(browse_icon)
+                self.select_output_button.setIconSize(QSize(16, 16)) # Adjust as needed
+        except Exception as e:
+            print(f"Error loading browse_icon for output button: {e}")
         self.select_output_button.clicked.connect(self.select_output_clicked)
         output_hbox.addWidget(self.output_path_edit)
         output_hbox.addWidget(self.select_output_button)

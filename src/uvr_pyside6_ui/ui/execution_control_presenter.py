@@ -46,13 +46,16 @@ class ExecutionControlPresenter(QObject):
             "input_paths": [input_path] if input_path else [], # Pass as a list
             "output_path": output_path,
         })
-        all_settings.update(model_details)
+        # Add general processing settings
         all_settings.update(settings)
 
         # Add specific model settings based on selection
         method = model_details['method']
         if method in self.presenters:
             all_settings.update(self.presenters[method].get_settings())
+        
+        # Add model selection details last, so model_data can correctly pick up method and model
+        all_settings.update(model_details)
 
         return all_settings
 

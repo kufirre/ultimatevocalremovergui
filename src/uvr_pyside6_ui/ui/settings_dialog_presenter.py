@@ -93,9 +93,19 @@ class SettingsDialogPresenter(QObject):
     @Slot(str)
     def _on_dc_model_type_changed(self, model_type_name: str) -> None:
         """Populate the downloadable models list when the type changes."""
-        if not self.view or not self._full_online_catalog or not model_type_name:
+        if not self.view: # View might not be initialized yet
+            return
+            
+        # Reset status and progress bar when model type changes, if not downloading
+        if not self._is_download_in_progress:
+            self.view.dc_status_label.setText("Status: Idle")
+            if self.view.dc_progress_bar: # Check if progress bar exists
+                self.view.dc_progress_bar.setValue(0)
+
+        if not self._full_online_catalog or not model_type_name:
             self.view.set_downloadable_models_list([])
             return
+            
         downloadable_models_dict = self.adapter.get_downloadable_models_for_type(model_type_name)
         user_friendly_names_to_download = list(downloadable_models_dict.keys())
         if not user_friendly_names_to_download:
@@ -134,7 +144,10 @@ class SettingsDialogPresenter(QObject):
             self._is_download_in_progress = True
             self.view.set_download_in_progress_state(True)  # Disable controls in view
             self.view.dc_status_label.setText(f"Status: Starting download for {user_friendly_model_name}...")
-            self.adapter.download_model_mock(selected_ui_type, user_friendly_model_name, target_model_info)
+            if self.view.dc_progress_bar: # Ensure progress bar exists
+                self.view.dc_progress_bar.setValue(0)
+            # Call the real download method in the adapter
+            self.adapter.download_model(selected_ui_type, user_friendly_model_name, target_model_info)
         else:
             # ... (message handling as before) ...
             message = f"Status: Error: Could not find download target info for '{user_friendly_model_name}' in catalog."
@@ -173,8 +186,10 @@ class SettingsDialogPresenter(QObject):
 
     @Slot(str, int)
     def _on_adapter_download_progress(self, model_name: str, percentage: int):
-        if self.view and self.view.isVisible() and self.view.tab_widget.currentIndex() == 2:
+        if self.view and self.view.isVisible() and self.view.tab_widget.currentIndex() == 2: # Assuming Download Center is tab index 2
             self.view.dc_status_label.setText(f"Downloading {model_name}: {percentage}%")
+            if self.view.dc_progress_bar: # Ensure progress bar exists
+                self.view.dc_progress_bar.setValue(percentage)
 
     @Slot(str, str, bool, str)  # model_type_ui_name, model_display_name, success, message
     def _on_adapter_download_finished(self, model_type_ui_name: str, model_display_name: str, success: bool,
@@ -184,6 +199,10 @@ class SettingsDialogPresenter(QObject):
             self.view.set_download_in_progress_state(False)  # Re-enable controls in view
             if self.view.tab_widget.currentIndex() == 2:  # If Download Center is active tab
                 self.view.dc_status_label.setText(message)
+                if self.view.dc_progress_bar: # Ensure progress bar exists
+                    self.view.dc_progress_bar.setValue(100 if success else 0) # Show full or reset
+                    # Optionally reset to 0 after a short delay on success/failure
+                    # QTimer.singleShot(2000, lambda: self.view.dc_progress_bar.setValue(0))
                 if success:
                     # Debug print removed
                     self._on_dc_model_type_changed(model_type_ui_name)  # Use the type from the signal

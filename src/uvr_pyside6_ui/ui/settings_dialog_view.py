@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QTabWidget, QWidget, QFormLayout,
     QLineEdit, QCheckBox, QPushButton, QDialogButtonBox,
-    QLabel, QComboBox, QListWidget, QHBoxLayout, QMessageBox
+    QLabel, QComboBox, QListWidget, QHBoxLayout, QMessageBox, QProgressBar
 )
 from PySide6.QtGui import QIcon, QCloseEvent
 from PySide6.QtCore import Signal, Slot, QSize
@@ -79,6 +79,10 @@ class SettingsDialogView(QDialog):
         dc_main_layout.addWidget(self.dc_download_button)
         self.dc_status_label = QLabel("Status: Idle")
         dc_main_layout.addWidget(self.dc_status_label)
+        self.dc_progress_bar = QProgressBar()
+        self.dc_progress_bar.setValue(0)
+        self.dc_progress_bar.setTextVisible(True) # Show percentage text
+        dc_main_layout.addWidget(self.dc_progress_bar)
         try:
             dc_tab_icon = QIcon(":/uvr/img/download.png")
             self.tab_widget.addTab(self.download_center_tab, dc_tab_icon, "Download Center")
@@ -89,14 +93,27 @@ class SettingsDialogView(QDialog):
         self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         self.button_box.accepted.connect(self.accept)
         self.button_box.rejected.connect(self.reject)
+        
+        self.dialog_status_label = QLabel(" ") # General status label for the dialog
+        main_layout.addWidget(self.dialog_status_label)
         main_layout.addWidget(self.button_box)
+        
         self.setLayout(main_layout)
-        # Debug print removed
-        self.dc_downloadable_models_list.itemSelectionChanged.connect(
-            lambda: self.dc_download_button.setEnabled(
-                bool(self.dc_downloadable_models_list.selectedItems()) and not self._is_download_in_progress
-            )
-        )
+        
+        self.dc_downloadable_models_list.itemSelectionChanged.connect(self._on_dc_list_selection_changed)
+        # Initial state for download button
+        self._on_dc_list_selection_changed()
+
+
+    def _on_dc_list_selection_changed(self):
+        """Handles selection changes in the downloadable models list."""
+        has_selection = bool(self.dc_downloadable_models_list.selectedItems())
+        self.dc_download_button.setEnabled(has_selection and not self._is_download_in_progress)
+        
+        # Reset status and progress if selection changes or is cleared, and not downloading
+        if not self._is_download_in_progress:
+            self.dc_status_label.setText("Status: Idle")
+            self.dc_progress_bar.setValue(0)
 
     def set_download_in_progress_state(self, in_progress: bool):
         """Enable/disable controls based on download state."""
@@ -173,3 +190,19 @@ class SettingsDialogView(QDialog):
         self.default_output_edit.setText(settings_data.get("default_output", ""))
         self.models_dir_edit.setText(settings_data.get("models_dir", ""))
         # Debug print removed
+
+    def show_status_message(self, message: str, timeout: int = 0):
+        """Displays a message on the dialog's status label."""
+        self.dialog_status_label.setText(message)
+        if timeout > 0:
+            # Use QTimer to clear the message after the timeout
+            # Note: QStatusBar.showMessage has this built-in, but QLabel doesn't.
+            # For simplicity, if a status bar is added later, this can be improved.
+            # For now, the message will persist until overwritten or dialog closes if timeout is 0.
+            # If a temporary message is needed, the caller should handle clearing it or use dc_status_label for tab-specific messages.
+            # Let's make it simple: it just sets the text. Presenter can clear if needed.
+            # If timeout is used, we'd need a QTimer here.
+            # For now, let's assume the presenter wants a persistent message until next action.
+            pass 
+            # If you want timeout:
+            # QTimer.singleShot(timeout, lambda: self.dialog_status_label.setText(" "))

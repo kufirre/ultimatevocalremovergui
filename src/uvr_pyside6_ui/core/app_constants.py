@@ -3,7 +3,11 @@ from pathlib import Path
 import platform
 
 # --- Online Catalog and Cache ---
-DOWNLOAD_CHECKS_URL = "https://raw.githubusercontent.com/TRvlvr/application_data/main/filelists/download_checks.json"
+DOWNLOAD_CHECKS_URL = "https://raw.githubusercontent.com/TRvlvr/application_data/main/filelists/download_checks.json" # From UVR v5.6.0 constants
+MODEL_REPO_URL_BASE = "https://github.com/TRvlvr/model_repo/releases/download/all_public_uvr_models/" # From UVR v5.6.0 constants
+DEMUCS_URL_BASE = "https://dl.fbaipublicfiles.com/" # For some Demucs models
+DEMUCS_CONFIG_URL_BASE = "https://raw.githubusercontent.com/facebookresearch/demucs/main/demucs/remote/" # For Demucs .yaml configs
+
 CACHE_DIR_NAME = ".uvr_pyside6_cache"
 ONLINE_CATALOG_CACHE_FILENAME = "online_model_catalog_v2.json"
 
@@ -76,6 +80,12 @@ ENSEMBLE_ALGORITHM_OPTIONS = [
 ] # Based on UVR.py's ENSEMBLE_TYPE
 # For 4-Stem ensemble, UVR.py just uses Max Spec, Min Spec, Average directly. We can handle this in presenter.
 ENSEMBLE_ALGORITHM_4_STEM_OPTIONS = ["Max Spec", "Min Spec", "Average"]
+
+# Specific Ensemble Algorithm Types (used in logic and potentially in ensemble JSON files)
+AVERAGE_ENSEMBLE = "Average"
+MAX_SPEC_ENSEMBLE = "Max Spec"
+MIN_SPEC_ENSEMBLE = "Min Spec"
+DEMUCS_ENSEMBLE_TYPE = "Demucs Ensemble" # A special type for Demucs multi-stem ensembles
 
 # Text for model selection combo when in Ensemble mode (it doesn't have its own primary models)
 ENSEMBLE_MODEL_INFO_TEXT = "[Select models from Ensemble panel below]"
@@ -162,6 +172,7 @@ BV_VOCAL_STEM_I = "with_backing_vocals"  # Instrumental with backing
 LEAD_VOCAL_STEM_LABEL = "Lead Vocals"
 BV_VOCAL_STEM_LABEL = "Backing Vocals"
 NO_STEM_TEXT = "No " # Text prefix for "No Other", "No Bass" etc.
+DENOISE_NONE, DENOISE_S, DENOISE_M = 'None', 'Standard', 'Denoise Model'
 
 # --- Demucs Specific Mappers (extending existing ones) ---
 DEMUCS_2_SOURCE_MAPPER = {

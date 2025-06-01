@@ -1,8 +1,12 @@
 import sys
+import os # Added for path manipulation
+from pathlib import Path # Ensure Path is imported before use
+
+# Removed sys.path modification as per user request for pyproject.toml packaging
+
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QFile, QIODevice, QTextStream  # QFileDevice is in QtCore, but we don't need it here
 from PySide6.QtGui import QFontDatabase
-from pathlib import Path
 # Import the generated resources module
 from . import resources_rc # Assuming resources_rc.py is in the same directory
 # We use a relative import here because it's within the same package
@@ -11,7 +15,17 @@ from .ui.main_window_view import MainWindowView
 
 def run():
     """Initializes and runs the PySide6 application."""
-    # resources_rc module is imported, so resources are registered.
+    # Determine the base path of the application
+    if getattr(sys, 'frozen', False):
+        # If the application is run as a bundle, use PyInstaller's _MEIPASS
+        BASE_PATH = sys._MEIPASS
+    else:
+        # If run as a script, use the directory of this file
+        BASE_PATH = os.path.dirname(os.path.abspath(__file__))
+
+    # Change the current working directory to the base path
+    os.chdir(BASE_PATH)
+
     app = QApplication(sys.argv)
 
     app.setStyle("Fusion") # Apply Fusion style

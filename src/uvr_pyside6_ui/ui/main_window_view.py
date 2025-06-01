@@ -72,7 +72,7 @@ class MainWindowView(QMainWindow):
         self.presenters["model_selection"] = ModelSelectionPresenter(view=self.model_selection_view,
                                                                      adapter=self.adapter)
         self.presenters["model_selection"].request_show_download_center.connect(self._open_download_center_tab)
-        self.adapter.download_finished.connect(self.presenters["model_selection"]._on_model_downloaded_elsewhere)
+        # self.adapter.download_finished.connect(self.presenters["model_selection"]._on_model_downloaded_elsewhere) # Removed, ModelSelectionPresenter now uses model_download_completed
         self.model_selection_view.add_settings_panel("VR Arch", self.vr_arch_view)
         self.model_selection_view.add_settings_panel("MDX-Net", self.mdx_net_view)
         self.model_selection_view.add_settings_panel("Demucs", self.demucs_view)

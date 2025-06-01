@@ -17,7 +17,9 @@ class ModelSelectionPresenter(QObject):
         self._current_model = ""
         self.view.process_method_changed.connect(self.handle_method_change)
         self.view.model_selected_by_user.connect(self.process_model_selection)
-        self.adapter.download_finished.connect(self._on_model_downloaded_elsewhere)
+        # self.adapter.download_finished.connect(self._on_model_downloaded_elsewhere) # Replaced by model_download_completed
+        self.adapter.model_download_completed.connect(self._handle_model_list_refresh_on_download)
+
 
         self._available_methods = self.adapter.get_available_methods()
         self.view.set_process_methods(self._available_methods)
@@ -28,17 +30,14 @@ class ModelSelectionPresenter(QObject):
             # self.view.set_ensemble_checked(self._is_advanced_ensemble_options) # REMOVED
         # Debug print removed
 
-    @Slot(str, str, bool, str)
-    def _on_model_downloaded_elsewhere(
-        self,
-        model_type_ui_name: str,
-        model_display_name: str,
-        success: bool,
-        message: str,
-    ):
-    
-        """Refresh models if a download from another presenter completes."""
-        if success and model_type_ui_name == self._current_method:
+    @Slot(str)
+    def _handle_model_list_refresh_on_download(self, model_type_ui_name: str):
+        """
+        Slot to refresh the model list for the current method if a download
+        for that method type has just completed.
+        """
+        if model_type_ui_name == self._current_method:
+            # print(f"ModelSelectionPresenter: Refreshing model list for {model_type_ui_name} due to download completion.")
             self.handle_method_change(self._current_method)
 
     @Slot(str)

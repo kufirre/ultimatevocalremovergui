@@ -138,6 +138,21 @@ DEMUCS_4_SOURCE_MAPPER = {
     VOCAL_STEM: 3
 }
 
+# ... (MODEL_SUBDIRS and other constants as in response #35, ensure ac.ENSEMBLE_MODELS_KEY is used) ...
+MODEL_SUBDIRS = {
+    VR_ARCH_MODELS_KEY: "VR_Models",
+    MDX_NET_MODELS_KEY: "MDX_Net_Models",
+    DEMUCS_MODELS_KEY: "Demucs_Models",
+    ENSEMBLE_MODELS_KEY: None # Ensemble configs are in gui_data/saved_ensembles
+}
+VR_ARCH_SCAN_EXTENSIONS = ['.pth']
+MDX_SCAN_EXTENSIONS = ['.onnx', '.ckpt']
+DEMUCS_LEGACY_SCAN_EXTENSIONS = ['.ckpt', '.gz', '.th']
+DEMUCS_V3_V4_REPO_DIR_NAME = "v3_v4_repo"
+DEMUCS_V3_V4_SCAN_EXTENSIONS = ['.yaml']
+MAPPER_FILE_REL_PATH = Path("model_data") / "model_name_mapper.json"
+EXCLUDED_FILENAMES_STEMS = ["model_data", "model_name_mapper", "download_links"]
+
 # --- Stem Pair Mapping Function ---
 def secondary_stem(stem: str) -> str:
     """Determines secondary stem based on primary stem."""
@@ -255,3 +270,18 @@ import json # For DummyModelParameters
 
 # --- Settings File ---
 APP_SETTINGS_FILENAME = "uvr_pyside6_settings.json"
+
+# --- Model Parameter Keys (from original UVR constants) ---
+IS_KARAOKEE_KEY = 'is_karaoke'
+IS_BV_MODEL_KEY = 'is_bv_model'
+IS_BV_MODEL_REBAL_KEY = 'is_bv_model_rebalance'
+DEMUCS_UVR_MODEL_TAG = 'UVR_Model' # Used in model_data.py to identify certain Demucs models
+DEMUCS_6_STEM_TAG = '6_HP_Demucs' # Used in model_data.py
+NO_MODEL = '----No Model----' # Used in model_data.py for secondary model checks
+DEMUCS_VERSION_STRING_MAP = { # Used in model_data.py
+    DEMUCS_V1: ["v1", "v1.mdx"],
+    DEMUCS_V2: ["v2", "v2.mdx"],
+    DEMUCS_V3: ["v3", "v3.mdx"],
+    DEMUCS_V4: ["v4", "v4.mdx"]
+}
+DEMUCS_2_SOURCE_LIST = [VOCAL_STEM, INST_STEM] # Used in model_data.py

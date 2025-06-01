@@ -45,7 +45,7 @@ class RealProcessingWorker(QObject):
     def run(self):
         if not self.model_data or not self.model_data.model_status:
             error_msg = "Error: Could not create valid model data from settings."
-            if self.model_data and not self.model_data.model_status: 
+            if self.model_data and not self.model_data.model_status:
                 error_msg = f"Error: Model data initialization failed for {self.model_data.model_name if self.model_data.model_name else 'Unknown Model'}."
             else: 
                 error_msg = "Error: ModelData object is None."

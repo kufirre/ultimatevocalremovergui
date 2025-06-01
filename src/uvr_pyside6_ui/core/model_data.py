@@ -18,7 +18,7 @@ except ImportError:
     from .app_constants import DummyModelParameters as ModelParameters 
 
 def get_project_root() -> Path:
-    try: return Path(__file__).resolve().parents[2]
+    try: return Path(__file__).resolve().parents[3]
     except IndexError: return Path.cwd()
 
 MODELS_DIR_PATH = get_project_root() / "models"
@@ -289,7 +289,17 @@ class ModelData:
         if 'input_paths' in settings and settings['input_paths']:
             raw_path = settings['input_paths'][0] if isinstance(settings['input_paths'], list) else settings['input_paths']
             instance.audio_file = str(Path(raw_path).resolve()) if raw_path else None
-        instance.export_path = str(Path(settings.get('export_path', "")).resolve()) if settings.get('export_path') else None
+        
+        # Use 'output_path' key from settings_dict as provided by ExecutionControlPresenter
+        export_path_setting = settings.get('output_path') 
+        if export_path_setting and isinstance(export_path_setting, str) and export_path_setting.strip():
+            try:
+                instance.export_path = str(Path(export_path_setting).resolve())
+            except Exception as e:
+                print(f"Warning: Error resolving export path '{export_path_setting}': {e}")
+                instance.export_path = None
+        else:
+            instance.export_path = None
 
         if instance.model_status and instance.model_name and instance.model_name != ac.CHOOSE_MODEL:
             if instance.process_method == ac.ENSEMBLE_MODE and not _is_ensemble_member: 
@@ -352,11 +362,29 @@ class ModelData:
                 if instance.pre_proc_model and not instance.pre_proc_model.model_status: instance.pre_proc_model = None
         return instance
 
-    def _determine_model_path(self) -> Optional[str]: # ... (content remains the same)
+    def _determine_model_path(self) -> Optional[str]:
         if not self.model_name or self.model_name == ac.CHOOSE_MODEL: return None
-        models_dir_map = { ac.VR_ARCH_TYPE: VR_MODELS_DIR_PATH, ac.MDX_ARCH_TYPE: MDX_MODELS_DIR_PATH, ac.DEMUCS_ARCH_TYPE: DEMUCS_MODELS_DIR_PATH }
+        
+        # Ensure this map uses the internal process_method constants (e.g., ac.VR_ARCH_TYPE which is 'VR Arc')
+        # The directory paths (VR_MODELS_DIR_PATH etc.) are already correctly derived using UI keys from app_constants.
+        models_dir_map = {
+            ac.VR_ARCH_TYPE: VR_MODELS_DIR_PATH,        # 'VR Arc' -> project_root/models/VR_Models
+            ac.MDX_ARCH_TYPE: MDX_MODELS_DIR_PATH,       # 'MDX-Net' -> project_root/models/MDX_Net_Models
+            ac.DEMUCS_ARCH_TYPE: DEMUCS_MODELS_DIR_PATH  # 'Demucs' -> project_root/models/Demucs_Models
+        }
+        
         base_model_dir = models_dir_map.get(self.process_method)
-        if not base_model_dir: return None
+        
+        if not base_model_dir:
+            # Fallback or error if self.process_method is not in the map (e.g. Ensemble Mode)
+            # For Ensemble Mode, model_path is handled differently (points to ensemble config file)
+            if self.process_method == ac.ENSEMBLE_MODE:
+                 # This case should be handled before _determine_model_path is called for ensemble master,
+                 # or this method should not be called for ensemble master.
+                 # For ensemble members, self.process_method will be VR_ARCH_TYPE etc.
+                return None 
+            print(f"Warning: base_model_dir is None for process_method: {self.process_method}")
+            return None
         current_model_name = self.model_name 
         current_model_basename = Path(current_model_name).stem
         if Path(current_model_name).is_file() and Path(current_model_name).exists(): return str(current_model_name)
@@ -455,16 +483,58 @@ class ModelData:
                 try:
                     with open(hash_json_path, 'r', encoding='utf-8') as f: model_params_json = json.load(f)
                 except Exception as e: print(f"Error loading hash JSON {hash_json_path}: {e}"); self.model_status = False; return
-            else: print(f"Warning: Hash JSON not found: {hash_json_path} for {self.model_name}")
+            else: 
+                print(f"Warning: Hash JSON not found: {hash_json_path} for {self.model_name}")
+                # Fallback to master model_data.json
+                master_json_path = hash_dir / "model_data.json"
+                if master_json_path.exists():
+                    print(f"Attempting to load parameters from master: {master_json_path}")
+                    try:
+                        with open(master_json_path, 'r', encoding='utf-8') as f_master:
+                            master_data = json.load(f_master)
+                        if self.model_hash in master_data:
+                            model_params_json = master_data[self.model_hash]
+                            print(f"Found parameters for hash {self.model_hash} in master JSON.")
+                            # Optionally, create the specific hash.json file here for future faster lookups
+                            # with open(hash_json_path, 'w', encoding='utf-8') as f_hash_specific:
+                            #    json.dump(model_params_json, f_hash_specific, indent=4)
+                            # print(f"Created specific hash JSON: {hash_json_path}")
+                        else:
+                            print(f"Warning: Hash {self.model_hash} not found in master JSON: {master_json_path}")
+                    except Exception as e_master:
+                        print(f"Error loading or parsing master JSON {master_json_path}: {e_master}")
+                else:
+                    print(f"Warning: Master JSON file not found: {master_json_path}")
 
         if self.process_method == ac.VR_ARCH_TYPE:
             if model_params_json:
                 self.primary_stem = model_params_json.get("primary_stem", ac.VOCAL_STEM)
                 param_file_name = model_params_json.get("vr_model_param")
                 if param_file_name and ModelParameters is not ac.DummyModelParameters:
-                    param_file = VR_PARAM_DIR_PATH / param_file_name
-                    if param_file.exists(): self.vr_model_param = ModelParameters(str(param_file))
-                    else: print(f"Warning: VR param file not found: {param_file}"); self.model_status = False
+                    # Ensure the .json extension is present for the check and for ModelParameters
+                    if not param_file_name.endswith(".json"):
+                        param_file_name_with_ext = f"{param_file_name}.json"
+                    else:
+                        param_file_name_with_ext = param_file_name
+                        
+                    param_file = VR_PARAM_DIR_PATH / param_file_name_with_ext
+                    
+                    if param_file.exists(): 
+                        self.vr_model_param = ModelParameters(str(param_file))
+                    else: 
+                        print(f"Warning: VR param file not found: {param_file}")
+                        if param_file_name.endswith(".json"): 
+                             param_file_no_ext = VR_PARAM_DIR_PATH / param_file_name.rsplit(".json",1)[0]
+                             if param_file_no_ext.exists():
+                                 self.vr_model_param = ModelParameters(str(param_file_no_ext))
+                             else:
+                                 self.model_status = False
+                        else:
+                             self.model_status = False
+                elif not param_file_name and not self.is_secondary_model: 
+                     print(f"Critical: 'vr_model_param' key missing or empty in JSON for {self.model_name}")
+                     self.model_status = False
+                
                 if self.vr_model_param: self.model_samplerate = self.vr_model_param.param.get('sr', 44100)
                 if "nout" in model_params_json and "nout_lstm" in model_params_json:
                     self.model_capacity = [model_params_json["nout"], model_params_json["nout_lstm"]]; self.is_vr_51_model = True

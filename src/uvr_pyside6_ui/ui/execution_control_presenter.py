@@ -1,4 +1,5 @@
 from PySide6.QtCore import QObject, Slot
+from ..core import app_constants as ac # Import app_constants
 
 
 # No QTimer needed here now, as adapter handles it
@@ -50,9 +51,21 @@ class ExecutionControlPresenter(QObject):
         all_settings.update(settings)
 
         # Add specific model settings based on selection
-        method = model_details['method']
-        if method in self.presenters:
-            all_settings.update(self.presenters[method].get_settings())
+        internal_method_name = model_details.get('chosen_process_method')
+        
+        # Map internal method name back to UI key for presenter lookup
+        ui_method_key = None
+        if internal_method_name == ac.VR_ARCH_TYPE:
+            ui_method_key = ac.VR_ARCH_MODELS_KEY
+        elif internal_method_name == ac.MDX_ARCH_TYPE:
+            ui_method_key = ac.MDX_NET_MODELS_KEY
+        elif internal_method_name == ac.DEMUCS_ARCH_TYPE:
+            ui_method_key = ac.DEMUCS_MODELS_KEY
+        elif internal_method_name == ac.ENSEMBLE_MODE:
+            ui_method_key = ac.ENSEMBLE_MODELS_KEY
+            
+        if ui_method_key and ui_method_key in self.presenters:
+            all_settings.update(self.presenters[ui_method_key].get_settings())
         
         # Add model selection details last, so model_data can correctly pick up method and model
         all_settings.update(model_details)

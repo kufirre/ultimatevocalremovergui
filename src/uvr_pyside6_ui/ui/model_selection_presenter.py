@@ -108,12 +108,28 @@ class ModelSelectionPresenter(QObject):
     def get_current_selection(self) -> dict:
         """Return the currently chosen processing method and model."""
         resolved_model_name = self._current_model
-        if resolved_model_name == ac.DOWNLOAD_MORE_MODELS_TEXT or (
-            self._current_method == ac.ENSEMBLE_MODELS_KEY
-            and resolved_model_name == ac.ENSEMBLE_MODEL_INFO_TEXT
-        ):
+        if resolved_model_name == ac.DOWNLOAD_MORE_MODELS_TEXT or \
+           (self._current_method == ac.ENSEMBLE_MODELS_KEY and resolved_model_name == ac.ENSEMBLE_MODEL_INFO_TEXT):
             resolved_model_name = ""
-        return {
-            "method": self._current_method,
-            "model": resolved_model_name,
-        }
+
+        settings = {} # Initialize empty settings dictionary
+
+        # Map UI method string to internal constant and specific model key
+        if self._current_method == ac.VR_ARCH_MODELS_KEY: # UI string: "VR Arch"
+            settings["chosen_process_method"] = ac.VR_ARCH_TYPE # Internal constant: 'VR Arc'
+            settings["vr_model"] = resolved_model_name
+        elif self._current_method == ac.MDX_NET_MODELS_KEY: # UI string: "MDX-Net"
+            settings["chosen_process_method"] = ac.MDX_ARCH_TYPE # Internal constant: 'MDX-Net'
+            settings["mdx_net_model"] = resolved_model_name
+        elif self._current_method == ac.DEMUCS_MODELS_KEY: # UI string: "Demucs"
+            settings["chosen_process_method"] = ac.DEMUCS_ARCH_TYPE # Internal constant: 'Demucs'
+            settings["demucs_model"] = resolved_model_name
+        elif self._current_method == ac.ENSEMBLE_MODELS_KEY: # UI string: "Ensemble"
+            settings["chosen_process_method"] = ac.ENSEMBLE_MODE # Internal constant: 'Ensemble Mode'
+            settings["ensemble_model"] = resolved_model_name
+        else:
+            # Default or error case if _current_method is unexpected
+            settings["chosen_process_method"] = "" 
+            # Avoid adding a model key if the method is unknown to prevent downstream errors
+
+        return settings

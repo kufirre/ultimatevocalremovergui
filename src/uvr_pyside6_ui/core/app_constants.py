@@ -117,6 +117,7 @@ ALL_STEMS = 'All Stems'
 CHOOSE_MODEL = 'Choose Model'
 DEFAULT = 'Default'
 AUTO_SELECT = 'Auto'
+DEFAULT_SAMPLE_RATE = 44100
 
 # --- Audio Format Constants ---
 WAV = 'WAV'
@@ -178,6 +179,10 @@ MPS_DEVICE = 'mps'
 IS_MACOS = (OPERATING_SYSTEM == 'Darwin')
 IS_WINDOWS = (OPERATING_SYSTEM == 'Windows')
 IS_LINUX = (OPERATING_SYSTEM == 'Linux')
+
+# --- ONNX Runtime Execution Providers ---
+CPU_EXECUTION_PROVIDER = 'CPUExecutionProvider'
+CUDA_EXECUTION_PROVIDER = 'CUDAExecutionProvider'
 
 # --- Additional Stem Constants (from separate.py context) ---
 LEAD_VOCAL_STEM = "lead_only"

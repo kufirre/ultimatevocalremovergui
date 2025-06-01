@@ -112,6 +112,9 @@ DRUM_STEM = 'Drums'
 GUITAR_STEM = 'Guitar'
 PIANO_STEM = 'Piano'
 
+# Non-accompaniment stems (everything except instrumental)
+NON_ACCOM_STEMS = [VOCAL_STEM, BASS_STEM, DRUM_STEM, OTHER_STEM, GUITAR_STEM, PIANO_STEM]
+
 # --- General Constants ---
 ALL_STEMS = 'All Stems'
 CHOOSE_MODEL = 'Choose Model'

@@ -102017,98 +102017,323 @@ QH\x821m\xc3\x9dZQ\xad\xdcDkR\xf7\xb0\
 \xce~\x84i\xbc\xc5$\xff3UDWi>g\xde\
 \x0at\x12\xb0\xdfBn\xbb\x90h\x1fd\xa4\xd8\xad\x80\
 \xd8\xa1\xb3\xa1\xc2w\xd2\x97\xb8\xd4\xe4+\x00\x00\x00\
-\x00\x00\x05\x96\
+\x00\x00\x01,\
 /\
-* Basic QSS Styl\
-esheet for UVR P\
-ySide6 App */\x0a\x0aQ\
-Widget {\x0a    /* \
-font-family: \x22Ce\
-ntury Gothic\x22; *\
-/ /* Example: We\
-'ll need to load\
- fonts properly \
-*/\x0a    /* color:\
- #e0e0e0; */ /* \
-Light text for a\
- dark theme */\x0a \
-   /* background\
--color: #2c2c2c;\
- */ /* Dark back\
-ground */\x0a}\x0a\x0aQMa\
-inWindow {\x0a    /\
-* background-col\
-or: #232323; */ \
-/* Slightly diff\
-erent for main w\
+* Progress Bar S\
+tyling */\x0aQProgr\
+essBar {\x0a    bor\
+der: 1px solid #\
+444;\x0a    border-\
+radius: 5px;\x0a   \
+ text-align: cen\
+ter;\x0a    backgro\
+und-color: #222;\
+\x0a    color: whit\
+e;\x0a    height: 2\
+0px;\x0a}\x0a\x0aQProgres\
+sBar::chunk {\x0a  \
+  background-col\
+or: #3498db;\x0a   \
+ width: 10px;\x0a  \
+  margin: 0.5px;\
+\x0a    border-radi\
+us: 3px;\x0a}\x0a\
+\x00\x00\x12`\
+/\
+* Basic Dark The\
+me QSS Styleshee\
+t for UVR PySide\
+6 App */\x0a\x0aQWidge\
+t {\x0a    font-fam\
+ily: \x22Montserrat\
+\x22, \x22Century Goth\
+ic\x22, sans-serif;\
+ /* Prioritize M\
+ontserrat, fallb\
+ack to Century G\
+othic, then gene\
+ric sans-serif *\
+/\x0a    color: #e0\
+e0e0; /* Light t\
+ext for a dark t\
+heme */\x0a    back\
+ground-color: #2\
+c3e50; /* Dark b\
+luish-grey backg\
+round */\x0a    fon\
+t-size: 10pt; /*\
+ Base font size \
+*/\x0a}\x0a\x0aQMainWindo\
+w {\x0a    backgrou\
+nd-color: #23314\
+0; /* Slightly d\
+arker for main w\
 indow */\x0a}\x0a\x0aQPus\
-hButton {\x0a    /*\
+hButton {\x0a    ba\
+ckground-color: \
+#34495e; /* Slig\
+htly lighter blu\
+ish-grey */\x0a    \
+border: 1px soli\
+d #4a637a;\x0a    p\
+adding: 6px 12px\
+;\x0a    border-rad\
+ius: 4px;\x0a    co\
+lor: #ecf0f1; /*\
+ Light text for \
+buttons */\x0a}\x0a\x0aQP\
+ushButton:hover \
+{\x0a    background\
+-color: #4a637a;\
+\x0a    border-colo\
+r: #5c7a96;\x0a}\x0a\x0aQ\
+PushButton:press\
+ed {\x0a    backgro\
+und-color: #2c3e\
+50;\x0a}\x0a\x0aQPushButt\
+on:disabled {\x0a  \
+  background-col\
+or: #2c3e50;\x0a   \
+ color: #7f8c8d;\
+\x0a    border-colo\
+r: #34495e;\x0a}\x0a\x0aQ\
+LineEdit, QTextE\
+dit, QPlainTextE\
+dit, QSpinBox, Q\
+DoubleSpinBox, Q\
+ComboBox {\x0a    b\
+ackground-color:\
+ #1c2833; /* Dar\
+ker input fields\
+ */\x0a    border: \
+1px solid #4a637\
+a;\x0a    padding: \
+4px;\x0a    border-\
+radius: 3px;\x0a   \
+ color: #ecf0f1;\
+\x0a}\x0a\x0aQComboBox::d\
+rop-down {\x0a    b\
+order: none;\x0a   \
  background-colo\
-r: #4a4a4a; */\x0a \
-   /* border: 1p\
-x solid #5a5a5a;\
- */\x0a    /* paddi\
-ng: 5px; */\x0a    \
-/* border-radius\
-: 3px; */\x0a}\x0a\x0aQPu\
-shButton:hover {\
-\x0a    /* backgrou\
-nd-color: #5a5a5\
-a; */\x0a}\x0a\x0aQPushBu\
-tton:pressed {\x0a \
-   /* background\
--color: #6a6a6a;\
- */\x0a}\x0a\x0aQLineEdit\
-, QTextEdit, QSp\
-inBox, QDoubleSp\
-inBox, QComboBox\
- {\x0a    /* backgr\
-ound-color: #3c3\
-c3c; */\x0a    /* b\
-order: 1px solid\
- #5a5a5a; */\x0a   \
- /* padding: 3px\
-; */\x0a    /* bord\
-er-radius: 3px; \
-*/\x0a}\x0a\x0aQProgressB\
-ar {\x0a    /* bord\
-er: 1px solid #5\
-a5a5a; */\x0a    /*\
+r: #34495e;\x0a}\x0a\x0aQ\
+ComboBox::down-a\
+rrow {\x0a    image\
+: url(:/uvr/img/\
+down.png); /* Ex\
+ample: We'll nee\
+d to ensure this\
+ image is in QRC\
+ and path is cor\
+rect */\x0a    widt\
+h: 12px;\x0a    hei\
+ght: 12px;\x0a}\x0a\x0a\x0aQ\
+ProgressBar {\x0a  \
+  border: 1px so\
+lid #4a637a;\x0a   \
  border-radius: \
-3px; */\x0a    /* t\
-ext-align: cente\
-r; */\x0a}\x0a\x0aQProgre\
-ssBar::chunk {\x0a \
-   /* background\
--color: #0078d7;\
- */ /* A blue ac\
-cent color */\x0a  \
-  /* width: 10px\
-; */\x0a    /* marg\
-in: 0.5px; */\x0a}\x0a\
-\x0aQGroupBox {\x0a   \
- /* font-weight:\
- bold; */\x0a    /*\
- border: 1px sol\
-id #4a4a4a; */\x0a \
-   /* margin-top\
-: 10px; */\x0a    /\
-* padding-top: 1\
-0px; */\x0a    /* b\
-order-radius: 3p\
-x; */\x0a}\x0a\x0aQGroupB\
-ox::title {\x0a    \
-/* subcontrol-or\
-igin: margin; */\
-\x0a    /* subcontr\
+3px;\x0a    text-al\
+ign: center;\x0a   \
+ color: #ecf0f1;\
+\x0a    background-\
+color: #1c2833;\x0a\
+}\x0a\x0aQProgressBar:\
+:chunk {\x0a    bac\
+kground-color: #\
+3498db; /* A nic\
+e blue accent co\
+lor */\x0a    /* wi\
+dth: 10px; */ /*\
+ Auto width is u\
+sually fine */\x0a \
+   margin: 0.5px\
+;\x0a    border-rad\
+ius: 2px;\x0a}\x0a\x0aQGr\
+oupBox {\x0a    fon\
+t-weight: bold;\x0a\
+    border: 1px \
+solid #4a637a;\x0a \
+   margin-top: 1\
+2px; /* Space fo\
+r the title */\x0a \
+   padding: 10px\
+;\x0a    padding-to\
+p: 15px; /* Extr\
+a padding at the\
+ top inside the \
+box */\x0a    borde\
+r-radius: 4px;\x0a}\
+\x0a\x0aQGroupBox::tit\
+le {\x0a    subcont\
+rol-origin: marg\
+in;\x0a    subcontr\
 ol-position: top\
- left; */\x0a    /*\
- padding: 0 3px;\
- */\x0a    /* left:\
- 7px; */\x0a}\x0a\x0a/* A\
-dd more specific\
- styles as neede\
-d */\x0a\
+ left;\x0a    paddi\
+ng: 0 5px;\x0a    l\
+eft: 10px;\x0a    c\
+olor: #bdc3c7; /\
+* Lighter title \
+color */\x0a    bac\
+kground-color: #\
+2c3e50; /* Match\
+ QWidget backgro\
+und for the titl\
+e's bg */\x0a}\x0a\x0aQTa\
+bWidget::pane { \
+/* The container\
+ for tabs */\x0a   \
+ border: 1px sol\
+id #4a637a;\x0a    \
+border-top: none\
+; /* Pane border\
+ often looks bet\
+ter without top \
+if tabs have bot\
+tom border */\x0a  \
+  background-col\
+or: #233140; /* \
+Match main windo\
+w or slightly di\
+fferent */\x0a}\x0a\x0aQT\
+abBar::tab {\x0a   \
+ background: #34\
+495e;\x0a    border\
+: 1px solid #4a6\
+37a;\x0a    border-\
+bottom: none; /*\
+ Or a different \
+color to merge w\
+ith pane */\x0a    \
+padding: 8px 15p\
+x;\x0a    margin-ri\
+ght: 2px; /* Spa\
+ce between tabs \
+*/\x0a    border-to\
+p-left-radius: 4\
+px;\x0a    border-t\
+op-right-radius:\
+ 4px;\x0a    color:\
+ #ecf0f1;\x0a}\x0a\x0aQTa\
+bBar::tab:select\
+ed {\x0a    backgro\
+und: #2c3e50; /*\
+ Background of t\
+he active tab, m\
+atching QWidget \
+*/\x0a    color: #f\
+fffff;\x0a    /* bo\
+rder-bottom-colo\
+r: #2c3e50; */ /\
+* Make selected \
+tab merge with p\
+ane */\x0a}\x0a\x0aQTabBa\
+r::tab:!selected\
+:hover {\x0a    bac\
+kground: #4a637a\
+;\x0a}\x0a\x0aQScrollArea\
+ {\x0a    border: n\
+one; /* Or 1px s\
+olid #4a637a; if\
+ you want a bord\
+er */\x0a}\x0a\x0aQScroll\
+Bar:vertical {\x0a \
+   border: 1px s\
+olid #4a637a;\x0a  \
+  background: #1\
+c2833;\x0a    width\
+: 12px;\x0a    marg\
+in: 0px 0px 0px \
+0px;\x0a}\x0aQScrollBa\
+r::handle:vertic\
+al {\x0a    backgro\
+und: #3498db;\x0a  \
+  min-height: 20\
+px;\x0a    border-r\
+adius: 5px;\x0a}\x0aQS\
+crollBar::add-li\
+ne:vertical, QSc\
+rollBar::sub-lin\
+e:vertical {\x0a   \
+ border: none;\x0a \
+   background: n\
+one;\x0a    height:\
+ 0px;\x0a    width:\
+ 0px;\x0a}\x0a\x0aQScroll\
+Bar:horizontal {\
+\x0a    border: 1px\
+ solid #4a637a;\x0a\
+    background: \
+#1c2833;\x0a    hei\
+ght: 12px;\x0a    m\
+argin: 0px 0px 0\
+px 0px;\x0a}\x0aQScrol\
+lBar::handle:hor\
+izontal {\x0a    ba\
+ckground: #3498d\
+b;\x0a    min-width\
+: 20px;\x0a    bord\
+er-radius: 5px;\x0a\
+}\x0aQScrollBar::ad\
+d-line:horizonta\
+l, QScrollBar::s\
+ub-line:horizont\
+al {\x0a    border:\
+ none;\x0a    backg\
+round: none;\x0a   \
+ height: 0px;\x0a  \
+  width: 0px;\x0a}\x0a\
+\x0a/* Add more spe\
+cific styles as \
+needed */\x0a/* For\
+ example, for QT\
+oolTip, QLabel, \
+etc. */\x0aQToolTip\
+ {\x0a    color: #2\
+c3e50; /* Dark t\
+ext for light to\
+oltip */\x0a    bac\
+kground-color: #\
+ecf0f1; /* Light\
+ background for \
+tooltip */\x0a    b\
+order: 1px solid\
+ #bdc3c7;\x0a    pa\
+dding: 4px;\x0a    \
+border-radius: 3\
+px;\x0a}\x0a\x0a/* Specif\
+ic object styles\
+ */\x0aQPushButton#\
+prominentButton \
+{\x0a    font-size:\
+ 12pt; /* Adjust\
+ed from 14px to \
+12pt for consist\
+ency with 10pt b\
+ase */\x0a    paddi\
+ng: 10px 15px; /\
+* Adjusted paddi\
+ng */\x0a    /* You\
+ can add other s\
+pecific properti\
+es here if neede\
+d, like a differ\
+ent background o\
+r border */\x0a}\x0a\x0aQ\
+TextEdit#logCons\
+ole {\x0a    font-f\
+amily: \x22Courier \
+New\x22, Courier, m\
+onospace;\x0a    fo\
+nt-size: 9pt; /*\
+ Adjusted from 1\
+0px to 9pt */\x0a  \
+  background-col\
+or: #1a252f; /* \
+Slightly differe\
+nt background fo\
+r log */\x0a    col\
+or: #c0c0c0; /* \
+Lighter grey for\
+ log text */\x0a}\x0a\
 "
 
 qt_resource_name = b"\
@@ -102225,6 +102450,11 @@ qt_resource_name = b"\
 \x00C\
 \x00e\x00n\x00t\x00u\x00r\x00y\x00G\x00o\x00t\x00h\x00i\x00c\x00.\x00t\x00t\x00f\
 \
+\x00\x11\
+\x08\xe1$\x03\
+\x00p\
+\x00r\x00o\x00g\x00r\x00e\x00s\x00s\x00_\x00b\x00a\x00r\x00s\x00.\x00q\x00s\x00s\
+\
 \x00\x09\
 \x00(\xad#\
 \x00s\
@@ -102236,14 +102466,16 @@ qt_resource_struct = b"\
 \x00\x00\x00\x00\x00\x00\x00\x00\
 \x00\x00\x00\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00\x02\
 \x00\x00\x00\x00\x00\x00\x00\x00\
-\x00\x00\x00,\x00\x02\x00\x00\x00\x16\x00\x00\x00\x08\
+\x00\x00\x00,\x00\x02\x00\x00\x00\x16\x00\x00\x00\x09\
 \x00\x00\x00\x00\x00\x00\x00\x00\
-\x00\x00\x00\x1c\x00\x02\x00\x00\x00\x02\x00\x00\x00\x06\
+\x00\x00\x00\x1c\x00\x02\x00\x00\x00\x02\x00\x00\x00\x07\
 \x00\x00\x00\x00\x00\x00\x00\x00\
-\x00\x00\x00\x0c\x00\x02\x00\x00\x00\x01\x00\x00\x00\x05\
+\x00\x00\x00\x0c\x00\x02\x00\x00\x00\x02\x00\x00\x00\x05\
 \x00\x00\x00\x00\x00\x00\x00\x00\
+\x00\x00\x02\xd6\x00\x00\x00\x00\x00\x01\x00\x18\xe5p\
+\x00\x00\x01\x97(o?L\
 \x00\x00\x02\xae\x00\x00\x00\x00\x00\x01\x00\x18\xe4@\
-\x00\x00\x01\x97(\x1a\x8b`\
+\x00\x00\x01\x97.<\x85\xca\
 \x00\x00\x02d\x00\x00\x00\x00\x00\x01\x00\x12\xc6\xc0\
 \x00\x00\x01\x97\x0cP\xe3\x83\
 \x00\x00\x02\x86\x00\x00\x00\x00\x00\x01\x00\x16\xca\xdc\

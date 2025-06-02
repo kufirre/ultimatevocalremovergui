@@ -39,6 +39,7 @@ class ExecutionControlView(QWidget):
 
         # --- Progress Bar ---
         self.progress_bar = QProgressBar()
+        self.progress_bar.setObjectName("mainProgressBar")  # Set object name for QSS
         self.progress_bar.setTextVisible(True)
         self.progress_bar.setValue(0) # Start at 0
         exec_layout.addWidget(self.progress_bar)
@@ -66,7 +67,7 @@ class ExecutionControlView(QWidget):
     @Slot(str)
     def set_progress_text(self, text: str):
         """Sets the text displayed on the progress bar."""
-        self.progress_bar.setFormat(f"{text} - %p%")
+        self.progress_bar.setFormat(f"{text}")
 
     @Slot(str)
     def append_log_message(self, message: str):

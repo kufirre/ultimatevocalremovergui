@@ -77,11 +77,15 @@ class SettingsDialogView(QDialog):
             print(f"Error loading download_icon for button: {e}")
         self.dc_download_button.setEnabled(False)
         dc_main_layout.addWidget(self.dc_download_button)
-        self.dc_status_label = QLabel("Status: Idle")
+        self.dc_status_label = QLabel("💤 Ready to download")
         dc_main_layout.addWidget(self.dc_status_label)
         self.dc_progress_bar = QProgressBar()
+        self.dc_progress_bar.setObjectName("downloadProgressBar")  # Set object name for QSS
         self.dc_progress_bar.setValue(0)
         self.dc_progress_bar.setTextVisible(True) # Show percentage text
+        self.dc_progress_bar.setFormat("%p%") # Show only percentage
+        # Ensure progress bar updates properly
+        self.dc_progress_bar.setRange(0, 100)
         dc_main_layout.addWidget(self.dc_progress_bar)
         try:
             dc_tab_icon = QIcon(":/uvr/img/download.png")
@@ -112,7 +116,7 @@ class SettingsDialogView(QDialog):
         
         # Reset status and progress if selection changes or is cleared, and not downloading
         if not self._is_download_in_progress:
-            self.dc_status_label.setText("Status: Idle")
+            self.dc_status_label.setText("💤 Ready to download")
             self.dc_progress_bar.setValue(0)
 
     def set_download_in_progress_state(self, in_progress: bool):

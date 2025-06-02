@@ -1,14 +1,11 @@
-from PySide6.QtCore import QObject, Signal, QTimer, QStandardPaths # QThread removed
-import time # For download_model_mock's QTimer and time.sleep if used elsewhere
+from PySide6.QtCore import QObject, Signal, QTimer, QStandardPaths
+import time
 from pathlib import Path
-# import os # Removed as pathlib should cover its uses
 import json
 import natsort
-# requests will be used by model_downloader
-# from . import app_constants as ac # Already imported below
-# Import the new ProcessingThread
 from .processing_worker import ProcessingThread
-from .model_downloader import fetch_online_model_catalog, download_model_file # New imports
+from .model_downloader import fetch_online_model_catalog
+from .download_worker import DownloadManager
 from . import app_constants as ac
 
 from typing import Any
@@ -41,8 +38,11 @@ class UVRCoreAdapter(QObject):
         super().__init__(parent)
         self.processing_thread: ProcessingThread | None = None 
         self._online_catalog_data_cache: dict | None = None
-        # _local_catalog_cache_file_path is now managed by model_downloader
-        # Debug print removed
+        self.download_manager = DownloadManager()
+        
+        # Connect download manager signals to our signals
+        self.download_manager.download_progress.connect(self.download_progress)
+        self.download_manager.download_finished.connect(self._on_download_finished)
 
     def _on_processing_thread_finished(self):
         # Slot to safely nullify the thread reference after it has finished
@@ -175,31 +175,48 @@ class UVRCoreAdapter(QObject):
                     if display_name not in downloadable_models: downloadable_models[display_name] = download_info
         return downloadable_models
 
-    def download_model(self, model_type_ui_name: str, model_display_name: str, download_target_info: Any):
-        """Downloads the specified model using model_downloader."""
-        # Debug print removed
-        self.download_progress.emit(model_display_name, 0) # Initial progress
+    def _on_download_finished(self, success: bool, model_path: str, config_path: str, message: str):
+        """Handle download completion from the download manager."""
+        # Extract model type and display name from the model path
+        model_type_ui_name = ""
+        model_display_name = ""
+        
+        # Determine model type from path
+        if "VR_Models" in model_path:
+            model_type_ui_name = ac.VR_ARCH_MODELS_KEY
+        elif "MDX_Net_Models" in model_path:
+            model_type_ui_name = ac.MDX_NET_MODELS_KEY
+        elif "Demucs_Models" in model_path:
+            model_type_ui_name = ac.DEMUCS_MODELS_KEY
+            
+        # Extract display name from filename
+        if model_path:
+            model_display_name = Path(model_path).stem
+            
+        # Emit our signal with the extracted information
+        self.download_finished.emit(model_type_ui_name, model_display_name, success, message)
+        
+        # If successful, emit model download completed signal
+        if success:
+            self.model_download_completed.emit(model_type_ui_name)
 
-        raw_model_url_str: Optional[str] = None
-        raw_config_url_str: Optional[str] = None
+    def download_model(self, model_type_ui_name: str, model_display_name: str, download_target_info: Any):
+        """Downloads the specified model using the download manager."""
+        # Initial progress
+        self.download_progress.emit(model_display_name, 0)
 
         # Check if this is a multi-file Demucs model
         is_multi_file_demucs = False
         if model_type_ui_name == ac.DEMUCS_MODELS_KEY and isinstance(download_target_info, dict):
-            # A simple heuristic: if download_target_info is a dict and doesn't contain typical single-file keys like "model_url"
-            # or if the model_display_name indicates a newer Demucs version.
-            # UVR.py checks if "v3 |" or "v4 |" is in model_display_name.
             if any(tag in model_display_name for tag in [ac.DEMUCS_V3, ac.DEMUCS_V4]):
-                 # Further check if all values in dict are strings (potential URLs/paths)
                 if all(isinstance(v, str) for v in download_target_info.values()):
                     is_multi_file_demucs = True
             elif not any(k in download_target_info for k in ["model_url", "weight_file", "config_name"]) and \
                  all(isinstance(v, str) for v in download_target_info.values()) and len(download_target_info) > 1:
-                 # Fallback for dicts that don't match single file pattern and have multiple string values
-                 is_multi_file_demucs = True
-
+                is_multi_file_demucs = True
 
         if is_multi_file_demucs:
+            # For multi-file Demucs models, we need to download each file separately
             all_files_successful = True
             error_messages = []
             num_files = len(download_target_info)
@@ -207,52 +224,37 @@ class UVRCoreAdapter(QObject):
 
             for file_name_in_dict, url_or_path_in_dict in download_target_info.items():
                 files_processed += 1
-                # For multi-file, model_display_name is the overall model, file_name_in_dict is the specific part
                 current_file_display_name = f"{model_display_name} ({file_name_in_dict} {files_processed}/{num_files})"
                 
-                self.download_progress.emit(current_file_display_name, 0) # Initial progress for this file part
-
                 actual_download_url = self._construct_full_url(
                     url_or_path_in_dict,
                     model_type_ui_name,
                     is_config=file_name_in_dict.endswith('.yaml')
                 )
-
-                def _file_part_progress_callback(downloaded_part_filename: str, percentage: int, name_to_show=current_file_display_name):
-                    self.download_progress.emit(name_to_show, percentage)
-
-                # model_name for download_model_file should be the actual filename to save locally
-                success_part, message_part, _ = download_model_file(
-                    model_name=file_name_in_dict, 
-                    download_url=actual_download_url,
-                    model_type=model_type_ui_name, # This ensures it's saved in the correct subfolder (e.g., Demucs_Models/v3_v4_repo)
-                    config_url=None, # Each part is handled as a main download
-                    progress_callback=lambda df, p, dn=current_file_display_name: self.download_progress.emit(dn, p)
-                )
-                if not success_part:
-                    all_files_successful = False
-                    error_messages.append(f"Failed to download {file_name_in_dict}: {message_part}")
                 
-                self.download_progress.emit(current_file_display_name, 100) # Final progress for this file part
-
-
-            final_message = f"Downloaded {model_display_name}." if all_files_successful else f"Error downloading {model_display_name}: {'; '.join(error_messages)}"
-            self.download_finished.emit(model_type_ui_name, model_display_name, all_files_successful, final_message)
-            if all_files_successful:
-                # self._update_local_model_metadata_files() # Reverted this call
-                self.model_download_completed.emit(model_type_ui_name)
+                # Start download for this file
+                self.download_manager.start_download(
+                    model_name=file_name_in_dict,
+                    download_url=actual_download_url,
+                    model_type=model_type_ui_name,
+                    config_url=None  # Each part is handled as a main download
+                )
         else:
             # Original logic for single file or model+config
-            raw_model_url_str: Optional[str] = None
-            raw_config_url_str: Optional[str] = None
+            raw_model_url_str = None
+            raw_config_url_str = None
 
             if isinstance(download_target_info, str):
                 raw_model_url_str = download_target_info
             elif isinstance(download_target_info, dict):
-                if "model_url" in download_target_info: raw_model_url_str = download_target_info["model_url"]
-                if "config_url" in download_target_info: raw_config_url_str = download_target_info["config_url"]
-                if not raw_model_url_str and "weight_file" in download_target_info: raw_model_url_str = download_target_info["weight_file"]
-                if not raw_config_url_str and "config_name" in download_target_info: raw_config_url_str = download_target_info["config_name"]
+                if "model_url" in download_target_info: 
+                    raw_model_url_str = download_target_info["model_url"]
+                if "config_url" in download_target_info: 
+                    raw_config_url_str = download_target_info["config_url"]
+                if not raw_model_url_str and "weight_file" in download_target_info: 
+                    raw_model_url_str = download_target_info["weight_file"]
+                if not raw_config_url_str and "config_name" in download_target_info: 
+                    raw_config_url_str = download_target_info["config_name"]
                 if not raw_model_url_str:
                     if len(download_target_info) == 1:
                         raw_model_url_str = list(download_target_info.values())[0]
@@ -264,17 +266,19 @@ class UVRCoreAdapter(QObject):
                     yaml_val = next((v for k, v in download_target_info.items() if isinstance(v, str) and v.endswith(".yaml")), None)
                     if not yaml_val:
                         yaml_val = next((k for k, v in download_target_info.items() if isinstance(k, str) and k.endswith(".yaml") and v == download_target_info[k]), None)
-                    if yaml_val: raw_config_url_str = yaml_val
+                    if yaml_val: 
+                        raw_config_url_str = yaml_val
             
-            model_url: Optional[str] = None
-            config_url: Optional[str] = None
+            model_url = None
+            config_url = None
 
             if raw_model_url_str:
                 model_url = self._construct_full_url(raw_model_url_str, model_type_ui_name, is_config=raw_model_url_str.endswith(".yaml"))
             if raw_config_url_str:
                 config_url = self._construct_full_url(raw_config_url_str, model_type_ui_name, is_config=True)
 
-            if model_url and model_url.endswith(".yaml") and model_url == config_url: config_url = None
+            if model_url and model_url.endswith(".yaml") and model_url == config_url: 
+                config_url = None
             if not model_url and config_url and config_url.endswith(".yaml"):
                 model_url = config_url
                 config_url = None
@@ -283,28 +287,18 @@ class UVRCoreAdapter(QObject):
                 self.download_finished.emit(model_type_ui_name, model_display_name, False, f"Could not determine download URL for {model_display_name}.")
                 return
 
-            def _progress_callback(downloaded_filename: str, percentage: int):
-                self.download_progress.emit(model_display_name, percentage)
-
-            # For single file downloads, model_display_name is fine for model_name in download_model_file
-            # if the catalog primary filename matches what's derived from display name.
-            # More robust: use _get_primary_filename_from_download_info if download_target_info is complex.
-            # If download_target_info is just a string (filename), that's the model_name.
+            # For single file downloads, get the filename to save
             filename_to_save = raw_model_url_str if isinstance(download_target_info, str) else self._get_primary_filename_from_download_info(download_target_info)
-            if not filename_to_save : filename_to_save = model_display_name # Fallback
+            if not filename_to_save: 
+                filename_to_save = model_display_name  # Fallback
 
-            success, message, _ = download_model_file(
+            # Start the download using the download manager
+            self.download_manager.start_download(
                 model_name=filename_to_save,
                 download_url=model_url,
                 model_type=model_type_ui_name,
-                config_url=config_url,
-                progress_callback=_progress_callback
+                config_url=config_url
             )
-            
-            self.download_finished.emit(model_type_ui_name, model_display_name, success, message)
-            if success:
-                # self._update_local_model_metadata_files() # Reverted this call
-                self.model_download_completed.emit(model_type_ui_name)
 
     def _scan_path_for_identifiers(self, scan_path: Path, extensions: list, is_mdx_ckpt_special_case: bool = False,
                                    recursive: bool = False) -> list[str]:

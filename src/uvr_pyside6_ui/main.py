@@ -47,16 +47,32 @@ def run():
             else:
                 print(f"Warning: Font loaded from QRC with ID {font_id} but no families found: {font_qrc_path}")
 
-    # Load QSS stylesheet from QRC
+    # Load main QSS stylesheet from QRC
     qss_file_path_qrc = ":/uvr/theme/style.qss"
     qss_file = QFile(qss_file_path_qrc)
     if not qss_file.open(QIODevice.OpenModeFlag.ReadOnly | QIODevice.OpenModeFlag.Text):
         print(f"Warning: Could not open style.qss from QRC: {qss_file_path_qrc}. Error: {qss_file.errorString()}")
     else:
         stream = QTextStream(qss_file)
-        app.setStyleSheet(stream.readAll())
+        main_stylesheet = stream.readAll()
         qss_file.close()
         print(f"Successfully loaded stylesheet from QRC: {qss_file_path_qrc}")
+    
+    # Load progress bar stylesheet from QRC
+    progress_qss_path = ":/uvr/theme/progress_bars.qss"
+    progress_qss_file = QFile(progress_qss_path)
+    progress_stylesheet = ""  # Initialize with empty string
+    
+    if not progress_qss_file.open(QIODevice.OpenModeFlag.ReadOnly | QIODevice.OpenModeFlag.Text):
+        print(f"Warning: Could not open progress_bars.qss from QRC: {progress_qss_path}. Error: {progress_qss_file.errorString()}")
+    else:
+        stream = QTextStream(progress_qss_file)
+        progress_stylesheet = stream.readAll()
+        progress_qss_file.close()
+        print(f"Successfully loaded progress bar stylesheet from QRC: {progress_qss_path}")
+        
+    # Apply combined stylesheets
+    app.setStyleSheet(main_stylesheet + "\n" + progress_stylesheet)
 
     main_window = MainWindowView()
     main_window.show()

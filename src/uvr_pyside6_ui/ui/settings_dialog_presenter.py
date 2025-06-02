@@ -2,7 +2,7 @@
 
 from pathlib import Path
 import json
-from PySide6.QtCore import QObject, Slot, QStandardPaths
+from PySide6.QtCore import QObject, Slot, QStandardPaths, QTimer
 from PySide6.QtWidgets import QWidget, QMessageBox
 from .settings_dialog_view import SettingsDialogView
 from ..core.uvr_core_adapter import UVRCoreAdapter
@@ -20,6 +20,7 @@ class SettingsDialogPresenter(QObject):
         self._settings_file_path = self._get_settings_file_path()
         self._current_settings = self._load_settings_from_store()
         self._is_download_in_progress = False
+        self._last_progress_percentage = -1  # Track last progress to throttle updates
 
     def _get_settings_file_path(self) -> Path:
         """Determines the path for the settings JSON file."""
@@ -98,7 +99,7 @@ class SettingsDialogPresenter(QObject):
             
         # Reset status and progress bar when model type changes, if not downloading
         if not self._is_download_in_progress:
-            self.view.dc_status_label.setText("Status: Idle")
+            self.view.dc_status_label.setText("💤 Ready to download")
             if self.view.dc_progress_bar: # Check if progress bar exists
                 self.view.dc_progress_bar.setValue(0)
 
@@ -126,7 +127,7 @@ class SettingsDialogPresenter(QObject):
 
         if not selected_ui_type or not selected_list_items:
             # ... (message handling as before) ...
-            message = "Status: Please select a model type and a model from the list to download."
+            message = "⚠️ Please select a model type and a model from the list to download."
             # Debug print removed
             self.view.dc_status_label.setText(message)
             return
@@ -142,15 +143,19 @@ class SettingsDialogPresenter(QObject):
 
         if target_model_info:
             self._is_download_in_progress = True
+            self._last_progress_percentage = -1  # Reset progress tracking
             self.view.set_download_in_progress_state(True)  # Disable controls in view
-            self.view.dc_status_label.setText(f"Status: Starting download for {user_friendly_model_name}...")
+            self.view.dc_status_label.setText(f"🚀 Initializing download for {user_friendly_model_name}...")
             if self.view.dc_progress_bar: # Ensure progress bar exists
                 self.view.dc_progress_bar.setValue(0)
+                # Show immediate feedback - set to 1% to indicate download started
+                self.view.dc_progress_bar.setValue(1)
+                self.view.dc_progress_bar.repaint()
             # Call the real download method in the adapter
             self.adapter.download_model(selected_ui_type, user_friendly_model_name, target_model_info)
         else:
             # ... (message handling as before) ...
-            message = f"Status: Error: Could not find download target info for '{user_friendly_model_name}' in catalog."
+            message = f"❌ Error: Could not find download info for '{user_friendly_model_name}' in catalog."
             # Debug print removed
             self.view.dc_status_label.setText(message)
 
@@ -187,9 +192,28 @@ class SettingsDialogPresenter(QObject):
     @Slot(str, int)
     def _on_adapter_download_progress(self, model_name: str, percentage: int):
         if self.view and self.view.isVisible() and self.view.tab_widget.currentIndex() == 2: # Assuming Download Center is tab index 2
-            self.view.dc_status_label.setText(f"Downloading {model_name}: {percentage}%")
-            if self.view.dc_progress_bar: # Ensure progress bar exists
-                self.view.dc_progress_bar.setValue(percentage)
+            # Throttle progress updates - only update if percentage changed by at least 2%
+            # or if it's a significant milestone (0, 25, 50, 75, 100)
+            significant_milestones = [0, 25, 50, 75, 100]
+            should_update = (
+                percentage in significant_milestones or 
+                abs(percentage - self._last_progress_percentage) >= 2
+            )
+            
+            if should_update:
+                self._last_progress_percentage = percentage
+                # Modern status text with emoji and clean formatting
+                status_text = f"⬇️ Downloading {model_name}... {percentage}%"
+                
+                # Use QTimer.singleShot to ensure UI updates happen on main thread
+                def update_ui():
+                    if self.view and self.view.dc_status_label and self.view.dc_progress_bar:
+                        self.view.dc_status_label.setText(status_text)
+                        self.view.dc_progress_bar.setValue(percentage)
+                        # Force repaint for immediate visual feedback
+                        self.view.dc_progress_bar.repaint()
+                
+                QTimer.singleShot(0, update_ui)
 
     @Slot(str, str, bool, str)  # model_type_ui_name, model_display_name, success, message
     def _on_adapter_download_finished(self, model_type_ui_name: str, model_display_name: str, success: bool,

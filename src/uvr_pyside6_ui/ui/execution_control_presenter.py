@@ -84,6 +84,9 @@ class ExecutionControlPresenter(QObject):
         self.view.set_start_button_enabled(False)
         self.view.set_start_button_text("Starting...")
         self._is_processing = True
+        # Reset completion logging flag for new processing session
+        if hasattr(self, '_logged_completion'):
+            delattr(self, '_logged_completion')
 
         try:
             settings_dict = self._gather_all_settings()
@@ -112,16 +115,25 @@ class ExecutionControlPresenter(QObject):
         if not self._is_processing: return  # Avoid updates after finishing
         # Debug print removed
         self.view.set_progress_value(value)
+        # Set progress text without duplicate percentage (progress bar shows %)
         self.view.set_progress_text(text)
-        # Optionally add key progress steps to the log
-        if value % 20 == 0 and value > 0:
-            self.view.append_log_message(f"  Progress: {value}%...")
+        # Only log progress at key milestones and avoid repetitive 100% logs
+        if value % 20 == 0 and value > 0 and value < 100:
+            self.view.append_log_message(f"  ▶ {value}% completed...")
+        elif value == 100:
+            # Only log 100% once per processing session
+            if not hasattr(self, '_logged_completion'):
+                self.view.append_log_message(f"  ✓ Processing completed successfully!")
+                self._logged_completion = True
 
     @Slot(bool, str)
     def on_processing_finished(self, success: bool, message: str):
         """Updates the view when the adapter signals completion."""
         # Debug print removed
         self._is_processing = False
+        # Reset completion logging flag for next processing session
+        if hasattr(self, '_logged_completion'):
+            delattr(self, '_logged_completion')
         self.view.append_log_message(message)
         self.view.set_progress_value(100 if success else 0)
         self.view.set_progress_text("Completed" if success else "Failed")

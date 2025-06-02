@@ -27,5 +27,6 @@
     <file alias="img/UVR.icns">../../gui_data/img/UVR.icns</file>
     
     <file alias="theme/style.qss">ui/theme/style.qss</file>
+    <file alias="theme/progress_bars.qss">ui/theme/progress_bars.qss</file>
 </qresource>
 </RCC>

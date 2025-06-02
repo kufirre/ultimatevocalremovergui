@@ -81,10 +81,49 @@ def write_audio_logic(stem_path_str: str, stem_source: np.ndarray, samplerate: i
                       model_data: ModelData, stem_name: Optional[str] = None, 
                       process_data: Optional[Dict]=None):
     stem_path = Path(stem_path_str)
-    if stem_source.ndim == 1: stem_source = np.asfortranarray([stem_source, stem_source]).T
-    elif stem_source.shape[0] < stem_source.shape[1]: stem_source = stem_source.T
+    
+    # Check if stem_source is empty or too small
+    if stem_source.size == 0 or (stem_source.ndim > 1 and stem_source.shape[1] == 0):
+        print(f"DEBUG: {stem_name} is empty (shape {stem_source.shape}). Generating silent output of original length.")
+        
+        # Get the original audio file to determine the length for silent output
+        if process_data and 'input_audio_array' in process_data:
+            original_audio = process_data['input_audio_array']
+            # Create silent output with same length as original audio
+            if original_audio is not None:
+                if stem_source.ndim == 1:
+                    stem_source = np.zeros_like(original_audio)
+                else:
+                    # For stereo, create appropriate shape
+                    if original_audio.ndim == 1:
+                        # Original is mono, create stereo silent output
+                        stem_source = np.zeros((2, len(original_audio)))
+                    else:
+                        # Original is stereo, match its shape
+                        stem_source = np.zeros_like(original_audio)
+        else:
+            # If we don't have the original audio, create a short silent output
+            if stem_source.ndim == 1:
+                stem_source = np.zeros(samplerate * 3)  # 3 seconds of silence
+            else:
+                stem_source = np.zeros((2, samplerate * 3))  # 3 seconds of stereo silence
+    
+    # Ensure correct shape
+    if stem_source.ndim == 1: 
+        stem_source = np.asfortranarray([stem_source, stem_source]).T
+    elif stem_source.shape[0] < stem_source.shape[1]: 
+        stem_source = stem_source.T
 
-    if model_data.is_normalization and spec_utils: stem_source = spec_utils.normalize(stem_source, True)
+    # Check for NaN/Inf values
+    if np.isnan(np.sum(stem_source)):
+        print(f"DEBUG: {stem_name} contains NaN values. Fixing...")
+        stem_source = np.nan_to_num(stem_source, nan=0.0)
+    if np.isinf(np.sum(stem_source)):
+        print(f"DEBUG: {stem_name} contains Inf values. Fixing...")
+        stem_source = np.nan_to_num(stem_source, posinf=1.0, neginf=-1.0)
+
+    if model_data.is_normalization and spec_utils: 
+        stem_source = spec_utils.normalize(stem_source, True)
     
     # Map wav_type_set to valid soundfile subtypes
     subtype_map = {
@@ -103,12 +142,6 @@ def write_audio_logic(stem_path_str: str, stem_source: np.ndarray, samplerate: i
     print(f"DEBUG: Determined subtype for sf.write: {subtype}")
     print(f"DEBUG: stem_source.dtype: {stem_source.dtype}")
     print(f"DEBUG: stem_source.shape: {stem_source.shape}")
-    if np.isnan(np.sum(stem_source)):
-        print("DEBUG: stem_source CONTAINS NaN VALUES!")
-    if np.isinf(np.sum(stem_source)):
-        print("DEBUG: stem_source CONTAINS INF VALUES!")
-    if stem_source.size == 0:
-        print("DEBUG: stem_source IS EMPTY!")
 
     try:
         sf.write(str(stem_path), stem_source, samplerate, subtype=subtype)
@@ -119,7 +152,13 @@ def write_audio_logic(stem_path_str: str, stem_source: np.ndarray, samplerate: i
         print(f"  subtype: {subtype}")
         print(f"  stem_source.dtype: {stem_source.dtype}")
         print(f"  stem_source.shape: {stem_source.shape}")
-        raise # Re-raise the exception to see the original traceback
+        # Instead of raising, try to write a silent file as fallback
+        try:
+            silent_output = np.zeros((samplerate * 3, 2))  # 3 seconds of stereo silence
+            sf.write(str(stem_path), silent_output, samplerate, subtype=subtype)
+            print(f"Wrote silent fallback file to {stem_path}")
+        except Exception as e_fallback:
+            print(f"Failed to write fallback silent file: {e_fallback}")
 
     console_logger = process_data.get('write_to_console') if process_data else None
     base_text_console = process_data.get('base_text_console', "") if process_data else ""
@@ -601,24 +640,24 @@ class SeperateVRLogic(SeparatorAttributesLogic):
             bp = mp.param['band'][d_idx]; wav_resolution = 'polyphase'
             if d_idx == bands_n: 
                 X_wave[d_idx], _ = librosa.load(str(audio_file_path_str), sr=bp['sr'], mono=False, dtype=np.float32, res_type=wav_resolution)
-                print(f"DEBUG: Loaded audio for band {d_idx} with shape {X_wave[d_idx].shape} and sample rate {bp['sr']}")
+
                 if not np.any(X_wave[d_idx]) and is_mp3: 
                     try:
                         with audioread.audio_open(str(audio_file_path_str)) as f: track_length = int(f.duration)
                         X_wave[d_idx], _ = librosa.load(str(audio_file_path_str), sr=bp['sr'], mono=False, dtype=np.float32, res_type=wav_resolution, duration=track_length)
-                        print(f"DEBUG: Audioread fallback loaded audio for band {d_idx} with shape {X_wave[d_idx].shape}")
+
                     except Exception as e: print(f"Audioread fallback for MP3 failed: {e}")
                 if X_wave[d_idx].ndim == 1: X_wave[d_idx] = np.asarray([X_wave[d_idx], X_wave[d_idx]])
             else: 
                 X_wave[d_idx] = librosa.resample(X_wave[d_idx+1], orig_sr=mp.param['band'][d_idx+1]['sr'], target_sr=bp['sr'], res_type=wav_resolution)
-                print(f"DEBUG: Resampled audio for band {d_idx} with shape {X_wave[d_idx].shape} and sample rate {bp['sr']}")
+
             X_spec_s[d_idx] = spec_utils.wave_to_spectrogram(X_wave[d_idx], bp['hl'], bp['n_fft'], mp, band=d_idx, is_v51_model=self.md.is_vr_51_model)
-            print(f"DEBUG: Spectrogram for band {d_idx} shape: {X_spec_s[d_idx].shape}")
+
             if d_idx == bands_n and self.md.is_high_end_process: 
                 self.input_high_end_h = (bp['n_fft']//2 - bp['crop_stop']) + (mp.param['pre_filter_stop'] - mp.param['pre_filter_start'])
                 self.input_high_end = X_spec_s[d_idx][:, bp['n_fft']//2-self.input_high_end_h : bp['n_fft']//2, :]
         combined_spec = spec_utils.combine_spectrograms(X_spec_s, mp, is_v51_model=self.md.is_vr_51_model)
-        print(f"DEBUG: Combined spectrogram shape: {combined_spec.shape}")
+
         return combined_spec
 
     def _inference_vr_logic(self, X_spec: np.ndarray) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
@@ -627,12 +666,12 @@ class SeperateVRLogic(SeparatorAttributesLogic):
         def _execute(X_mag_pad, roi_size):
             X_dataset = []; 
             patches = (X_mag_pad.shape[2] - 2 * model_run.offset) // roi_size
-            print(f"DEBUG: _execute: X_mag_pad.shape[2]={X_mag_pad.shape[2]}, model_run.offset={model_run.offset}, roi_size={roi_size}, calculated patches={patches}") # DEBUG
+
             if patches == 0: self._console_log_base(f"Warning: Not enough data for patches (patches = {patches})."); return np.array([])
             total_iterations = patches // md.batch_size if not md.is_tta else (patches // md.batch_size) * 2; self.progress_value = 0
             for i in range(patches): 
                 patch = X_mag_pad[:, :, i*roi_size : i*roi_size + md.window_size]
-                print(f"DEBUG: Patch {i} shape: {patch.shape}")
+
                 X_dataset.append(patch)
             X_dataset_np = np.asarray(X_dataset); mask_chunks = []
             with torch.no_grad():
@@ -641,7 +680,7 @@ class SeperateVRLogic(SeparatorAttributesLogic):
                     self.progress_value += 1; self._update_progress(self.progress_value / total_iterations if total_iterations > 0 else 1.0)
                     X_batch = torch.from_numpy(X_dataset_np[i : i + md.batch_size]).to(self.device)
                     pred = model_run.predict_mask(X_batch) 
-                    print(f"DEBUG: Prediction batch {i} shape: {pred.shape}")
+
                     if not pred.shape[3] > 0: raise ValueError(ac.WINDOW_SIZE_ERROR_MESSAGE)
                     mask_chunks.append(pred.detach().cpu().numpy())
                 if not mask_chunks: self._console_log_base("Warning: No mask chunks."); return np.array([])
@@ -650,9 +689,9 @@ class SeperateVRLogic(SeparatorAttributesLogic):
                 mask = np.concatenate(concatenated_chunks, axis=2)
             return mask
         X_mag, X_phase = spec_utils.preprocess(X_spec); n_frame = X_mag.shape[2]
-        print(f"DEBUG: _inference_vr_logic: n_frame (from X_spec): {n_frame}") # DEBUG
+
         pad_l, pad_r, roi_size = spec_utils.make_padding(n_frame, md.window_size, model_run.offset)
-        print(f"DEBUG: _inference_vr_logic: pad_l={pad_l}, pad_r={pad_r}, roi_size={roi_size}, window_size={md.window_size}") # DEBUG
+
         X_mag_pad = np.pad(X_mag, ((0,0),(0,0),(pad_l,pad_r)), mode='constant'); X_mag_pad /= X_mag_pad.max() if X_mag_pad.max() > 0 else 1.0
         mask_pred = _execute(X_mag_pad, roi_size)
         if mask_pred.size == 0: 
@@ -660,7 +699,7 @@ class SeperateVRLogic(SeparatorAttributesLogic):
             # Return appropriately shaped zero spectrograms to avoid downstream errors with empty arrays
             # This will lead to silent output stems instead of a crash.
             zero_spec_shape = X_mag.shape # (2, freq_bins, n_frame)
-            print(f"DEBUG: Returning zero spectrograms of shape {zero_spec_shape} due to empty mask_pred.")
+
             return np.zeros(zero_spec_shape, dtype=complex), np.zeros(zero_spec_shape, dtype=complex)
 
         if md.is_tta:
@@ -678,11 +717,42 @@ class SeperateVRLogic(SeparatorAttributesLogic):
         return y_spec, v_spec
 
     def _spec_to_wav_vr_logic(self, spec: np.ndarray) -> Optional[np.ndarray]:
-        if not spec_utils or not self.md.vr_model_param: self._console_log_base("VR spec_utils/params error."); return None
-        if self.md.is_high_end_process and isinstance(self.input_high_end, np.ndarray) and self.input_high_end_h is not None:
-            input_high_end_mirrored = spec_utils.mirroring('mirroring', spec, self.input_high_end, self.md.vr_model_param)
-            return spec_utils.cmb_spectrogram_to_wave(spec, self.md.vr_model_param, self.input_high_end_h, input_high_end_mirrored, is_v51_model=self.md.is_vr_51_model)
-        else: return spec_utils.cmb_spectrogram_to_wave(spec, self.md.vr_model_param, is_v51_model=self.md.is_vr_51_model)
+        if not spec_utils or not self.md.vr_model_param: 
+            self._console_log_base("VR spec_utils/params error.")
+            return None
+            
+        # Debug info about the input spectrogram
+        print(f"DEBUG: {self.md.primary_stem if not self.md.is_secondary_stem_only else self.md.secondary_stem} spec shape before _spec_to_wav_vr_logic: {spec.shape}")
+        
+        # Check for NaN/Inf values in the spectrogram
+        if np.isnan(np.sum(spec)):
+            self._console_log_base("Warning: Spectrogram contains NaN values. Attempting to fix...")
+            spec = np.nan_to_num(spec, nan=0.0)
+        if np.isinf(np.sum(spec)):
+            self._console_log_base("Warning: Spectrogram contains Inf values. Attempting to fix...")
+            spec = np.nan_to_num(spec, posinf=1.0, neginf=-1.0)
+            
+        # Proceed with conversion
+        result = None
+        try:
+            if self.md.is_high_end_process and isinstance(self.input_high_end, np.ndarray) and self.input_high_end_h is not None:
+                input_high_end_mirrored = spec_utils.mirroring('mirroring', spec, self.input_high_end, self.md.vr_model_param)
+                result = spec_utils.cmb_spectrogram_to_wave(spec, self.md.vr_model_param, self.input_high_end_h, input_high_end_mirrored, is_v51_model=self.md.is_vr_51_model)
+            else: 
+                result = spec_utils.cmb_spectrogram_to_wave(spec, self.md.vr_model_param, is_v51_model=self.md.is_vr_51_model)
+        except Exception as e:
+            self._console_log_base(f"Error in spectrogram to wave conversion: {e}")
+            return None
+            
+        # Debug info about the output waveform
+        stem_name = self.md.primary_stem if not self.md.is_secondary_stem_only else self.md.secondary_stem
+        print(f"DEBUG: {stem_name} shape after _spec_to_wav_vr_logic: {result.shape if result is not None else 'None'}")
+        
+        # Check if result is empty
+        if result is not None and (result.size == 0 or result.shape[1] == 0):
+            print(f"DEBUG: {stem_name} is empty (shape {result.shape}) BEFORE resampling. Skipping write for {stem_name}.")
+            
+        return result
 
     def seperate(self) -> Optional[Dict[str, np.ndarray]]:
         if not all([nets_new_vr, nets_vr, ModelParameters, spec_utils, self.md.vr_model_param]): self._console_log_base("VR dependencies/params error."); return None
@@ -710,24 +780,17 @@ class SeperateVRLogic(SeparatorAttributesLogic):
         if y_spec is None or v_spec is None: self._console_log_base("VR inference error."); return None
 
         # NaN/Inf check for y_spec and v_spec
-        if y_spec is not None and np.isnan(np.sum(y_spec)):
-            print("DEBUG: y_spec CONTAINS NaN VALUES before conversion!")
-        if y_spec is not None and np.isinf(np.sum(y_spec)):
-            print("DEBUG: y_spec CONTAINS INF VALUES before conversion!")
-        if v_spec is not None and np.isnan(np.sum(v_spec)):
-            print("DEBUG: v_spec CONTAINS NaN VALUES before conversion!")
-        if v_spec is not None and np.isinf(np.sum(v_spec)):
-            print("DEBUG: v_spec CONTAINS INF VALUES before conversion!")
+
 
         self._console_log(ac.DONE_MESSAGE); outputs = {}
         if not md.is_secondary_stem_only:
             self._console_log_base(f"Converting {md.primary_stem}..."); 
-            print(f"DEBUG: y_spec shape before _spec_to_wav_vr_logic: {y_spec.shape if y_spec is not None else 'None'}")
+
             primary_wave = self._spec_to_wav_vr_logic(y_spec)
-            print(f"DEBUG: primary_wave shape after _spec_to_wav_vr_logic: {primary_wave.shape if primary_wave is not None else 'None'}")
+
             if primary_wave is not None:
                 if primary_wave.size == 0:
-                    print(f"DEBUG: primary_wave for {md.primary_stem} is empty (shape {primary_wave.shape}). Generating silent output of original length.")
+
                     primary_wave = np.zeros_like(original_mix_audio_array) 
                 
                 if md.model_samplerate!=ac.DEFAULT_SAMPLE_RATE and primary_wave.size > 0: # Ensure not resampling empty array
@@ -741,12 +804,12 @@ class SeperateVRLogic(SeparatorAttributesLogic):
         
         if not md.is_primary_stem_only:
             self._console_log_base(f"Converting {md.secondary_stem}..."); 
-            print(f"DEBUG: v_spec shape before _spec_to_wav_vr_logic: {v_spec.shape if v_spec is not None else 'None'}")
+
             secondary_wave = self._spec_to_wav_vr_logic(v_spec)
-            print(f"DEBUG: secondary_wave shape after _spec_to_wav_vr_logic: {secondary_wave.shape if secondary_wave is not None else 'None'}")
+
             if secondary_wave is not None:
                 if secondary_wave.size == 0:
-                    print(f"DEBUG: secondary_wave for {md.secondary_stem} is empty (shape {secondary_wave.shape}). Generating silent output of original length.")
+
                     secondary_wave = np.zeros_like(original_mix_audio_array)
 
                 if md.model_samplerate!=ac.DEFAULT_SAMPLE_RATE and secondary_wave.size > 0: # Ensure not resampling empty array

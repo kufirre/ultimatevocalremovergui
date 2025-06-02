@@ -307,49 +307,83 @@ def spectrogram_to_wave(spec, hop_length=1024, mp={}, band=0, is_v51_model=True)
     return np.asfortranarray([wave_left, wave_right])
     
 def cmb_spectrogram_to_wave(spec_m, mp, extra_bins_h=None, extra_bins=None, is_v51_model=False):
-    bands_n = len(mp.param['band'])    
-    offset = 0
+    try:
+        # Check for NaN/Inf values in the input spectrogram
+        if np.isnan(np.sum(spec_m)):
+            print("WARNING: Input spectrogram contains NaN values. Attempting to fix...")
+            spec_m = np.nan_to_num(spec_m, nan=0.0)
+        if np.isinf(np.sum(spec_m)):
+            print("WARNING: Input spectrogram contains Inf values. Attempting to fix...")
+            spec_m = np.nan_to_num(spec_m, posinf=1.0, neginf=-1.0)
+            
+        # Check if the spectrogram is empty or too small
+        if spec_m.size == 0 or spec_m.shape[2] == 0:
+            print("WARNING: Input spectrogram is empty. Returning empty array.")
+            return np.zeros((2, 0))
+            
+        bands_n = len(mp.param['band'])    
+        offset = 0
+        wave = None  # Initialize wave to None
 
-    for d in range(1, bands_n + 1):
-        bp = mp.param['band'][d]
-        spec_s = np.ndarray(shape=(2, bp['n_fft'] // 2 + 1, spec_m.shape[2]), dtype=complex)
-        h = bp['crop_stop'] - bp['crop_start']
-        spec_s[:, bp['crop_start']:bp['crop_stop'], :] = spec_m[:, offset:offset+h, :]
-                
-        offset += h
-        if d == bands_n: # higher
-            if extra_bins_h: # if --high_end_process bypass
-                max_bin = bp['n_fft'] // 2
-                spec_s[:, max_bin-extra_bins_h:max_bin, :] = extra_bins[:, :extra_bins_h, :]
-            if bp['hpf_start'] > 0:
-                if is_v51_model:
-                    spec_s *= get_hp_filter_mask(spec_s.shape[1], bp['hpf_start'], bp['hpf_stop'] - 1)
-                else:
-                    spec_s = fft_hp_filter(spec_s, bp['hpf_start'], bp['hpf_stop'] - 1)
-            if bands_n == 1:
-                wave = spectrogram_to_wave(spec_s, bp['hl'], mp, d, is_v51_model)
-            else:
-                wave = np.add(wave, spectrogram_to_wave(spec_s, bp['hl'], mp, d, is_v51_model))
-        else:
-            sr = mp.param['band'][d+1]['sr']
-            if d == 1: # lower
-                if is_v51_model:
-                    spec_s *= get_lp_filter_mask(spec_s.shape[1], bp['lpf_start'], bp['lpf_stop'])
-                else:
-                    spec_s = fft_lp_filter(spec_s, bp['lpf_start'], bp['lpf_stop'])
-                wave = librosa.resample(spectrogram_to_wave(spec_s, bp['hl'], mp, d, is_v51_model), orig_sr=bp['sr'], target_sr=sr, res_type=wav_resolution)
-            else: # mid
-                if is_v51_model:
-                    spec_s *= get_hp_filter_mask(spec_s.shape[1], bp['hpf_start'], bp['hpf_stop'] - 1)
-                    spec_s *= get_lp_filter_mask(spec_s.shape[1], bp['lpf_start'], bp['lpf_stop'])
-                else:
-                    spec_s = fft_hp_filter(spec_s, bp['hpf_start'], bp['hpf_stop'] - 1)
-                    spec_s = fft_lp_filter(spec_s, bp['lpf_start'], bp['lpf_stop'])
+        for d in range(1, bands_n + 1):
+            bp = mp.param['band'][d]
+            spec_s = np.ndarray(shape=(2, bp['n_fft'] // 2 + 1, spec_m.shape[2]), dtype=complex)
+            h = bp['crop_stop'] - bp['crop_start']
+            spec_s[:, bp['crop_start']:bp['crop_stop'], :] = spec_m[:, offset:offset+h, :]
                     
-                wave2 = np.add(wave, spectrogram_to_wave(spec_s, bp['hl'], mp, d, is_v51_model))
-                wave = librosa.resample(wave2, orig_sr=bp['sr'], target_sr=sr, res_type=wav_resolution)
+            offset += h
+            if d == bands_n: # higher
+                if extra_bins_h: # if --high_end_process bypass
+                    max_bin = bp['n_fft'] // 2
+                    spec_s[:, max_bin-extra_bins_h:max_bin, :] = extra_bins[:, :extra_bins_h, :]
+                if bp['hpf_start'] > 0:
+                    if is_v51_model:
+                        spec_s *= get_hp_filter_mask(spec_s.shape[1], bp['hpf_start'], bp['hpf_stop'] - 1)
+                    else:
+                        spec_s = fft_hp_filter(spec_s, bp['hpf_start'], bp['hpf_stop'] - 1)
+                if bands_n == 1:
+                    wave = spectrogram_to_wave(spec_s, bp['hl'], mp, d, is_v51_model)
+                else:
+                    if wave is not None:  # Check if wave is initialized
+                        wave = np.add(wave, spectrogram_to_wave(spec_s, bp['hl'], mp, d, is_v51_model))
+                    else:
+                        wave = spectrogram_to_wave(spec_s, bp['hl'], mp, d, is_v51_model)
+            else:
+                sr = mp.param['band'][d+1]['sr']
+                if d == 1: # lower
+                    if is_v51_model:
+                        spec_s *= get_lp_filter_mask(spec_s.shape[1], bp['lpf_start'], bp['lpf_stop'])
+                    else:
+                        spec_s = fft_lp_filter(spec_s, bp['lpf_start'], bp['lpf_stop'])
+                    wave = librosa.resample(spectrogram_to_wave(spec_s, bp['hl'], mp, d, is_v51_model), orig_sr=bp['sr'], target_sr=sr, res_type=wav_resolution)
+                else: # mid
+                    if is_v51_model:
+                        spec_s *= get_hp_filter_mask(spec_s.shape[1], bp['hpf_start'], bp['hpf_stop'] - 1)
+                        spec_s *= get_lp_filter_mask(spec_s.shape[1], bp['lpf_start'], bp['lpf_stop'])
+                    else:
+                        spec_s = fft_hp_filter(spec_s, bp['hpf_start'], bp['hpf_stop'] - 1)
+                        spec_s = fft_lp_filter(spec_s, bp['lpf_start'], bp['lpf_stop'])
+                        
+                    if wave is not None:  # Check if wave is initialized
+                        wave2 = np.add(wave, spectrogram_to_wave(spec_s, bp['hl'], mp, d, is_v51_model))
+                        wave = librosa.resample(wave2, orig_sr=bp['sr'], target_sr=sr, res_type=wav_resolution)
+                    else:
+                        print("WARNING: wave is None in mid-band processing")
+                        wave = np.zeros((2, 0))  # Return empty array as fallback
+            
+        # Final check for empty output
+        if wave is None or wave.size == 0 or wave.shape[1] == 0:
+            print("WARNING: Output wave is empty. Returning empty array.")
+            return np.zeros((2, 0))
+            
+        return wave
         
-    return wave
+    except Exception as e:
+        print(f"ERROR in cmb_spectrogram_to_wave: {e}")
+        import traceback
+        traceback.print_exc()
+        # Return an empty array as fallback
+        return np.zeros((2, 0))
 
 def get_lp_filter_mask(n_bins, bin_start, bin_stop):
     mask = np.concatenate([

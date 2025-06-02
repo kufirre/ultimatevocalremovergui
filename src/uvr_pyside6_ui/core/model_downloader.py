@@ -112,7 +112,11 @@ def download_model_file(model_name: str, download_url: str, model_type: str,
                     downloaded_size += len(chunk)
                     if total_size > 0 and progress_callback:
                         percentage = int((downloaded_size / total_size) * 100)
+                        # Call progress callback more frequently for smooth updates
                         progress_callback(Path(url).name, percentage)
+                    elif progress_callback:
+                        # If no total size, show indeterminate progress
+                        progress_callback(Path(url).name, min(50, downloaded_size // 1024))  # Rough progress based on KB
             
             if progress_callback: progress_callback(Path(url).name, 100)
             print(f"Successfully downloaded {Path(url).name}")

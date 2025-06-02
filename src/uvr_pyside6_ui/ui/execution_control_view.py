@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QGroupBox, QPushButton,
-    QProgressBar, QTextEdit
+    QProgressBar, QTextEdit, QLabel, QHBoxLayout
 )
 from PySide6.QtGui import QIcon # Import QIcon
 from PySide6.QtCore import Signal, Slot, QSize # Import QSize
@@ -37,12 +37,25 @@ class ExecutionControlView(QWidget):
         self.start_button.clicked.connect(self.start_processing_clicked)
         exec_layout.addWidget(self.start_button)
 
-        # --- Progress Bar ---
+        # --- Progress Bar with Label ---
+        progress_container = QWidget()
+        progress_layout = QVBoxLayout(progress_container)
+        progress_layout.setContentsMargins(0, 0, 0, 0)
+        progress_layout.setSpacing(2)
+        
+        # Add label above progress bar
+        self.progress_label = QLabel("Ready")
+        self.progress_label.setProperty("progressLabel", True)  # For QSS styling
+        progress_layout.addWidget(self.progress_label)
+        
+        # Progress bar
         self.progress_bar = QProgressBar()
         self.progress_bar.setObjectName("mainProgressBar")  # Set object name for QSS
-        self.progress_bar.setTextVisible(True)
-        self.progress_bar.setValue(0) # Start at 0
-        exec_layout.addWidget(self.progress_bar)
+        self.progress_bar.setTextVisible(False)  # Hide text inside progress bar
+        self.progress_bar.setValue(0)  # Start at 0
+        progress_layout.addWidget(self.progress_bar)
+        
+        exec_layout.addWidget(progress_container)
 
         # --- Status/Log Area ---
         self.log_text_edit = QTextEdit()
@@ -66,8 +79,8 @@ class ExecutionControlView(QWidget):
 
     @Slot(str)
     def set_progress_text(self, text: str):
-        """Sets the text displayed on the progress bar."""
-        self.progress_bar.setFormat(f"{text}")
+        """Sets the text displayed in the progress label."""
+        self.progress_label.setText(text)
 
     @Slot(str)
     def append_log_message(self, message: str):

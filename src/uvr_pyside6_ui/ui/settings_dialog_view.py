@@ -77,16 +77,26 @@ class SettingsDialogView(QDialog):
             print(f"Error loading download_icon for button: {e}")
         self.dc_download_button.setEnabled(False)
         dc_main_layout.addWidget(self.dc_download_button)
+        # Progress container with label and progress bar
+        progress_container = QWidget()
+        progress_layout = QVBoxLayout(progress_container)
+        progress_layout.setContentsMargins(0, 0, 0, 0)
+        progress_layout.setSpacing(2)
+        
+        # Status label above progress bar
         self.dc_status_label = QLabel("💤 Ready to download")
-        dc_main_layout.addWidget(self.dc_status_label)
+        self.dc_status_label.setProperty("progressLabel", True)  # For QSS styling
+        progress_layout.addWidget(self.dc_status_label)
+        
+        # Progress bar
         self.dc_progress_bar = QProgressBar()
         self.dc_progress_bar.setObjectName("downloadProgressBar")  # Set object name for QSS
         self.dc_progress_bar.setValue(0)
-        self.dc_progress_bar.setTextVisible(True) # Show percentage text
-        self.dc_progress_bar.setFormat("%p%") # Show only percentage
-        # Ensure progress bar updates properly
+        self.dc_progress_bar.setTextVisible(False)  # Hide text inside progress bar
         self.dc_progress_bar.setRange(0, 100)
-        dc_main_layout.addWidget(self.dc_progress_bar)
+        progress_layout.addWidget(self.dc_progress_bar)
+        
+        dc_main_layout.addWidget(progress_container)
         try:
             dc_tab_icon = QIcon(":/uvr/img/download.png")
             self.tab_widget.addTab(self.download_center_tab, dc_tab_icon, "Download Center")

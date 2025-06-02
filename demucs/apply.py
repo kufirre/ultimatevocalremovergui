@@ -155,6 +155,14 @@ def apply_model(model,
     global bag_num
     global prog_bar
     
+    # Initialize global variables to avoid NameError when used in recursive calls
+    if 'bag_num' not in globals():
+        bag_num = 1
+    if 'fut_length' not in globals():
+        fut_length = 0
+    if 'prog_bar' not in globals():
+        prog_bar = 0
+    
     if device is None:
         device = mix.device
     else:

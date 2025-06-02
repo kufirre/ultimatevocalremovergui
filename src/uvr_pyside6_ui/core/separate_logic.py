@@ -649,7 +649,7 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
                             md.is_split_mode,
                             md.overlap,
                             static_shifts=1 if md.shifts == 0 else md.shifts,
-                            set_progress_bar=lambda p, t: self._update_progress(p/t if t > 0 else p),
+                            set_progress_bar=self.set_progress_bar,
                             device=self.device
                         )
                         

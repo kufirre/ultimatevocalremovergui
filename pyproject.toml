@@ -53,9 +53,21 @@ dependencies = [
     "scipy>=1.7.0",         # Scientific computing.
     "natsort",
     "requests",
+    "omegaconf",
+    "pytorch_lightning",
+    "diffq",
     # UI and utility dependencies
     "Pillow>=8.0.0",        # Image handling (often needed for icons/assets).
     "requests>=2.25.0",     # For potential downloads (models, updates).
+    "pyyaml>=6.0",          # For YAML parsing (MDX-C configs).
+    "ml-collections>=0.1.1", # For ConfigDict (MDX-C configs).
+    # Core model processing dependencies
+    "six",                  # From lib_v5 requirements
+    "julius",               # For Demucs resampling
+    "onnxruntime",          # For ONNX model inference
+    "onnx",                 # For ONNX model handling
+    "onnx2pytorch",         # For ONNX to PyTorch conversion (if needed by some models)
+    "pydub>=0.25.0",        # For MP3/FLAC export
     # We will add more UVR core dependencies here as we identify them
 ]
 
@@ -79,8 +91,7 @@ gpu = [
     "onnxruntime-gpu",  # GPU support for ONNX models (if used).
 ]
 audio-extra = [
-    # Additional audio format support.
-    "pydub>=0.25.0",
+    # Additional audio format support (pydub moved to main)
     "mutagen>=1.45.0",
     "ffmpeg-python>=0.2.0", # Requires ffmpeg to be installed on the system.
 ]
@@ -108,10 +119,15 @@ uvr-gui = "uvr_pyside6_ui.main:run" # Creates 'uvr-gui' which calls run() in mai
 # ==========================================
 # Specific settings for the 'setuptools' build backend.
 [tool.setuptools]
-# Tells setuptools that your code lives under the 'src' directory.
-package-dir = {"" = "src"}
-# Specifies which package(s) under 'src' should be included.
-packages = ["uvr_pyside6_ui"]
+# Specifies which packages to include.
+# Ensure these directories exist at the specified locations and are actual Python packages (contain __init__.py).
+packages = ["uvr_pyside6_ui", "demucs", "lib_v5"]
+
+[tool.setuptools.package-dir]
+# Maps package names to the directory containing their source.
+"uvr_pyside6_ui" = "src/uvr_pyside6_ui" # Main application package
+"demucs" = "demucs"                     # Demucs package at project root
+"lib_v5" = "lib_v5"                     # lib_v5 package at project root
 
 # ==========================================
 # Pytest Configuration

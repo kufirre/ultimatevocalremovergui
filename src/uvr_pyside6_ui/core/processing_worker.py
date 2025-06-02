@@ -255,6 +255,32 @@ class RealProcessingWorker(QObject):
         self._execute_separation_pipeline(ac.MDX_ARCH_TYPE, process_data)
         
     def _process_demucs(self, process_data: Dict[str, Any]):
+        print("DEBUG: Starting Demucs processing")
+        print(f"DEBUG: Model path: {self.model_data.model_path}")
+        print(f"DEBUG: Model basename: {self.model_data.model_basename}")
+        print(f"DEBUG: Demucs version: {self.model_data.demucs_version}")
+        print(f"DEBUG: Demucs stems: {self.model_data.demucs_stems}")
+        print(f"DEBUG: Demucs source list: {self.model_data.demucs_source_list}")
+        
+        # Check if model file exists
+        if self.model_data.model_path:
+            model_path = Path(self.model_data.model_path)
+            if model_path.exists():
+                print(f"DEBUG: Model file exists: {model_path}")
+                print(f"DEBUG: Model file size: {model_path.stat().st_size} bytes")
+            else:
+                print(f"DEBUG: Model file does not exist: {model_path}")
+                
+            # Check parent directory
+            model_dir = model_path.parent
+            if model_dir.exists():
+                print(f"DEBUG: Model directory exists: {model_dir}")
+                print("DEBUG: Files in model directory:")
+                for file in model_dir.iterdir():
+                    print(f"  - {file.name}")
+            else:
+                print(f"DEBUG: Model directory does not exist: {model_dir}")
+        
         self._execute_separation_pipeline(ac.DEMUCS_ARCH_TYPE, process_data)
 
     def _align_spectrograms(self, spec_list: List[np.ndarray]) -> Optional[List[np.ndarray]]:

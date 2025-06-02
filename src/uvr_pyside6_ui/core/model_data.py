@@ -385,10 +385,32 @@ class ModelData:
                 return None 
             print(f"Warning: base_model_dir is None for process_method: {self.process_method}")
             return None
-        current_model_name = self.model_name 
+        current_model_name = self.model_name
         current_model_basename = Path(current_model_name).stem
         if Path(current_model_name).is_file() and Path(current_model_name).exists(): return str(current_model_name)
         if (base_model_dir / current_model_name).exists(): return str(base_model_dir / current_model_name)
+        
+        # For Demucs models, check if it's a hash ID and find the corresponding file
+        if self.process_method == ac.DEMUCS_ARCH_TYPE:
+            # Check if it's a YAML file first
+            yaml_path = base_model_dir / f"{current_model_name}.yaml"
+            if yaml_path.exists():
+                print(f"Found Demucs YAML file: {yaml_path}")
+                return str(yaml_path)
+                
+            # Check if it's a hash ID (like "92cfc3b6-ef3bcb9c" or just "92cfc3b6")
+            # Look for files that start with this hash
+            for file_path in base_model_dir.glob(f"{current_model_name}*"):
+                if file_path.is_file() and file_path.suffix.lower() in ['.th', '.yaml']:
+                    print(f"Found Demucs model via hash prefix: {file_path}")
+                    return str(file_path)
+                    
+            # If it's a short hash (like "92cfc3b6"), look for files with the full hash
+            if len(current_model_name) == 8:  # Short hash format
+                for file_path in base_model_dir.glob(f"{current_model_name}-*.th"):
+                    if file_path.is_file():
+                        print(f"Found Demucs model via short hash: {file_path}")
+                        return str(file_path)
         
         # For MDX-Net models, check if there's a mapping from display name to file name
         if self.process_method == ac.MDX_ARCH_TYPE:
@@ -414,6 +436,32 @@ class ModelData:
         if self.process_method == ac.VR_ARCH_TYPE: extensions = ac.VR_ARCH_SCAN_EXTENSIONS
         elif self.process_method == ac.MDX_ARCH_TYPE: extensions = ac.MDX_SCAN_EXTENSIONS
         elif self.process_method == ac.DEMUCS_ARCH_TYPE:
+            # Try to find the reverse mapping (from display name to file name)
+            try:
+                mapper_path = base_model_dir / "model_data" / "model_name_mapper.json"
+                if mapper_path.exists():
+                    with open(mapper_path, 'r', encoding='utf-8') as f:
+                        name_mapper = json.load(f)
+                    # Find the key for this model name (reverse lookup)
+                    for file_name, display_name in name_mapper.items():
+                        if display_name == current_model_name:
+                            # Check if this file exists in base_model_dir
+                            if (base_model_dir / file_name).exists():
+                                print(f"Found Demucs model via name mapper: {base_model_dir / file_name}")
+                                return str(base_model_dir / file_name)
+                            # Check if this file exists in v3_v4_repo
+                            if (DEMUCS_NEWER_REPO_DIR_PATH / file_name).exists():
+                                print(f"Found Demucs model via name mapper in v3_v4_repo: {DEMUCS_NEWER_REPO_DIR_PATH / file_name}")
+                                return str(DEMUCS_NEWER_REPO_DIR_PATH / file_name)
+                            
+                            # If the file doesn't exist, we need to download it
+                            # For now, just return None and let the caller handle the download
+                            print(f"Demucs model file not found: {file_name} for {current_model_name}")
+                            return None
+            except Exception as e:
+                print(f"Error checking Demucs model name mapper: {e}")
+            
+            # If we didn't find a mapping, try the standard extensions
             for ext in ac.DEMUCS_LEGACY_SCAN_EXTENSIONS + ac.DEMUCS_V3_V4_SCAN_EXTENSIONS:
                 if (base_model_dir / f"{current_model_basename}{ext}").exists(): return str(base_model_dir / f"{current_model_basename}{ext}")
                 if (DEMUCS_NEWER_REPO_DIR_PATH / f"{current_model_basename}{ext}").exists(): return str(DEMUCS_NEWER_REPO_DIR_PATH / f"{current_model_basename}{ext}")

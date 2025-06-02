@@ -389,6 +389,27 @@ class ModelData:
         current_model_basename = Path(current_model_name).stem
         if Path(current_model_name).is_file() and Path(current_model_name).exists(): return str(current_model_name)
         if (base_model_dir / current_model_name).exists(): return str(base_model_dir / current_model_name)
+        
+        # For MDX-Net models, check if there's a mapping from display name to file name
+        if self.process_method == ac.MDX_ARCH_TYPE:
+            # Try to find the reverse mapping (from display name to file name)
+            try:
+                mapper_path = MDX_HASH_DIR_PATH / "model_name_mapper.json"
+                if mapper_path.exists():
+                    with open(mapper_path, 'r', encoding='utf-8') as f:
+                        name_mapper = json.load(f)
+                    # Find the key for this model name (reverse lookup)
+                    for file_name, display_name in name_mapper.items():
+                        if display_name == current_model_name:
+                            # Check if this file exists with extensions
+                            for ext in ac.MDX_SCAN_EXTENSIONS:
+                                file_path = base_model_dir / f"{file_name}{ext}"
+                                if file_path.exists():
+                                    print(f"Found MDX model via name mapper: {file_path}")
+                                    return str(file_path)
+            except Exception as e:
+                print(f"Error checking model name mapper: {e}")
+        
         extensions = []
         if self.process_method == ac.VR_ARCH_TYPE: extensions = ac.VR_ARCH_SCAN_EXTENSIONS
         elif self.process_method == ac.MDX_ARCH_TYPE: extensions = ac.MDX_SCAN_EXTENSIONS

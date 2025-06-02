@@ -71,25 +71,20 @@ def download_model_file(model_name: str, download_url: str, model_type: str,
     if config_url:
         local_config_filename = Path(config_url).name
         config_target_dir = target_dir
-        # Basic heuristic for Demucs config path, can be refined
-        if model_type == ac.DEMUCS_MODELS_KEY and ac.DEMUCS_NEWER_REPO_DIR_PATH.name in str(local_model_path).lower():
-            # If model path suggests it's in a repo subdir (like 'v3_v4_repo'), place config there too.
-            # This assumes model_downloader.py is in core, and MODELS_DIR is project_root/models
-            # So target_dir is project_root/models/Demucs_Models
-            # DEMUCS_NEWER_REPO_DIR_PATH is project_root/models/Demucs_Models/v3_v4_repo
-            # This logic might need adjustment based on actual structure of DEMUCS_NEWER_REPO_DIR_PATH constant
-            # For now, let's assume if 'v3_v4_repo' is part of the model name or path, config goes there.
-             if ac.DEMUCS_NEWER_REPO_DIR_PATH.name in download_url: # Check if URL indicates it's from the repo
-                config_target_dir = target_dir / ac.DEMUCS_NEWER_REPO_DIR_PATH.name # This might be wrong if target_dir is already the repo dir
-                # A safer bet: if the model itself is being saved into a 'v3_v4_repo' like path.
-                # The current local_model_path is target_dir / filename.
-                # If target_dir itself is not the v3_v4_repo, but model should go there, this needs fixing.
-                # For now, assume config goes to same dir as model, unless specific logic added.
-                # The current model_downloader.py saves to MODELS_DIR / SUBDIR.
-                # If download_url implies a deeper structure, filename extraction is key.
-                # Let's assume for now config goes into the same target_dir as the model.
-                # If config_url implies a different structure, that's more complex.
-                pass # Keep config_target_dir as target_dir for now.
+        # Handle Demucs models specially
+        if model_type == ac.DEMUCS_MODELS_KEY:
+            # Check if this is a v3/v4 model that should go in the v3_v4_repo directory
+            if any(tag in model_name for tag in [ac.DEMUCS_V3, ac.DEMUCS_V4]) or ".yaml" in local_model_filename:
+                # Create the v3_v4_repo directory if it doesn't exist
+                v3_v4_repo_dir = target_dir / ac.DEMUCS_V3_V4_REPO_DIR_NAME
+                v3_v4_repo_dir.mkdir(exist_ok=True)
+                
+                # Update the local path to save in the v3_v4_repo directory
+                local_model_path = v3_v4_repo_dir / local_model_filename
+                
+                # If there's a config file, it should also go in the v3_v4_repo directory
+                if config_url:
+                    config_target_dir = v3_v4_repo_dir
         
         local_config_path = config_target_dir / local_config_filename
         local_config_path_str = str(local_config_path)

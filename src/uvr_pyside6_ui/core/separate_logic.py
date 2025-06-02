@@ -306,13 +306,21 @@ class SeperateMDXLogic(SeparatorAttributesLogic):
 
         if is_match_freq_cut: return spec.cpu().detach().numpy() 
         
-        if md.is_mdx_ckpt: spec_pred = self.model_run_instance(spec)
+        if md.is_mdx_ckpt: 
+            spec_pred = self.model_run_instance(spec)
         elif self.is_onnx_model:
             if md.mdx_segment_size == md.mdx_dim_t_set and not (self.device.type == 'mps'):
-                spec_pred_np = self.model_run_instance(spec.cpu().numpy()) 
+                # For ONNX Runtime inference
+                input_name = self.model_run_instance.get_inputs()[0].name
+                output_name = self.model_run_instance.get_outputs()[0].name
+                spec_cpu = spec.cpu().numpy()
+                spec_pred_np = self.model_run_instance.run([output_name], {input_name: spec_cpu})[0]
                 spec_pred = torch.tensor(spec_pred_np).to(self.device)
-            else: spec_pred = self.model_run_instance(spec)
-        else: raise ValueError("MDX model type not recognized for running.")
+            else: 
+                # For PyTorch converted ONNX model
+                spec_pred = self.model_run_instance(spec)
+        else: 
+            raise ValueError("MDX model type not recognized for running.")
 
         if not is_match_freq_cut and md.denoise_option != ac.DENOISE_NONE:
              spec_pred = -self.model_run_instance(-spec) * 0.5 + self.model_run_instance(spec) * 0.5
@@ -722,7 +730,8 @@ class SeperateVRLogic(SeparatorAttributesLogic):
             return None
             
         # Debug info about the input spectrogram
-        print(f"DEBUG: {self.md.primary_stem if not self.md.is_secondary_stem_only else self.md.secondary_stem} spec shape before _spec_to_wav_vr_logic: {spec.shape}")
+        stem_name = self.md.primary_stem if not self.md.is_secondary_stem_only else self.md.secondary_stem
+        print(f"DEBUG: {stem_name} spec shape before _spec_to_wav_vr_logic: {spec.shape}")
         
         # Check for NaN/Inf values in the spectrogram
         if np.isnan(np.sum(spec)):
@@ -731,10 +740,30 @@ class SeperateVRLogic(SeparatorAttributesLogic):
         if np.isinf(np.sum(spec)):
             self._console_log_base("Warning: Spectrogram contains Inf values. Attempting to fix...")
             spec = np.nan_to_num(spec, posinf=1.0, neginf=-1.0)
+        
+        # Additional check for zero values
+        if np.all(np.abs(spec) < 1e-10):
+            self._console_log_base(f"Warning: Spectrogram for {stem_name} contains all zeros or very small values.")
             
         # Proceed with conversion
         result = None
         try:
+            # Create a small test spectrogram to verify the conversion works
+            test_spec = np.ones((2, 10, 10), dtype=np.complex64) * 0.1
+            test_result = None
+            
+            try:
+                if self.md.is_vr_51_model:
+                    test_result = spec_utils.cmb_spectrogram_to_wave(test_spec, self.md.vr_model_param, is_v51_model=True)
+                else:
+                    test_result = spec_utils.cmb_spectrogram_to_wave(test_spec, self.md.vr_model_param, is_v51_model=False)
+                
+                if test_result is None or test_result.size == 0 or test_result.shape[1] == 0:
+                    self._console_log_base(f"Warning: Test conversion failed for {stem_name}. Model parameters may be incorrect.")
+            except Exception as test_e:
+                self._console_log_base(f"Warning: Test conversion failed: {test_e}")
+            
+            # Proceed with actual conversion
             if self.md.is_high_end_process and isinstance(self.input_high_end, np.ndarray) and self.input_high_end_h is not None:
                 input_high_end_mirrored = spec_utils.mirroring('mirroring', spec, self.input_high_end, self.md.vr_model_param)
                 result = spec_utils.cmb_spectrogram_to_wave(spec, self.md.vr_model_param, self.input_high_end_h, input_high_end_mirrored, is_v51_model=self.md.is_vr_51_model)
@@ -742,15 +771,17 @@ class SeperateVRLogic(SeparatorAttributesLogic):
                 result = spec_utils.cmb_spectrogram_to_wave(spec, self.md.vr_model_param, is_v51_model=self.md.is_vr_51_model)
         except Exception as e:
             self._console_log_base(f"Error in spectrogram to wave conversion: {e}")
+            import traceback
+            self._console_log_base(f"Traceback: {traceback.format_exc()}")
             return None
             
         # Debug info about the output waveform
-        stem_name = self.md.primary_stem if not self.md.is_secondary_stem_only else self.md.secondary_stem
         print(f"DEBUG: {stem_name} shape after _spec_to_wav_vr_logic: {result.shape if result is not None else 'None'}")
         
         # Check if result is empty
         if result is not None and (result.size == 0 or result.shape[1] == 0):
             print(f"DEBUG: {stem_name} is empty (shape {result.shape}) BEFORE resampling. Skipping write for {stem_name}.")
+            self._console_log_base(f"Warning: Conversion produced empty output for {stem_name}. Check model compatibility.")
             
         return result
 
@@ -767,20 +798,68 @@ class SeperateVRLogic(SeparatorAttributesLogic):
 
         self._console_log_base(f"Processing with VR model: {md.model_basename}...")
         try:
+            # Get model hash for debugging
+            import hashlib
+            with open(md.model_path, 'rb') as f:
+                model_hash = hashlib.md5(f.read()).hexdigest()
+            self._console_log_base(f"Model file hash: {model_hash}")
+            
+            # Check if hash exists in model_data.json
+            model_hash_found = False
+            if hasattr(md, 'vr_model_param') and md.vr_model_param:
+                self._console_log_base(f"Using VR model parameters: {md.vr_model_param.param['band'][1]['sr']} Hz, {md.vr_model_param.param['band'][1]['n_fft']} FFT")
+                model_hash_found = True
+            else:
+                self._console_log_base("Warning: VR model parameters not found or invalid")
+            
             nn_arch_sizes=[31191,33966,56817,123821,123812,129605,218409,537238,537227]; vr_5_1_models_sizes=[56817,218409]
             model_size_kb = Path(md.model_path).stat().st_size/1024; nn_arch_size=min(nn_arch_sizes, key=lambda x:abs(x-model_size_kb))
-            if nn_arch_size in vr_5_1_models_sizes or md.is_vr_51_model: self.model_run_instance = nets_new_vr.CascadedNet(md.vr_model_param.param['bins']*2, nn_arch_size, nout=md.model_capacity[0], nout_lstm=md.model_capacity[1])
-            else: self.model_run_instance = nets_vr.determine_model_capacity(md.vr_model_param.param['bins']*2, nn_arch_size)
-            self.model_run_instance.load_state_dict(torch.load(md.model_path, map_location=CPU_DEVICE)); self.model_run_instance.to(self.device).eval()
-        except Exception as e: self._console_log_base(f"Error loading VR model: {e}"); return None
-        self._update_progress(0.0, message="Loading audio mix..."); X_spec = self._loading_mix_vr(str(self.audio_file_path))
+            self._console_log_base(f"Model size: {model_size_kb} KB, Selected architecture size: {nn_arch_size}")
+            
+            if nn_arch_size in vr_5_1_models_sizes or md.is_vr_51_model:
+                self._console_log_base("Using VR 5.1 model architecture")
+                self.model_run_instance = nets_new_vr.CascadedNet(md.vr_model_param.param['bins']*2, nn_arch_size, nout=md.model_capacity[0], nout_lstm=md.model_capacity[1])
+            else:
+                self._console_log_base("Using standard VR model architecture")
+                self.model_run_instance = nets_vr.determine_model_capacity(md.vr_model_param.param['bins']*2, nn_arch_size)
+            
+            self.model_run_instance.load_state_dict(torch.load(md.model_path, map_location=CPU_DEVICE))
+            self.model_run_instance.to(self.device).eval()
+        except Exception as e: 
+            self._console_log_base(f"Error loading VR model: {e}")
+            import traceback
+            self._console_log_base(f"Traceback: {traceback.format_exc()}")
+            return None
+            
+        self._update_progress(0.0, message="Loading audio mix...")
+        X_spec = self._loading_mix_vr(str(self.audio_file_path))
         if X_spec is None: return None
-        self._console_log_base("Running VR inference..."); y_spec, v_spec = self._inference_vr_logic(X_spec)
         
-        if y_spec is None or v_spec is None: self._console_log_base("VR inference error."); return None
+        # Check spectrogram
+        if np.all(np.abs(X_spec) < 1e-10):
+            self._console_log_base("Warning: Input spectrogram contains all zeros or very small values")
+        
+        self._console_log_base("Running VR inference...")
+        y_spec, v_spec = self._inference_vr_logic(X_spec)
+        
+        if y_spec is None or v_spec is None: 
+            self._console_log_base("VR inference error.")
+            return None
 
         # NaN/Inf check for y_spec and v_spec
-
+        if np.isnan(np.sum(y_spec)):
+            self._console_log_base("Warning: Primary stem spectrogram contains NaN values. Attempting to fix...")
+            y_spec = np.nan_to_num(y_spec, nan=0.0)
+        if np.isinf(np.sum(y_spec)):
+            self._console_log_base("Warning: Primary stem spectrogram contains Inf values. Attempting to fix...")
+            y_spec = np.nan_to_num(y_spec, posinf=1.0, neginf=-1.0)
+            
+        if np.isnan(np.sum(v_spec)):
+            self._console_log_base("Warning: Secondary stem spectrogram contains NaN values. Attempting to fix...")
+            v_spec = np.nan_to_num(v_spec, nan=0.0)
+        if np.isinf(np.sum(v_spec)):
+            self._console_log_base("Warning: Secondary stem spectrogram contains Inf values. Attempting to fix...")
+            v_spec = np.nan_to_num(v_spec, posinf=1.0, neginf=-1.0)
 
         self._console_log(ac.DONE_MESSAGE); outputs = {}
         if not md.is_secondary_stem_only:
@@ -790,10 +869,11 @@ class SeperateVRLogic(SeparatorAttributesLogic):
 
             if primary_wave is not None:
                 if primary_wave.size == 0:
-
+                    self._console_log_base(f"Warning: {md.primary_stem} wave is empty. Creating silent output.")
                     primary_wave = np.zeros_like(original_mix_audio_array) 
                 
                 if md.model_samplerate!=ac.DEFAULT_SAMPLE_RATE and primary_wave.size > 0: # Ensure not resampling empty array
+                    self._console_log_base(f"Resampling {md.primary_stem} from {md.model_samplerate} Hz to {ac.DEFAULT_SAMPLE_RATE} Hz")
                     primary_wave=librosa.resample(primary_wave.T,orig_sr=md.model_samplerate,target_sr=ac.DEFAULT_SAMPLE_RATE).T
                 elif primary_wave.size == 0 and md.model_samplerate != ac.DEFAULT_SAMPLE_RATE:
                     # If it was empty and SR mismatch, it remains an empty array correctly shaped by np.zeros_like
@@ -809,10 +889,11 @@ class SeperateVRLogic(SeparatorAttributesLogic):
 
             if secondary_wave is not None:
                 if secondary_wave.size == 0:
-
+                    self._console_log_base(f"Warning: {md.secondary_stem} wave is empty. Creating silent output.")
                     secondary_wave = np.zeros_like(original_mix_audio_array)
 
                 if md.model_samplerate!=ac.DEFAULT_SAMPLE_RATE and secondary_wave.size > 0: # Ensure not resampling empty array
+                    self._console_log_base(f"Resampling {md.secondary_stem} from {md.model_samplerate} Hz to {ac.DEFAULT_SAMPLE_RATE} Hz")
                     secondary_wave=librosa.resample(secondary_wave.T,orig_sr=md.model_samplerate,target_sr=ac.DEFAULT_SAMPLE_RATE).T
                 elif secondary_wave.size == 0 and md.model_samplerate != ac.DEFAULT_SAMPLE_RATE:
                     pass

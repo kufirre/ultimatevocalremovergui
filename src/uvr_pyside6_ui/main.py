@@ -9,6 +9,11 @@ from PySide6.QtGui import QFontDatabase
 from . import resources_rc
 from .ui.main_window_view import MainWindowView
 from .core import app_constants as ac
+from .core.logger_utils import UVRLogger, get_logger
+
+# Configure logging early
+UVRLogger.configure_logging()
+logger = get_logger("main")
 
 
 def run():
@@ -27,50 +32,53 @@ def run():
     app = QApplication(sys.argv)
     app.setStyle(ac.FUSION_STYLE)
 
-    # Load custom fonts from QRC
-    fonts_to_load_qrc = {
-        ac.CENTURY_GOTHIC_FONT: ac.QRC_CENTURY_GOTHIC_PATH,
-        ac.MONTSERRAT_FONT: ac.QRC_MONTSERRAT_PATH,
-    }
-
-    for font_name, font_qrc_path in fonts_to_load_qrc.items():
-        font_id = QFontDatabase.addApplicationFont(font_qrc_path)
-        if font_id == -1:
-            print(f"Warning: Failed to load font from QRC: {font_name} from {font_qrc_path}")
+    # Load fonts from QRC
+    try:
+        font_id = QFontDatabase.addApplicationFont(ac.QRC_CENTURY_GOTHIC_PATH)
+        if font_id != -1:
+            logger.info(f"Successfully loaded font from QRC: {ac.CENTURY_GOTHIC_FONT} (from {ac.QRC_CENTURY_GOTHIC_PATH})")
         else:
-            loaded_font_families = QFontDatabase.applicationFontFamilies(font_id)
-            if loaded_font_families:
-                print(f"Successfully loaded font from QRC: {loaded_font_families[0]} (from {font_qrc_path})")
-            else:
-                print(f"Warning: Font loaded from QRC with ID {font_id} but no families found: {font_qrc_path}")
+            logger.warning(f"Failed to load font from QRC: {ac.QRC_CENTURY_GOTHIC_PATH}")
+    except Exception as e:
+        logger.error(f"Error loading Century Gothic font: {e}")
 
-    # Load main QSS stylesheet from QRC
-    qss_file = QFile(ac.QRC_MAIN_STYLESHEET_PATH)
-    if not qss_file.open(QIODevice.OpenModeFlag.ReadOnly | QIODevice.OpenModeFlag.Text):
-        print(f"Warning: Could not open style.qss from QRC: {ac.QRC_MAIN_STYLESHEET_PATH}. Error: {qss_file.errorString()}")
-    else:
-        stream = QTextStream(qss_file)
-        main_stylesheet = stream.readAll()
-        qss_file.close()
-        print(f"Successfully loaded stylesheet from QRC: {ac.QRC_MAIN_STYLESHEET_PATH}")
-    
+    try:
+        font_id = QFontDatabase.addApplicationFont(ac.QRC_MONTSERRAT_PATH)
+        if font_id != -1:
+            logger.info(f"Successfully loaded font from QRC: {ac.MONTSERRAT_FONT} (from {ac.QRC_MONTSERRAT_PATH})")
+        else:
+            logger.warning(f"Failed to load font from QRC: {ac.QRC_MONTSERRAT_PATH}")
+    except Exception as e:
+        logger.error(f"Error loading Montserrat font: {e}")
+
+    # Load main stylesheet from QRC
+    try:
+        qss_file = QFile(ac.QRC_MAIN_STYLESHEET_PATH)
+        if qss_file.open(QIODevice.ReadOnly | QIODevice.Text):
+            stream = QTextStream(qss_file)
+            app.setStyleSheet(stream.readAll())
+            logger.info(f"Successfully loaded stylesheet from QRC: {ac.QRC_MAIN_STYLESHEET_PATH}")
+        else:
+            logger.warning(f"Failed to open stylesheet file: {ac.QRC_MAIN_STYLESHEET_PATH}")
+    except Exception as e:
+        logger.error(f"Error loading main stylesheet: {e}")
+
     # Load progress bar stylesheet from QRC
-    progress_qss_file = QFile(ac.QRC_PROGRESS_STYLESHEET_PATH)
-    progress_stylesheet = ""
-    
-    if not progress_qss_file.open(QIODevice.OpenModeFlag.ReadOnly | QIODevice.OpenModeFlag.Text):
-        print(f"Warning: Could not open progress_bars.qss from QRC: {ac.QRC_PROGRESS_STYLESHEET_PATH}. Error: {progress_qss_file.errorString()}")
-    else:
-        stream = QTextStream(progress_qss_file)
-        progress_stylesheet = stream.readAll()
-        progress_qss_file.close()
-        print(f"Successfully loaded progress bar stylesheet from QRC: {ac.QRC_PROGRESS_STYLESHEET_PATH}")
-        
-    # Apply combined stylesheets
-    app.setStyleSheet(main_stylesheet + "\n" + progress_stylesheet)
+    try:
+        progress_qss_file = QFile(ac.QRC_PROGRESS_STYLESHEET_PATH)
+        if progress_qss_file.open(QIODevice.ReadOnly | QIODevice.Text):
+            stream = QTextStream(progress_qss_file)
+            progress_stylesheet = stream.readAll()
+            # Append to existing stylesheet
+            app.setStyleSheet(app.styleSheet() + "\n" + progress_stylesheet)
+            logger.info(f"Successfully loaded progress bar stylesheet from QRC: {ac.QRC_PROGRESS_STYLESHEET_PATH}")
+        else:
+            logger.warning(f"Failed to open progress stylesheet file: {ac.QRC_PROGRESS_STYLESHEET_PATH}")
+    except Exception as e:
+        logger.error(f"Error loading progress bar stylesheet: {e}")
 
-    main_window = MainWindowView()
-    main_window.show()
+    window = MainWindowView()
+    window.show()
 
     sys.exit(app.exec())
 

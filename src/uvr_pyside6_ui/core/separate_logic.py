@@ -8,6 +8,9 @@ import os
 
 from . import app_constants as ac
 from .model_data import ModelData
+from .logger_utils import get_logger
+
+logger = get_logger("separate_logic")
 
 try:
     from demucs.apply import apply_model as demucs_apply_model, demucs_segments
@@ -16,7 +19,7 @@ try:
     from demucs.utils import apply_model_v1 as demucs_apply_model_v1
     from demucs.utils import apply_model_v2 as demucs_apply_model_v2
 except ImportError as e:
-    print(f"Warning: Demucs modules not found: {e}")
+    logger.warning(f"Demucs modules not found: {e}")
     demucs_apply_model, demucs_segments, HDemucs, demucs_get_model, demucs_apply_model_v1, demucs_apply_model_v2 = [None]*6
 
 try:
@@ -27,7 +30,7 @@ try:
     from lib_v5.vr_network.model_param_init import ModelParameters
     from lib_v5 import mdxnet as MdxnetSet
 except ImportError as e:
-    print(f"Warning: lib_v5 modules not found: {e}")
+    logger.warning(f"lib_v5 modules not found: {e}")
     LibV5_STFT, TFC_TDF_net, spec_utils, nets_vr, nets_new_vr, ModelParameters, MdxnetSet = [None]*7
 
 import audioread
@@ -42,13 +45,13 @@ try:
     from onnx import load as onnx_load
     from onnx2pytorch import ConvertModel as onnx_ConvertModel
 except ImportError:
-    print("Warning: ONNX related modules not found.")
+    logger.warning("Warning: ONNX related modules not found.")
     ort, onnx_load, onnx_ConvertModel = None, None, None
 
 try:
     import pydub
 except ImportError:
-    print("Warning: pydub not found.")
+    logger.warning("Warning: pydub not found.")
     pydub = None
 
 MPS_AVAILABLE = torch.backends.mps.is_available() if ac.IS_MACOS else False
@@ -67,12 +70,12 @@ def prepare_mix_logic(audio_file_path_str: str) -> Optional[np.ndarray]:
     try:
         mix_audio, sr = librosa.load(str(audio_file_path), mono=False, sr=ac.DEFAULT_SAMPLE_RATE)
     except Exception as e:
-        print(f"Librosa failed to load {audio_file_path}: {e}. Trying audioread.")
+        logger.warning(f"Librosa failed to load {audio_file_path}: {e}. Trying audioread.")
         try:
             with audioread.audio_open(str(audio_file_path)) as f: track_length = int(f.duration)
             mix_audio, sr = librosa.load(str(audio_file_path), duration=track_length, mono=False, sr=ac.DEFAULT_SAMPLE_RATE)
         except Exception as e2:
-            print(f"Audioread also failed for {audio_file_path}: {e2}"); return None
+            logger.warning(f"Audioread also failed for {audio_file_path}: {e2}"); return None
     if mix_audio.ndim == 1: mix_audio = np.asfortranarray([mix_audio, mix_audio])
     return mix_audio.T
 
@@ -83,7 +86,7 @@ def write_audio_logic(stem_path_str: str, stem_source: np.ndarray, samplerate: i
     
     # Check if stem_source is empty or too small
     if stem_source.size == 0 or (stem_source.ndim > 1 and stem_source.shape[1] == 0):
-        print(f"DEBUG: {stem_name} is empty (shape {stem_source.shape}). Generating silent output of original length.")
+        logger.debug(f"DEBUG: {stem_name} is empty (shape {stem_source.shape}). Generating silent output of original length.")
         
         # Get the original audio file to determine the length for silent output
         if process_data and 'input_audio_array' in process_data:
@@ -115,10 +118,10 @@ def write_audio_logic(stem_path_str: str, stem_source: np.ndarray, samplerate: i
 
     # Check for NaN/Inf values
     if np.isnan(np.sum(stem_source)):
-        print(f"DEBUG: {stem_name} contains NaN values. Fixing...")
+        logger.debug(f"DEBUG: {stem_name} contains NaN values. Fixing...")
         stem_source = np.nan_to_num(stem_source, nan=0.0)
     if np.isinf(np.sum(stem_source)):
-        print(f"DEBUG: {stem_name} contains Inf values. Fixing...")
+        logger.debug(f"DEBUG: {stem_name} contains Inf values. Fixing...")
         stem_source = np.nan_to_num(stem_source, posinf=1.0, neginf=-1.0)
 
     if model_data.is_normalization and spec_utils: 
@@ -135,29 +138,29 @@ def write_audio_logic(stem_path_str: str, stem_source: np.ndarray, samplerate: i
     subtype = subtype_map.get(model_data.wav_type_set, 'PCM_16')
     
     # Debugging prints
-    print(f"DEBUG: Attempting to write audio to: {stem_path}")
-    print(f"DEBUG: Samplerate: {samplerate}")
-    print(f"DEBUG: model_data.wav_type_set: {model_data.wav_type_set}")
-    print(f"DEBUG: Determined subtype for sf.write: {subtype}")
-    print(f"DEBUG: stem_source.dtype: {stem_source.dtype}")
-    print(f"DEBUG: stem_source.shape: {stem_source.shape}")
+    logger.debug(f"DEBUG: Attempting to write audio to: {stem_path}")
+    logger.debug(f"DEBUG: Samplerate: {samplerate}")
+    logger.debug(f"DEBUG: model_data.wav_type_set: {model_data.wav_type_set}")
+    logger.debug(f"DEBUG: Determined subtype for sf.write: {subtype}")
+    logger.debug(f"DEBUG: stem_source.dtype: {stem_source.dtype}")
+    logger.debug(f"DEBUG: stem_source.shape: {stem_source.shape}")
 
     try:
         sf.write(str(stem_path), stem_source, samplerate, subtype=subtype)
     except Exception as e_sf_write:
-        print(f"ERROR during sf.write: {e_sf_write}")
-        print(f"  stem_path: {stem_path}")
-        print(f"  samplerate: {samplerate}")
-        print(f"  subtype: {subtype}")
-        print(f"  stem_source.dtype: {stem_source.dtype}")
-        print(f"  stem_source.shape: {stem_source.shape}")
+        logger.error(f"ERROR during sf.write: {e_sf_write}")
+        logger.error(f"  stem_path: {stem_path}")
+        logger.error(f"  samplerate: {samplerate}")
+        logger.error(f"  subtype: {subtype}")
+        logger.error(f"  stem_source.dtype: {stem_source.dtype}")
+        logger.error(f"  stem_source.shape: {stem_source.shape}")
         # Instead of raising, try to write a silent file as fallback
         try:
             silent_output = np.zeros((samplerate * 3, 2))  # 3 seconds of stereo silence
             sf.write(str(stem_path), silent_output, samplerate, subtype=subtype)
-            print(f"Wrote silent fallback file to {stem_path}")
+            logger.info(f"Wrote silent fallback file to {stem_path}")
         except Exception as e_fallback:
-            print(f"Failed to write fallback silent file: {e_fallback}")
+            logger.error(f"Failed to write fallback silent file: {e_fallback}")
 
     console_logger = process_data.get('write_to_console') if process_data else None
     base_text_console = process_data.get('base_text_console', "") if process_data else ""
@@ -174,10 +177,10 @@ def write_audio_logic(stem_path_str: str, stem_source: np.ndarray, samplerate: i
                     try: stem_path.unlink()
                     except OSError: pass
             except Exception as e:
-                print(f"Error converting {stem_path} to {model_data.save_format}: {e}")
+                logger.error(f"Error converting {stem_path} to {model_data.save_format}: {e}")
                 if console_logger: console_logger(f"Warning: Could not convert to {model_data.save_format}, WAV saved.", base_text=base_text_console)
         elif console_logger: console_logger(f"Warning: pydub not found. Cannot convert to {model_data.save_format}. WAV saved.", base_text=base_text_console)
-    if console_logger: console_logger(ac.DONE_MESSAGE, base_text="")
+    logger.info(ac.DONE_MESSAGE)
 
 class SeparatorAttributesLogic:
     def __init__(self, model_data: ModelData, process_data: Dict[str, Any]):
@@ -221,32 +224,32 @@ class SeparatorAttributesLogic:
     def _update_progress(self, current_step_fraction: float, message: Optional[str] = None):
         scaled_progress = 0.1 + (current_step_fraction * 0.8)
         self.set_progress_bar(scaled_progress)
-        if message: print(message)
+        if message: logger.info(message)
 
     def _prepare_mix(self) -> Optional[np.ndarray]:
         input_audio_array = self.process_data.get('input_audio_array')
         
         if input_audio_array is not None:
-            print(f"Using provided audio array for {self.md.model_basename}...")
+            logger.info(f"Using provided audio array for {self.md.model_basename}...")
             # Ensure it's (length, channels)
             if input_audio_array.shape[0] < input_audio_array.shape[1] and input_audio_array.ndim == 2: # (channels, length)
                 return input_audio_array.T
             return input_audio_array # Already (length, channels) or mono
             
         elif self.audio_file_path:
-            print(f"Loading audio file: {self.audio_file_path.name} for {self.md.model_basename}...")
+            logger.info(f"Loading audio file: {self.audio_file_path.name} for {self.md.model_basename}...")
             mix_audio = prepare_mix_logic(str(self.audio_file_path)) 
             if mix_audio is None: 
-                print(f"Error: Failed to load audio from {self.audio_file_path}")
+                logger.error(f"Error: Failed to load audio from {self.audio_file_path}")
                 return None
-            self._console_log(ac.DONE_MESSAGE)
+            logger.info(ac.DONE_MESSAGE)
             return mix_audio # (length, channels)
         else:
-            print(f"Error: No audio input (file or array) for {self.md.model_basename}.")
+            logger.error(f"Error: No audio input (file or array) for {self.md.model_basename}.")
             return None
 
     def _write_stem(self, stem_name: str, stem_data: np.ndarray, samplerate: int):
-        if not self.export_path: print("Error: Export path not set."); return
+        if not self.export_path: logger.error("Error: Export path not set."); return
         
         # Ensure the export directory exists
         self.export_path.mkdir(parents=True, exist_ok=True)
@@ -330,14 +333,14 @@ class SeperateMDXLogic(SeparatorAttributesLogic):
         try:
             self._initialize_model_settings()
         except Exception as e:
-            print(f"Error initializing MDX settings: {e}"); return None
+            logger.error(f"Error initializing MDX settings: {e}"); return None
             
         md = self.md
         org_mix_shape_ref = mix_processed_norm_np.T 
         
         actual_sr_pitched = ac.DEFAULT_SAMPLE_RATE
         if md.is_pitch_change:
-            if not spec_utils: print("Error: spec_utils not available for pitch change."); return None
+            if not spec_utils: logger.error("Error: spec_utils not available for pitch change."); return None
             mix_processed_norm_np, actual_sr_pitched = spec_utils.change_pitch_semitones(
                 mix_processed_norm_np, ac.DEFAULT_SAMPLE_RATE, semitone_shift=-md.semitone_shift)
         
@@ -385,22 +388,22 @@ class SeperateMDXLogic(SeparatorAttributesLogic):
         if md.is_pitch_change: processed_audio_np = self._pitch_fix(processed_audio_np, actual_sr_pitched, org_mix_shape_ref)
         if md.compensate is not None: processed_audio_np *= md.compensate
         if md.is_denoise_model and md.DENOISER_MODEL_PATH: 
-            self._console_log("Denoising output...")
+            logger.info("Denoising output...")
             processed_audio_np = vr_denoiser_logic(processed_audio_np, self.device, md.DENOISER_MODEL_PATH)
 
         return processed_audio_np.T
 
     def seperate(self) -> Optional[Dict[str, np.ndarray]]:
         if not MdxnetSet or not ort or not onnx_load or not onnx_ConvertModel:
-            print("Error: MDX-Net or ONNX dependencies not available."); return None
+            logger.error("Error: MDX-Net or ONNX dependencies not available."); return None
         md = self.md; self.progress_value = 0
         mix_audio_norm_np = self._prepare_mix()
         if mix_audio_norm_np is None: return None
-        print(f"Processing with {md.model_basename}...")
+        logger.info(f"Processing with {md.model_basename}...")
         
         if md.is_mdx_ckpt:
-            if not MdxnetSet: print("Error: MdxnetSet (for .ckpt) not available."); return None
-            print("Loading MDX CKPT model...")
+            if not MdxnetSet: logger.error("Error: MdxnetSet (for .ckpt) not available."); return None
+            logger.info("Loading MDX CKPT model...")
             try:
                 # Fix for PyTorch 2.6+ - add weights_only=False for model loading
                 model_checkpoint = torch.load(md.model_path, map_location=lambda storage, loc: storage, weights_only=False)['hyper_parameters']
@@ -408,20 +411,20 @@ class SeperateMDXLogic(SeparatorAttributesLogic):
                 separator = MdxnetSet.ConvTDFNet(**model_checkpoint)
                 # Fix for PyTorch 2.6+ - add weights_only=False for model loading
                 self.model_run_instance = separator.load_from_checkpoint(md.model_path).to(self.device).eval()
-            except Exception as e: print(f"Error loading MDX checkpoint: {e}"); return None
+            except Exception as e: logger.error(f"Error loading MDX checkpoint: {e}"); return None
         else: # ONNX
             self.is_onnx_model = True
             if md.mdx_segment_size == md.mdx_dim_t_set and not (self.device.type == 'mps'):
-                if not ort: print("Error: ONNX Runtime not available."); return None
+                if not ort: logger.error("Error: ONNX Runtime not available."); return None
                 self.model_run_instance = ort.InferenceSession(md.model_path, providers=self.run_type)
             else:
-                if not onnx_load or not onnx_ConvertModel: print("Error: ONNX conversion modules not available."); return None
+                if not onnx_load or not onnx_ConvertModel: logger.error("Error: ONNX conversion modules not available."); return None
                 onnx_mdl = onnx_load(md.model_path)
                 self.model_run_instance = onnx_ConvertModel(onnx_mdl); self.model_run_instance.to(self.device).eval()
         
         primary_stem_data = self._demix_mdx(mix_audio_norm_np.T)
         if primary_stem_data is None: return None
-        self._console_log(ac.DONE_MESSAGE)
+        logger.info(ac.DONE_MESSAGE)
         outputs = {}
 
         if not md.is_primary_stem_only:
@@ -430,7 +433,7 @@ class SeperateMDXLogic(SeparatorAttributesLogic):
                  self.secondary_source = secondary_stem_data
                  self.secondary_source_map = self._final_process_stem( "", secondary_stem_data, self.secondary_source_secondary, md.secondary_stem, md.model_samplerate)
                  outputs.update(self.secondary_source_map)
-            else: print(f"Warning: Shape mismatch for secondary stem {md.model_name}")
+            else: logger.warning(f"Warning: Shape mismatch for secondary stem {md.model_name}")
         if not md.is_secondary_stem_only:
             self.primary_source = primary_stem_data
             self.primary_source_map = self._final_process_stem("", primary_stem_data, self.secondary_source_primary, md.primary_stem, md.model_samplerate)
@@ -442,12 +445,12 @@ class SeperateMDXCLogic(SeparatorAttributesLogic):
     def _demix_mdxc(self, mix_processed_norm_np: np.ndarray) -> Optional[Dict[str, np.ndarray] | np.ndarray]: # mix is (channels, length)
         md = self.md
         if not md.mdx_c_configs or not TFC_TDF_net:
-            print("Error: MDX-C configs or TFC_TDF_net not available."); return None
+            logger.error("Error: MDX-C configs or TFC_TDF_net not available."); return None
         
         org_mix_shape_ref = mix_processed_norm_np.T # (length, channels) for pitch fix
         actual_sr_pitched = ac.DEFAULT_SAMPLE_RATE
         if md.is_pitch_change:
-            if not spec_utils: print("Error: spec_utils not available for pitch change."); return None
+            if not spec_utils: logger.error("Error: spec_utils not available for pitch change."); return None
             mix_processed_norm_np, actual_sr_pitched = spec_utils.change_pitch_semitones(
                 mix_processed_norm_np, ac.DEFAULT_SAMPLE_RATE, semitone_shift=-md.semitone_shift)
 
@@ -511,7 +514,7 @@ class SeperateMDXCLogic(SeparatorAttributesLogic):
                 if md.is_pitch_change: stem_audio = self._pitch_fix(stem_audio, actual_sr_pitched, org_mix_shape_ref)
                 result_dict[stem_name] = stem_audio.T 
                 if md.is_denoise_model and md.DENOISER_MODEL_PATH and stem_name == ac.VOCAL_STEM and ac.INST_STEM in result_dict:
-                    self._console_log(f"Denoising {ac.VOCAL_STEM} (MDX-C)...")
+                    logger.info(f"Denoising {ac.VOCAL_STEM} (MDX-C)...")
                     denoised_vocals = vr_denoiser_logic(result_dict[ac.VOCAL_STEM].T, self.device, md.DENOISER_MODEL_PATH).T
                     if denoised_vocals.shape == org_mix_shape_ref.T.shape: result_dict[ac.INST_STEM] = (org_mix_shape_ref.T - denoised_vocals).T
                     result_dict[ac.VOCAL_STEM] = denoised_vocals.T
@@ -523,21 +526,21 @@ class SeperateMDXCLogic(SeparatorAttributesLogic):
 
     def seperate(self) -> Optional[Dict[str, np.ndarray]]:
         if not TFC_TDF_net or not self.md.mdx_c_configs:
-            print("Error: MDX-C dependencies (TFC_TDF_net/configs) not available."); return None
+            logger.error("Error: MDX-C dependencies (TFC_TDF_net/configs) not available."); return None
         md = self.md; self.progress_value = 0
         mix_audio_norm_np = self._prepare_mix()
         if mix_audio_norm_np is None: return None
-        print(f"Processing with MDX-C model: {md.model_basename}...")
+        logger.info(f"Processing with MDX-C model: {md.model_basename}...")
         try:
             self.model_run_instance = TFC_TDF_net(md.mdx_c_configs, device=self.device) 
             # Fix for PyTorch 2.6+ - add weights_only=False for model loading
             self.model_run_instance.load_state_dict(torch.load(md.model_path, map_location=CPU_DEVICE, weights_only=False))
             self.model_run_instance.to(self.device).eval()
-        except Exception as e: print(f"Error loading MDX-C model: {e}"); return None
+        except Exception as e: logger.error(f"Error loading MDX-C model: {e}"); return None
 
         processed_output = self._demix_mdxc(mix_audio_norm_np.T) 
         if processed_output is None: return None
-        self._console_log(ac.DONE_MESSAGE)
+        logger.info(ac.DONE_MESSAGE)
         outputs = {}
 
         if isinstance(processed_output, dict): 
@@ -557,7 +560,7 @@ class SeperateMDXCLogic(SeparatorAttributesLogic):
                     self.secondary_source = secondary_stem_data
                     self.secondary_source_map = self._final_process_stem("", secondary_stem_data, self.secondary_source_secondary, md.secondary_stem, md.model_samplerate)
                     outputs.update(self.secondary_source_map)
-                else: print(f"Warning: Shape mismatch for MDX-C secondary stem {md.model_name}")
+                else: logger.warning(f"Warning: Shape mismatch for MDX-C secondary stem {md.model_name}")
         clear_gpu_cache_logic()
         return outputs
 
@@ -568,11 +571,11 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
         md = self.md
 
         # Debug the input audio shape
-        print(f"DEBUG: Input audio shape: {mix_processed_norm_np.shape}")
-        print(f"DEBUG: Input audio dtype: {mix_processed_norm_np.dtype}")
-        print(f"DEBUG: Input audio min/max: {np.min(mix_processed_norm_np):.6f}/{np.max(mix_processed_norm_np):.6f}")
-        print(f"DEBUG: Input audio contains NaN: {np.isnan(mix_processed_norm_np).any()}")
-        print(f"DEBUG: Input audio contains Inf: {np.isinf(mix_processed_norm_np).any()}")
+        logger.debug(f"DEBUG: Input audio shape: {mix_processed_norm_np.shape}")
+        logger.debug(f"DEBUG: Input audio dtype: {mix_processed_norm_np.dtype}")
+        logger.debug(f"DEBUG: Input audio min/max: {np.min(mix_processed_norm_np):.6f}/{np.max(mix_processed_norm_np):.6f}")
+        logger.debug(f"DEBUG: Input audio contains NaN: {np.isnan(mix_processed_norm_np).any()}")
+        logger.debug(f"DEBUG: Input audio contains Inf: {np.isinf(mix_processed_norm_np).any()}")
 
         # Ensure the audio is in the correct format (channels, samples)
         if mix_processed_norm_np.ndim == 1:
@@ -582,12 +585,12 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
 
         # Convert to tensor
         mix_tensor = torch.tensor(mix_processed_norm_np).float().to(self.device)
-        print(f"Mix tensor shape: {mix_tensor.shape}")
+        logger.debug(f"Mix tensor shape: {mix_tensor.shape}")
 
         actual_sr_pitched = ac.DEFAULT_SAMPLE_RATE
         if md.is_pitch_change:
             if not spec_utils:
-                print("Error: spec_utils not available for pitch change.")
+                logger.error("Error: spec_utils not available for pitch change.")
                 return None
             mix_tensor_np, actual_sr_pitched = spec_utils.change_pitch_semitones(mix_tensor.cpu().numpy(),
                                                                                  ac.DEFAULT_SAMPLE_RATE,
@@ -597,19 +600,19 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
         # Normalize
         ref_mean = mix_tensor.mean()
         ref_std = mix_tensor.std()
-        print(f"DEBUG: Mix tensor mean: {ref_mean}, std: {ref_std}")
+        logger.debug(f"DEBUG: Mix tensor mean: {ref_mean}, std: {ref_std}")
         if ref_std == 0:
-            print("Warning: Standard deviation is zero. Using 1.0 instead.")
+            logger.warning("Warning: Standard deviation is zero. Using 1.0 instead.")
             ref_std = 1.0
         mix_tensor = (mix_tensor - ref_mean) / ref_std
-        print(f"DEBUG: Normalized mix tensor min/max: {mix_tensor.min().item():.6f}/{mix_tensor.max().item():.6f}")
+        logger.debug(f"DEBUG: Normalized mix tensor min/max: {mix_tensor.min().item():.6f}/{mix_tensor.max().item():.6f}")
 
         processed_sources_tensor = None
         try:
             with torch.no_grad():
                 if md.demucs_version == ac.DEMUCS_V1:
                     if not demucs_apply_model_v1:
-                        print("Demucs v1 apply_model not available.")
+                        logger.error("Demucs v1 apply_model not available.")
                         return None
                     processed_sources_tensor = demucs_apply_model_v1(self.model_run_instance, mix_tensor, md.shifts,
                                                                      md.is_split_mode,
@@ -617,7 +620,7 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
                                                                          p))
                 elif md.demucs_version == ac.DEMUCS_V2:
                     if not demucs_apply_model_v2:
-                        print("Demucs v2 apply_model not available.")
+                        logger.error("Demucs v2 apply_model not available.")
                         return None
                     processed_sources_tensor = demucs_apply_model_v2(self.model_run_instance, mix_tensor, md.shifts,
                                                                      md.is_split_mode, md.overlap,
@@ -625,7 +628,7 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
                                                                          p))
                 else:
                     if not demucs_apply_model:
-                        print("Demucs apply_model not available.")
+                        logger.error("Demucs apply_model not available.")
                         return None
 
                     # Ensure mix_tensor has the right shape for demucs_apply_model
@@ -635,25 +638,25 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
                     else:
                         mix_tensor_input = mix_tensor
 
-                    print(f"Input tensor shape to apply_model: {mix_tensor_input.shape}")
+                    logger.debug(f"Input tensor shape to apply_model: {mix_tensor_input.shape}")
 
                     # Call apply_model with proper progress callback
                     try:
-                        print(
+                        logger.info(
                             f"DEBUG: Calling demucs_apply_model with shifts={md.shifts}, split_mode={md.is_split_mode}, overlap={md.overlap}")
-                        print(f"DEBUG: Model instance type: {type(self.model_run_instance).__name__}")
+                        logger.info(f"DEBUG: Model instance type: {type(self.model_run_instance).__name__}")
                         if self.model_run_instance is None:
-                            print("CRITICAL ERROR: self.model_run_instance is None before calling demucs_apply_model.")
+                            logger.critical("CRITICAL ERROR: self.model_run_instance is None before calling demucs_apply_model.")
                             processed_sources_tensor = None
                         else:
-                            print(f"DEBUG: About to call demucs_apply_model with:")
-                            print(f"DEBUG:   - model: {type(self.model_run_instance).__name__}")
-                            print(f"DEBUG:   - mix_tensor_input shape: {mix_tensor_input.shape}")
-                            print(f"DEBUG:   - shifts: {md.shifts}")
-                            print(f"DEBUG:   - split_mode: {md.is_split_mode}")
-                            print(f"DEBUG:   - overlap: {md.overlap}")
-                            print(f"DEBUG:   - static_shifts: {1 if md.shifts == 0 else md.shifts}")
-                            print(f"DEBUG:   - device: {self.device}")
+                            logger.info(f"DEBUG: About to call demucs_apply_model with:")
+                            logger.info(f"DEBUG:   - model: {type(self.model_run_instance).__name__}")
+                            logger.info(f"DEBUG:   - mix_tensor_input shape: {mix_tensor_input.shape}")
+                            logger.info(f"DEBUG:   - shifts: {md.shifts}")
+                            logger.info(f"DEBUG:   - split_mode: {md.is_split_mode}")
+                            logger.info(f"DEBUG:   - overlap: {md.overlap}")
+                            logger.info(f"DEBUG:   - static_shifts: {1 if md.shifts == 0 else md.shifts}")
+                            logger.info(f"DEBUG:   - device: {self.device}")
 
                             processed_sources_tensor = demucs_apply_model(
                                 self.model_run_instance,
@@ -666,44 +669,44 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
                                 device=self.device
                             )
 
-                        print(f"DEBUG: demucs_apply_model completed successfully")
+                        logger.info(f"DEBUG: demucs_apply_model completed successfully")
                         if processed_sources_tensor is not None:
-                            print(
+                            logger.info(
                                 f"DEBUG: processed_sources_tensor shape after apply_model: {processed_sources_tensor.shape}")
                             # Ensure it's [sources, channels, samples] or [batch, sources, channels, samples]
                             if not (len(processed_sources_tensor.shape) == 3 or len(
                                     processed_sources_tensor.shape) == 4):
-                                print(
+                                logger.error(
                                     f"ERROR: demucs_apply_model returned tensor with unexpected shape: {processed_sources_tensor.shape}")
                                 processed_sources_tensor = None  # Mark as failed
                         else:
-                            print(f"DEBUG: processed_sources_tensor is None after apply_model call.")
-                            print("ERROR: demucs_apply_model returned None.")
+                            logger.error(f"DEBUG: processed_sources_tensor is None after apply_model call.")
+                            logger.error("ERROR: demucs_apply_model returned None.")
                             # No need to create fallback here, the outer logic will handle it if all_stems_output is None
 
                     except Exception as e:
-                        print(f"CRITICAL ERROR during Demucs apply_model call: {e}")
+                        logger.critical(f"CRITICAL ERROR during Demucs apply_model call: {e}")
                         import traceback
-                        print(traceback.format_exc())
+                        logger.error(traceback.format_exc())
                         processed_sources_tensor = None  # Ensure it's None if exception occurs
 
                         # Fallback creation removed from here, will be handled by the caller if all_stems_output is None.
 
         except Exception as e:
-            print(f"Error during Demucs processing (before or after apply_model): {e}")
+            logger.error(f"Error during Demucs processing (before or after apply_model): {e}")
             import traceback
-            print(traceback.format_exc())
+            logger.error(traceback.format_exc())
             return None
 
         if processed_sources_tensor is None:
-            print("No output from Demucs model.")
+            logger.error("No output from Demucs model.")
             return None
 
-        print(f"Processed sources tensor shape: {processed_sources_tensor.shape}")
+        logger.info(f"Processed sources tensor shape: {processed_sources_tensor.shape}")
 
         # Denormalize
         try:
-            print(f"Denormalizing processed sources tensor")
+            logger.info(f"Denormalizing processed sources tensor")
 
             # Move to CPU before numpy conversion
             processed_sources_tensor_cpu = processed_sources_tensor.cpu()
@@ -714,33 +717,33 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
             # Convert to numpy
             sources_np = denormalized_tensor.numpy()
 
-            print(f"Sources numpy shape: {sources_np.shape}")
+            logger.info(f"Sources numpy shape: {sources_np.shape}")
 
             # Handle batch dimension if present
             if len(sources_np.shape) == 4:  # [batch, sources, channels, time]
-                print(f"Removing batch dimension from sources")
+                logger.info(f"Removing batch dimension from sources")
                 sources_np = sources_np[0]  # Remove batch dimension
 
             # Check for NaN/Inf values
             if np.isnan(sources_np).any():
-                print(f"Warning: Sources contain NaN values. Fixing...")
+                logger.warning(f"Warning: Sources contain NaN values. Fixing...")
                 sources_np = np.nan_to_num(sources_np, nan=0.0)
             if np.isinf(sources_np).any():
-                print(f"Warning: Sources contain Inf values. Fixing...")
+                logger.warning(f"Warning: Sources contain Inf values. Fixing...")
                 sources_np = np.nan_to_num(sources_np, posinf=1.0, neginf=-1.0)
 
             # Swap sources[0] and sources[1] - this is critical for Demucs
             # In the original separate.py, this is done with: sources_np[[0,1]] = sources_np[[1,0]]
-            print(f"Swapping sources[0] and sources[1] for Demucs")
+            logger.info(f"Swapping sources[0] and sources[1] for Demucs")
             if sources_np.shape[0] >= 2:
                 sources_np[[0, 1]] = sources_np[[1, 0]]
         except Exception as e:
-            print(f"ERROR during denormalization: {e}")
+            logger.error(f"ERROR during denormalization: {e}")
             import traceback
-            print(f"Traceback: {traceback.format_exc()}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
 
             # Create fallback output with appropriate shape
-            print(f"Creating fallback output with appropriate shape")
+            logger.info(f"Creating fallback output with appropriate shape")
             if mix_processed_norm_np.ndim == 1:
                 sources_np = np.zeros((4, 1, len(mix_processed_norm_np)))  # 4 stems, 1 channel, original length
             else:
@@ -752,14 +755,14 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
                                  range(sources_np.shape[0])]
                 sources_np = np.array(final_sources)
             except Exception as e:
-                print(f"Error during pitch fix: {e}")
+                logger.error(f"Error during pitch fix: {e}")
 
         return sources_np
 
     def seperate(self) -> Optional[Dict[str, np.ndarray]]:
         md = self.md
         self.progress_value = 0
-        print(f"Processing with Demucs model: {md.model_basename}...")
+        logger.info(f"Processing with Demucs model: {md.model_basename}...")
 
         # Check if we have the necessary Demucs modules
         if md.demucs_version not in [ac.DEMUCS_V1, ac.DEMUCS_V2] and (not demucs_get_model or not demucs_segments):
@@ -882,7 +885,7 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
                         bool
                     ])
                     
-                    print(f"Loading Demucs model with secure safe_globals ({len(safe_classes)} classes)")
+                    logger.info(f"Loading Demucs model with secure safe_globals ({len(safe_classes)} classes)")
                     
                     # Use secure safe_globals context manager
                     with torch.serialization.safe_globals(safe_classes):
@@ -891,8 +894,8 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
                             self.model_run_instance = demucs_segments(md.segment, self.model_run_instance)
                     
                 except Exception as e:
-                    print(f"Warning: Could not configure secure loading: {e}")
-                    print(f"Falling back to trusted loading for Demucs models...")
+                    logger.warning(f"Warning: Could not configure secure loading: {e}")
+                    logger.info(f"Falling back to trusted loading for Demucs models...")
                     # If secure loading fails, fall back to trusted loading since these are user-selected Demucs models
                     # This is still safer than global weights_only=False because it's scoped to just this operation
                     try:
@@ -912,34 +915,36 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
                         finally:
                             torch.load = original_load
                     except Exception as fallback_error:
-                        print(f"Error: Both secure and fallback loading failed: {fallback_error}")
+                        logger.error(f"Error: Both secure and fallback loading failed: {fallback_error}")
                         return None
 
             self.model_run_instance.to(self.device).eval()
 
-            if hasattr(self.model_run_instance, 'sources'): print(
-                f"DEBUG: Model sources: {self.model_run_instance.sources}")
-            if hasattr(self.model_run_instance, 'audio_channels'): print(
-                f"DEBUG: Model audio_channels: {self.model_run_instance.audio_channels}")
-            if hasattr(self.model_run_instance, 'samplerate'): print(
-                f"DEBUG: Model samplerate: {self.model_run_instance.samplerate}")
-            if hasattr(self.model_run_instance, 'segment'): print(
-                f"DEBUG: Model segment: {self.model_run_instance.segment}")
+            if hasattr(self.model_run_instance, 'sources'): 
+                logger.debug(f"Model sources: {list(self.model_run_instance.sources)}")
+            if hasattr(self.model_run_instance, 'audio_channels'): 
+                logger.debug(f"Model audio_channels: {self.model_run_instance.audio_channels}")
+            if hasattr(self.model_run_instance, 'samplerate'): 
+                logger.debug(f"Model samplerate: {self.model_run_instance.samplerate}")
+            if hasattr(self.model_run_instance, 'segment'): 
+                logger.debug(f"Model segment: {self.model_run_instance.segment}")
 
         except Exception as e:
-            print(f"Error loading Demucs model: {e}")
+            logger.error(f"Error loading Demucs model: {e}")
             import traceback
-            print(traceback.format_exc())
+            logger.error(traceback.format_exc())
             return None
 
         mix_audio_norm_np = self._prepare_mix()
-        if mix_audio_norm_np is None: print("Failed to prepare audio mix."); return None
+        if mix_audio_norm_np is None: 
+            logger.error("Failed to prepare audio mix.")
+            return None
 
-        print("Starting Demucs processing...")
+        logger.info("Starting Demucs processing...")
         all_stems_output = self._demix_demucs_logic(mix_audio_norm_np)
 
         if all_stems_output is None:
-            print("Demucs processing failed. Creating silent outputs.")
+            logger.error("Demucs processing failed. Creating silent outputs.")
             num_expected_sources = len(md.demucs_source_list) if md.demucs_source_list else 4
             if mix_audio_norm_np.ndim == 1:
                 silent_output = np.zeros((num_expected_sources, 1, len(mix_audio_norm_np)))
@@ -951,6 +956,7 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
 
         # Use md.demucs_source_map for indexing, as it's derived correctly in ModelData
         if md.demucs_stems == ac.ALL_STEMS:
+            logger.debug("DEBUG: Processing ALL_STEMS - will output all 4 stems")
             for stem_name, stem_idx in md.demucs_source_map.items():
                 if stem_idx < all_stems_output.shape[0]:  # Ensure index is valid
                     stem_data = all_stems_output[stem_idx].T
@@ -960,51 +966,41 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
             if not md.is_primary_stem_only and md.secondary_stem == ac.INST_STEM and ac.VOCAL_STEM in md.demucs_source_map:
                 vocal_idx = md.demucs_source_map[ac.VOCAL_STEM]
                 if vocal_idx < all_stems_output.shape[0]:
-                    instrumental_data = np.zeros_like(mix_audio_norm_np)
-                    for s_name, s_idx in md.demucs_source_map.items():
-                        if s_name != ac.VOCAL_STEM and s_idx < all_stems_output.shape[0]:
-                            instrumental_data += all_stems_output[s_idx].T
+                    vocal_data = all_stems_output[vocal_idx].T
+                    instrumental_data = mix_audio_norm_np - vocal_data
                     self._write_stem(ac.INST_STEM, instrumental_data, md.model_samplerate)
                     outputs[ac.INST_STEM] = instrumental_data
-        else:  # Not ac.ALL_STEMS
-            target_primary_stem_cap = md.primary_stem
+        else:
+            # Single stem processing
+            logger.debug(f"DEBUG: Processing single stem: {md.demucs_stems}")
+            target_primary_stem_cap = md.demucs_stems
             if target_primary_stem_cap in md.demucs_source_map:
-                primary_stem_idx = md.demucs_source_map[target_primary_stem_cap]
-                if primary_stem_idx < all_stems_output.shape[0]:
-                    primary_data = all_stems_output[primary_stem_idx].T
+                stem_idx = md.demucs_source_map[target_primary_stem_cap]
+                if stem_idx < all_stems_output.shape[0]:
+                    primary_stem_data = all_stems_output[stem_idx].T
                     if not md.is_secondary_stem_only:
-                        self._write_stem(target_primary_stem_cap, primary_data, md.model_samplerate)
-                        outputs[target_primary_stem_cap] = primary_data
-
-                    if not md.is_primary_stem_only:
-                        secondary_data = None
-                        target_secondary_stem_cap = md.secondary_stem
-                        if target_secondary_stem_cap == ac.INST_STEM and target_primary_stem_cap == ac.VOCAL_STEM:
-                            secondary_data = np.zeros_like(mix_audio_norm_np)
-                            for s_name, s_idx in md.demucs_source_map.items():
-                                if s_name != ac.VOCAL_STEM and s_idx < all_stems_output.shape[0]:
-                                    secondary_data += all_stems_output[s_idx].T
-                        elif md.is_demucs_combine_stems:
-                            secondary_sum = np.zeros_like(mix_audio_norm_np)
-                            for s_name, s_idx in md.demucs_source_map.items():
-                                if s_name != target_primary_stem_cap and s_idx < all_stems_output.shape[0]:
-                                    secondary_sum += all_stems_output[s_idx].T
-                            secondary_data = secondary_sum
+                        self._write_stem(target_primary_stem_cap, primary_stem_data, md.model_samplerate)
+                        outputs[target_primary_stem_cap] = primary_stem_data
+                    
+                    # Create secondary stem if needed
+                    if not md.is_primary_stem_only and md.secondary_stem != ac.NO_STEM:
+                        if md.is_demucs_combine_stems:
+                            # Combine all non-primary stems
+                            combined_stem = np.zeros_like(primary_stem_data)
+                            for other_stem, other_idx in md.demucs_source_map.items():
+                                if other_stem != target_primary_stem_cap and other_idx < all_stems_output.shape[0]:
+                                    combined_stem += all_stems_output[other_idx].T
+                            self._write_stem(md.secondary_stem, combined_stem, md.model_samplerate)
+                            outputs[md.secondary_stem] = combined_stem
                         else:
-                            if primary_data.shape == mix_audio_norm_np.shape:
-                                secondary_data = mix_audio_norm_np - primary_data
-                            else:
-                                print(
-                                    f"Shape mismatch for secondary stem ({target_secondary_stem_cap}): primary {primary_data.shape}, mix {mix_audio_norm_np.shape}")
-
-                        if secondary_data is not None:
-                            self._write_stem(target_secondary_stem_cap, secondary_data, md.model_samplerate)
-                            outputs[target_secondary_stem_cap] = secondary_data
+                            # Create secondary by subtraction
+                            secondary_stem_data = mix_audio_norm_np - primary_stem_data
+                            self._write_stem(md.secondary_stem, secondary_stem_data, md.model_samplerate)
+                            outputs[md.secondary_stem] = secondary_stem_data
                 else:
-                    print(f"Error: Index for primary stem '{target_primary_stem_cap}' out of bounds for model output.")
+                    logger.error(f"Error: Stem index {stem_idx} out of range for model output shape {all_stems_output.shape}")
             else:
-                print(
-                    f"Error: Selected Demucs primary stem '{target_primary_stem_cap}' not found in model source map: {md.demucs_source_map}.")
+                logger.error(f"Error: Selected Demucs primary stem '{target_primary_stem_cap}' not found in model source map: {md.demucs_source_map}.")
         clear_gpu_cache_logic()
         return outputs
 

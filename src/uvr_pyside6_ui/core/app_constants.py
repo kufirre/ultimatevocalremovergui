@@ -413,3 +413,18 @@ PROGRESS_LOADING = "Loading..."
 PROGRESS_PROCESSING = "Processing..."
 PROGRESS_SAVING = "Saving..."
 PROGRESS_COMPLETE = "Complete"
+
+# Logging Configuration
+LOG_LEVEL_DEBUG = 'DEBUG'
+LOG_LEVEL_INFO = 'INFO'
+LOG_LEVEL_WARNING = 'WARNING'
+LOG_LEVEL_ERROR = 'ERROR'
+LOG_LEVEL_CRITICAL = 'CRITICAL'
+
+# Default log level for production (can be overridden by environment variable)
+DEFAULT_LOG_LEVEL = LOG_LEVEL_INFO
+DEBUG_LOG_LEVEL = LOG_LEVEL_DEBUG
+
+# Log format
+LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+LOG_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'

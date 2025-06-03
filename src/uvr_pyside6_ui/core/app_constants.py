@@ -293,3 +293,13 @@ DEMUCS_VERSION_STRING_MAP = { # Used in model_data.py
     DEMUCS_V4: ["v4", "v4.mdx"]
 }
 DEMUCS_2_SOURCE_LIST = [VOCAL_STEM, INST_STEM] # Used in model_data.py
+
+# --- Presenter Keys (for main window presenter dictionary) ---
+FILE_IO_PRESENTER_KEY = "file_io"
+VR_ARCH_PRESENTER_KEY = "vr_arch"
+MDX_NET_PRESENTER_KEY = "mdx_net"
+DEMUCS_PRESENTER_KEY = "demucs"
+ENSEMBLE_PRESENTER_KEY = "ensemble"
+MODEL_SELECTION_PRESENTER_KEY = "model_selection"
+PROCESSING_SETTINGS_PRESENTER_KEY = "processing_settings"
+EXECUTION_PRESENTER_KEY = "execution"

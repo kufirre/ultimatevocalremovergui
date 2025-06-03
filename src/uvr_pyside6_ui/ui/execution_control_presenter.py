@@ -35,9 +35,9 @@ class ExecutionControlPresenter(QObject):
         """Helper to collect settings from all relevant presenters."""
         all_settings = {}
 
-        file_io = self.presenters["file_io"]
-        model_sel = self.presenters["model_selection"]
-        proc_set = self.presenters["processing_settings"]
+        file_io = self.presenters[ac.FILE_IO_PRESENTER_KEY]
+        model_sel = self.presenters[ac.MODEL_SELECTION_PRESENTER_KEY]
+        proc_set = self.presenters[ac.PROCESSING_SETTINGS_PRESENTER_KEY]
 
         input_path, output_path = file_io.get_paths()
         model_details = model_sel.get_current_selection()
@@ -56,13 +56,13 @@ class ExecutionControlPresenter(QObject):
         # Map internal method name back to UI key for presenter lookup
         ui_method_key = None
         if internal_method_name == ac.VR_ARCH_TYPE:
-            ui_method_key = ac.VR_ARCH_MODELS_KEY
+            ui_method_key = ac.VR_ARCH_PRESENTER_KEY  # Use presenter key constant
         elif internal_method_name == ac.MDX_ARCH_TYPE:
-            ui_method_key = ac.MDX_NET_MODELS_KEY
+            ui_method_key = ac.MDX_NET_PRESENTER_KEY  # Use presenter key constant
         elif internal_method_name == ac.DEMUCS_ARCH_TYPE:
-            ui_method_key = ac.DEMUCS_MODELS_KEY
+            ui_method_key = ac.DEMUCS_PRESENTER_KEY  # Use presenter key constant
         elif internal_method_name == ac.ENSEMBLE_MODE:
-            ui_method_key = ac.ENSEMBLE_MODELS_KEY
+            ui_method_key = ac.ENSEMBLE_PRESENTER_KEY  # Use presenter key constant
             
         if ui_method_key and ui_method_key in self.presenters:
             all_settings.update(self.presenters[ui_method_key].get_settings())

@@ -24,6 +24,7 @@ from .execution_control_view import ExecutionControlView
 from .execution_control_presenter import ExecutionControlPresenter
 from .settings_dialog_presenter import SettingsDialogPresenter
 from ..core.uvr_core_adapter import UVRCoreAdapter
+from ..core import app_constants as ac
 
 
 class MainWindowView(QMainWindow):
@@ -56,23 +57,23 @@ class MainWindowView(QMainWindow):
         # ... (File I/O, Specific Settings Panels, Model Selection, Processing Settings as in response #37) ...
         # File I/O
         self.file_io_view = FileIOView();
-        self.presenters["file_io"] = FileIOPresenter(view=self.file_io_view)
+        self.presenters[ac.FILE_IO_PRESENTER_KEY] = FileIOPresenter(view=self.file_io_view)
         self.main_layout.addWidget(self.file_io_view)
         # Specific Settings Panels
         self.vr_arch_view = VRArchSettingsView();
-        self.presenters["vr_arch"] = VRArchSettingsPresenter(view=self.vr_arch_view)
+        self.presenters[ac.VR_ARCH_PRESENTER_KEY] = VRArchSettingsPresenter(view=self.vr_arch_view)
         self.mdx_net_view = MDXNetSettingsView();
-        self.presenters["mdx_net"] = MDXNetSettingsPresenter(view=self.mdx_net_view)
+        self.presenters[ac.MDX_NET_PRESENTER_KEY] = MDXNetSettingsPresenter(view=self.mdx_net_view)
         self.demucs_view = DemucsSettingsView();
-        self.presenters["demucs"] = DemucsSettingsPresenter(view=self.demucs_view)
+        self.presenters[ac.DEMUCS_PRESENTER_KEY] = DemucsSettingsPresenter(view=self.demucs_view)
         self.ensemble_view = EnsembleSettingsView();
-        self.presenters["ensemble"] = EnsembleSettingsPresenter(view=self.ensemble_view, adapter=self.adapter)
+        self.presenters[ac.ENSEMBLE_PRESENTER_KEY] = EnsembleSettingsPresenter(view=self.ensemble_view, adapter=self.adapter)
         # Model Selection
         self.model_selection_view = ModelSelectionView()
-        self.presenters["model_selection"] = ModelSelectionPresenter(view=self.model_selection_view,
+        self.presenters[ac.MODEL_SELECTION_PRESENTER_KEY] = ModelSelectionPresenter(view=self.model_selection_view,
                                                                      adapter=self.adapter)
-        self.presenters["model_selection"].request_show_download_center.connect(self._open_download_center_tab)
-        # self.adapter.download_finished.connect(self.presenters["model_selection"]._on_model_downloaded_elsewhere) # Removed, ModelSelectionPresenter now uses model_download_completed
+        self.presenters[ac.MODEL_SELECTION_PRESENTER_KEY].request_show_download_center.connect(self._open_download_center_tab)
+        # self.adapter.download_finished.connect(self.presenters[ac.MODEL_SELECTION_PRESENTER_KEY]._on_model_downloaded_elsewhere) # Removed, ModelSelectionPresenter now uses model_download_completed
         self.model_selection_view.add_settings_panel("VR Arch", self.vr_arch_view)
         self.model_selection_view.add_settings_panel("MDX-Net", self.mdx_net_view)
         self.model_selection_view.add_settings_panel("Demucs", self.demucs_view)
@@ -80,13 +81,13 @@ class MainWindowView(QMainWindow):
         self.main_layout.addWidget(self.model_selection_view)
         # Processing Settings (now includes new checkboxes)
         self.processing_settings_view = ProcessingSettingsView()
-        self.presenters["processing_settings"] = ProcessingSettingsPresenter(view=self.processing_settings_view)
+        self.presenters[ac.PROCESSING_SETTINGS_PRESENTER_KEY] = ProcessingSettingsPresenter(view=self.processing_settings_view)
         self.main_layout.addWidget(self.processing_settings_view)
 
         # --- Execution Control and Settings Button Row ---
         bottom_controls_layout = QHBoxLayout()
         self.execution_control_view = ExecutionControlView()
-        self.presenters["execution"] = ExecutionControlPresenter(
+        self.presenters[ac.EXECUTION_PRESENTER_KEY] = ExecutionControlPresenter(
             view=self.execution_control_view,
             main_window_presenters=self.presenters,
             adapter=self.adapter
@@ -116,9 +117,9 @@ class MainWindowView(QMainWindow):
         if self.model_selection_view.method_combo.count() > 0:
             initial_method = self.model_selection_view.method_combo.currentText()
             if initial_method:
-                self.presenters["model_selection"].handle_method_change(initial_method)
+                self.presenters[ac.MODEL_SELECTION_PRESENTER_KEY].handle_method_change(initial_method)
         else:
-            self.presenters["model_selection"].handle_method_change("")
+            self.presenters[ac.MODEL_SELECTION_PRESENTER_KEY].handle_method_change("")
 
         # Debug print removed
 

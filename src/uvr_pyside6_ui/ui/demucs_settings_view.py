@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QGroupBox, QSpinBox,
-    QLabel, QHBoxLayout, QCheckBox
+    QLabel, QHBoxLayout, QCheckBox, QComboBox
 )
 from PySide6.QtCore import Signal, Slot
 
@@ -10,6 +10,8 @@ class DemucsSettingsView(QWidget):
     segments_changed = Signal(int)
     shifts_changed = Signal(int)
     split_changed = Signal(bool)
+    stems_changed = Signal(str)
+    combine_stems_changed = Signal(bool)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -19,6 +21,32 @@ class DemucsSettingsView(QWidget):
 
         settings_group = QGroupBox("Demucs Settings")
         settings_layout = QVBoxLayout(settings_group)
+
+        # Stem Selection
+        stem_layout = QHBoxLayout()
+        stem_label = QLabel("Output Stems:")
+        self.stem_combo = QComboBox()
+        self.stem_combo.addItems([
+            "All Stems",
+            "Vocals", 
+            "Bass",
+            "Drums", 
+            "Other",
+            "Instrumental"
+        ])
+        self.stem_combo.setCurrentText("All Stems")
+        self.stem_combo.currentTextChanged.connect(self.stems_changed)
+        stem_layout.addWidget(stem_label)
+        stem_layout.addWidget(self.stem_combo)
+        stem_layout.addStretch(1)
+        settings_layout.addLayout(stem_layout)
+
+        # Combine Stems
+        self.combine_stems_checkbox = QCheckBox("Combine Stems")
+        self.combine_stems_checkbox.setChecked(True)
+        self.combine_stems_checkbox.setToolTip("Create secondary stem by combining remaining stems instead of inverting")
+        self.combine_stems_checkbox.toggled.connect(self.combine_stems_changed)
+        settings_layout.addWidget(self.combine_stems_checkbox)
 
         # Segments
         seg_layout = QHBoxLayout()

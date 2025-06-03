@@ -8,10 +8,14 @@ class DemucsSettingsPresenter(QObject):
         self._segments = 10
         self._shifts = 2
         self._split = True
+        self._stems = "All Stems"
+        self._combine_stems = True
 
         self.view.segments_changed.connect(self.set_segments)
         self.view.shifts_changed.connect(self.set_shifts)
         self.view.split_changed.connect(self.set_split)
+        self.view.stems_changed.connect(self.set_stems)
+        self.view.combine_stems_changed.connect(self.set_combine_stems)
         # Debug print removed
 
     @Slot(int)
@@ -29,9 +33,21 @@ class DemucsSettingsPresenter(QObject):
         self._split = value
         # Debug print removed
 
+    @Slot(str)
+    def set_stems(self, value):
+        self._stems = value
+        # Debug print removed
+
+    @Slot(bool)
+    def set_combine_stems(self, value):
+        self._combine_stems = value
+        # Debug print removed
+
     def get_settings(self):
         return {
-            "segments": self._segments,
+            "segment": self._segments,
             "shifts": self._shifts,
-            "split": self._split,
+            "is_split_mode": self._split,
+            "demucs_stems": self._stems,
+            "is_demucs_combine_stems": self._combine_stems,
         }

@@ -949,7 +949,16 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
         # actual_model_sources = list(self.model_run_instance.sources) if hasattr(self.model_run_instance, 'sources') else [s.lower() for s in md.demucs_source_list]
         # actual_source_to_idx_map = {name: i for i, name in enumerate(actual_model_sources)}
 
+        print(f"DEBUG: md.demucs_stems value: '{md.demucs_stems}'")
+        print(f"DEBUG: ac.ALL_STEMS value: '{ac.ALL_STEMS}'")
+        print(f"DEBUG: md.demucs_stems == ac.ALL_STEMS: {md.demucs_stems == ac.ALL_STEMS}")
+        print(f"DEBUG: md.primary_stem: '{md.primary_stem}'")
+        print(f"DEBUG: md.secondary_stem: '{md.secondary_stem}'")
+        print(f"DEBUG: md.is_primary_stem_only: {md.is_primary_stem_only}")
+        print(f"DEBUG: md.is_secondary_stem_only: {md.is_secondary_stem_only}")
+
         if md.demucs_stems == ac.ALL_STEMS:
+            print("DEBUG: Processing ALL_STEMS - will output all 4 stems")
             for stem_name, stem_idx in md.demucs_source_map.items():
                 if stem_idx < all_stems_output.shape[0]:  # Ensure index is valid
                     stem_data = all_stems_output[stem_idx].T
@@ -966,30 +975,36 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
                     self._write_stem(ac.INST_STEM, instrumental_data, md.model_samplerate);
                     outputs[ac.INST_STEM] = instrumental_data
         else:  # Not ac.ALL_STEMS
+            print(f"DEBUG: Processing single stem: '{md.demucs_stems}' (primary_stem: '{md.primary_stem}')")
             target_primary_stem_cap = md.primary_stem
             if target_primary_stem_cap in md.demucs_source_map:
                 primary_stem_idx = md.demucs_source_map[target_primary_stem_cap]
                 if primary_stem_idx < all_stems_output.shape[0]:
                     primary_data = all_stems_output[primary_stem_idx].T
                     if not md.is_secondary_stem_only:
+                        print(f"DEBUG: Writing primary stem: '{target_primary_stem_cap}'")
                         self._write_stem(target_primary_stem_cap, primary_data, md.model_samplerate)
                         outputs[target_primary_stem_cap] = primary_data
 
                     if not md.is_primary_stem_only:
                         secondary_data = None
                         target_secondary_stem_cap = md.secondary_stem
+                        print(f"DEBUG: Checking secondary stem: '{target_secondary_stem_cap}'")
                         if target_secondary_stem_cap == ac.INST_STEM and target_primary_stem_cap == ac.VOCAL_STEM:
+                            print("DEBUG: Creating instrumental stem by combining other stems")
                             secondary_data = np.zeros_like(mix_audio_norm_np)
                             for s_name, s_idx in md.demucs_source_map.items():
                                 if s_name != ac.VOCAL_STEM and s_idx < all_stems_output.shape[0]:
                                     secondary_data += all_stems_output[s_idx].T
                         elif md.is_demucs_combine_stems:
+                            print("DEBUG: Creating secondary stem by combining remaining stems")
                             secondary_sum = np.zeros_like(mix_audio_norm_np)
                             for s_name, s_idx in md.demucs_source_map.items():
                                 if s_name != target_primary_stem_cap and s_idx < all_stems_output.shape[0]:
                                     secondary_sum += all_stems_output[s_idx].T
                             secondary_data = secondary_sum
                         else:
+                            print("DEBUG: Creating secondary stem by inverting mix")
                             if primary_data.shape == mix_audio_norm_np.shape:
                                 secondary_data = mix_audio_norm_np - primary_data
                             else:
@@ -997,8 +1012,11 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
                                     f"Shape mismatch for secondary stem ({target_secondary_stem_cap}): primary {primary_data.shape}, mix {mix_audio_norm_np.shape}")
 
                         if secondary_data is not None:
+                            print(f"DEBUG: Writing secondary stem: '{target_secondary_stem_cap}'")
                             self._write_stem(target_secondary_stem_cap, secondary_data, md.model_samplerate)
                             outputs[target_secondary_stem_cap] = secondary_data
+                        else:
+                            print("DEBUG: No secondary stem to write")
                 else:
                     print(f"Error: Index for primary stem '{target_primary_stem_cap}' out of bounds for model output.")
             else:

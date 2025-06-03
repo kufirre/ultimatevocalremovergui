@@ -77,7 +77,7 @@ class ModelSelectionView(QWidget):
         self.model_combo_model.clear()
         programmatic_selection_text = ""
         if current_method == ac.ENSEMBLE_MODELS_KEY:
-            info_item = QStandardItem(ac.ENSEMBLE_MODEL_INFO_TEXT);
+            info_item = QStandardItem(ac.ENSEMBLE_MODEL_INFO_TEXT)
             info_item.setEnabled(False)
             self.model_combo_model.appendRow(info_item)
             self.model_combo.setCurrentIndex(0)
@@ -118,7 +118,9 @@ class ModelSelectionView(QWidget):
         self.model_combo.blockSignals(True)
         idx = -1
         for i in range(self.model_combo_model.rowCount()):
-            if self.model_combo_model.item(i).text() == model_text_to_select: idx = i; break
+            if self.model_combo_model.item(i).text() == model_text_to_select: 
+                idx = i
+                break
         if idx != -1:
             self.model_combo.setCurrentIndex(idx)
         elif self.model_combo.currentText() == ac.ENSEMBLE_MODEL_INFO_TEXT:

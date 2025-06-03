@@ -677,7 +677,7 @@ class ModelData:
                         print(f"Loaded hyper_parameters from CKPT for {self.model_name}")
                     else: print(f"Warning: hyper_parameters not found in MDX CKPT {self.model_name}")
                 except Exception as e: print(f"Warning: Could not load hyper_parameters from MDX CKPT {self.model_name}: {e}")
-            elif not self.is_secondary_model: print(f"Warning: MDX model params JSON not found for ONNX model {self.model_name}");
+            elif not self.is_secondary_model: print(f"Warning: MDX model params JSON not found for ONNX model {self.model_name}")
         elif self.process_method == ac.DEMUCS_ARCH_TYPE:
             # Determine Demucs version based on model name
             self.demucs_version = ac.DEMUCS_V4 # Default

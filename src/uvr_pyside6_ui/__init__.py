@@ -1,3 +1,5 @@
 """PySide6 UI package for Ultimate Vocal Remover."""
 
-__version__ = "0.1.0"
+from .core.app_constants import APP_VERSION
+
+__version__ = APP_VERSION

@@ -82,20 +82,20 @@ class ProcessingSettingsView(QWidget):
 
     @Slot(bool)
     def set_gpu_conversion_checked(self, is_checked: bool):
-        self.gpu_checkbox.blockSignals(True);
-        self.gpu_checkbox.setChecked(is_checked);
+        self.gpu_checkbox.blockSignals(True)
+        self.gpu_checkbox.setChecked(is_checked)
         self.gpu_checkbox.blockSignals(False)
 
     @Slot(bool)
     def set_normalize_checked(self, is_checked: bool):
-        self.normalize_checkbox.blockSignals(True);
-        self.normalize_checkbox.setChecked(is_checked);
+        self.normalize_checkbox.blockSignals(True)
+        self.normalize_checkbox.setChecked(is_checked)
         self.normalize_checkbox.blockSignals(False)
 
     @Slot(str)
     def set_output_format(self, format_str: str):
-        self.format_combo.blockSignals(True);
-        self.format_combo.setCurrentText(format_str.upper());
+        self.format_combo.blockSignals(True)
+        self.format_combo.setCurrentText(format_str.upper())
         self.format_combo.blockSignals(False)
 
     @Slot(bool)

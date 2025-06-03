@@ -303,3 +303,113 @@ ENSEMBLE_PRESENTER_KEY = "ensemble"
 MODEL_SELECTION_PRESENTER_KEY = "model_selection"
 PROCESSING_SETTINGS_PRESENTER_KEY = "processing_settings"
 EXECUTION_PRESENTER_KEY = "execution"
+
+# --- UI Constants ---
+APP_TITLE = "UVR - PySide6 Edition"
+APP_VERSION = "0.1.0"
+
+# QT Styles
+FUSION_STYLE = "Fusion"
+
+# Fonts
+CENTURY_GOTHIC_FONT = "Century Gothic"
+MONTSERRAT_FONT = "Montserrat"
+
+# QRC Resource Paths  
+QRC_CENTURY_GOTHIC_PATH = ":/uvr/fonts/CenturyGothic.ttf"
+QRC_MONTSERRAT_PATH = ":/uvr/fonts/Montserrat.ttf"
+QRC_MAIN_STYLESHEET_PATH = ":/uvr/theme/style.qss"
+QRC_PROGRESS_STYLESHEET_PATH = ":/uvr/theme/progress_bars.qss"
+
+# Status Messages
+STATUS_READY = "Ready"
+STATUS_IDLE = "Idle"
+STATUS_COMPLETED = "Completed"
+STATUS_FAILED = "Failed"
+STATUS_PROCESSING = "Processing..."
+STATUS_STARTING = "Starting..."
+STATUS_WAITING_PROCESS = "Waiting for process..."
+
+# Processing Messages
+MSG_PROCESS_ALREADY_RUNNING = "Process is already running."
+MSG_REQUESTING_PROCESS_START = "Requesting process start..."
+MSG_INPUT_OUTPUT_REQUIRED = "Input and Output paths must be set!"
+MSG_SETTINGS_HEADER = "--- Settings ---"
+MSG_SETTINGS_FOOTER = "------------------"
+MSG_PROGRESS_COMPLETED = "Processing completed successfully!"
+
+# Button Text
+BTN_START_PROCESSING = "Start Processing"
+BTN_STARTING = "Starting..."
+BTN_PROCESSING = "Processing..."
+
+# Demucs Processing Messages
+MSG_DEMUCS_LOADING_SECURE = "Loading Demucs model with secure safe_globals"
+MSG_DEMUCS_FALLBACK_TRUSTED = "Falling back to trusted loading for Demucs models..."
+MSG_DEMUCS_STARTING = "Starting Demucs processing..."
+MSG_DEMUCS_COMPLETED = "demucs_apply_model completed successfully"
+
+# File Extensions
+JSON_EXT = '.json'
+TH_EXT = '.th'
+GZ_EXT = '.gz'
+
+# Menu Constants
+MENU_FILE = "&File"
+MENU_EDIT = "&Edit" 
+MENU_HELP = "&Help"
+ACTION_QUIT = "&Quit"
+ACTION_PREFERENCES = "&Preferences..."
+ACTION_ABOUT = "&About"
+
+# Dialog Messages
+ABOUT_MESSAGE = "UVR GUI PySide6 Refactor."
+ABOUT_TITLE = "About UVR - PySide6 Edition"
+
+# Keyboard Shortcuts
+SHORTCUT_QUIT = "Ctrl+Q"
+SHORTCUT_PREFERENCES = "Ctrl+,"
+
+# Error Messages
+ERROR_MODEL_NOT_FOUND = "Model file not found"
+ERROR_LOADING_MODEL = "Error loading model"
+ERROR_PROCESSING_FAILED = "Processing failed"
+ERROR_INVALID_INPUT = "Invalid input"
+ERROR_WINDOW_SIZE_ERROR_MESSAGE = "The selected window size is not compatible with the model."
+
+# VR Processing Messages  
+MSG_VR_SPEC_UTILS_ERROR = "VR spec_utils/params error."
+MSG_VR_MODEL_ERROR = "VR model/spec_utils error."
+
+# MDX Processing Messages
+MSG_MDX_LOADING = "Loading MDX model"
+MSG_MDX_PROCESSING = "Processing with MDX"
+
+# Processing Status
+DONE_MESSAGE = " Done!\n"
+SAVING_STEM_MESSAGE = ('Saving ', ' stem...')
+
+# Device Constants  
+CPU_DEVICE = 'cpu'
+CUDA_DEVICE = 'cuda'
+MPS_DEVICE = 'mps'
+
+# Window Size Error (already defined above, removing duplicate)
+
+# File Format Extensions (extending existing ones)
+WAV_EXT = '.wav'
+FLAC_EXT = '.flac'
+MP3_EXT = '.mp3'
+
+# Audio Quality Settings
+QUALITY_PCM_16 = 'PCM_16'
+QUALITY_PCM_24 = 'PCM_24'
+QUALITY_PCM_32 = 'PCM_32'
+QUALITY_FLOAT = 'FLOAT'
+QUALITY_DOUBLE = 'DOUBLE'
+
+# Progress Messages
+PROGRESS_LOADING = "Loading..."
+PROGRESS_PROCESSING = "Processing..."
+PROGRESS_SAVING = "Saving..."
+PROGRESS_COMPLETE = "Complete"

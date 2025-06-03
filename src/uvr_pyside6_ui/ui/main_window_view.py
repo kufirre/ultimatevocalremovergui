@@ -31,7 +31,7 @@ class MainWindowView(QMainWindow):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.setWindowTitle("UVR - PySide6 Edition")
+        self.setWindowTitle(ac.APP_TITLE)
         self.setGeometry(100, 100, 680, 720)  # Adjusted default size inspired by UVR.py WIDTH
 
         # --- Main Content Container for ScrollArea ---
@@ -43,7 +43,7 @@ class MainWindowView(QMainWindow):
         # --- Status Bar ---
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
-        self.status_bar.showMessage("Ready")
+        self.status_bar.showMessage(ac.STATUS_READY)
 
         self.presenters = {}
         self.adapter = UVRCoreAdapter(self)
@@ -56,17 +56,17 @@ class MainWindowView(QMainWindow):
         # --- Instantiate UI Modules and add them to main_layout ---
         # ... (File I/O, Specific Settings Panels, Model Selection, Processing Settings as in response #37) ...
         # File I/O
-        self.file_io_view = FileIOView();
+        self.file_io_view = FileIOView()
         self.presenters[ac.FILE_IO_PRESENTER_KEY] = FileIOPresenter(view=self.file_io_view)
         self.main_layout.addWidget(self.file_io_view)
         # Specific Settings Panels
-        self.vr_arch_view = VRArchSettingsView();
+        self.vr_arch_view = VRArchSettingsView()
         self.presenters[ac.VR_ARCH_PRESENTER_KEY] = VRArchSettingsPresenter(view=self.vr_arch_view)
-        self.mdx_net_view = MDXNetSettingsView();
+        self.mdx_net_view = MDXNetSettingsView()
         self.presenters[ac.MDX_NET_PRESENTER_KEY] = MDXNetSettingsPresenter(view=self.mdx_net_view)
-        self.demucs_view = DemucsSettingsView();
+        self.demucs_view = DemucsSettingsView()
         self.presenters[ac.DEMUCS_PRESENTER_KEY] = DemucsSettingsPresenter(view=self.demucs_view)
-        self.ensemble_view = EnsembleSettingsView();
+        self.ensemble_view = EnsembleSettingsView()
         self.presenters[ac.ENSEMBLE_PRESENTER_KEY] = EnsembleSettingsPresenter(view=self.ensemble_view, adapter=self.adapter)
         # Model Selection
         self.model_selection_view = ModelSelectionView()
@@ -126,20 +126,20 @@ class MainWindowView(QMainWindow):
     # ... (_create_menu_bar, _open_download_center_tab, _quit_application,
     #      _show_about_dialog, show_status_message methods remain unchanged from response #37) ...
     def _create_menu_bar(self):
-        menu_bar = self.menuBar();
+        menu_bar = self.menuBar()
         menu_bar.setNativeMenuBar(False)
-        file_menu = menu_bar.addMenu("&File");
-        quit_action = QAction("&Quit", self)
-        quit_action.setShortcut("Ctrl+Q");
+        file_menu = menu_bar.addMenu(ac.MENU_FILE)
+        quit_action = QAction(ac.ACTION_QUIT, self)
+        quit_action.setShortcut(ac.SHORTCUT_QUIT)
         quit_action.triggered.connect(self._quit_application)
-        file_menu.addAction(quit_action);
-        edit_menu = menu_bar.addMenu("&Edit")
-        prefs_action = QAction("&Preferences...", self);
-        prefs_action.setShortcut("Ctrl+,")
+        file_menu.addAction(quit_action)
+        edit_menu = menu_bar.addMenu(ac.MENU_EDIT)
+        prefs_action = QAction(ac.ACTION_PREFERENCES, self)
+        prefs_action.setShortcut(ac.SHORTCUT_PREFERENCES)
         prefs_action.triggered.connect(lambda: self.settings_dialog_presenter.show_dialog(default_model_type=None))
-        edit_menu.addAction(prefs_action);
-        help_menu = menu_bar.addMenu("&Help")
-        about_action = QAction("&About", self);
+        edit_menu.addAction(prefs_action)
+        help_menu = menu_bar.addMenu(ac.MENU_HELP)
+        about_action = QAction(ac.ACTION_ABOUT, self)
         about_action.triggered.connect(self._show_about_dialog)
         help_menu.addAction(about_action)
 
@@ -152,7 +152,7 @@ class MainWindowView(QMainWindow):
         app = QApplication.instance(); app.quit() if app else None
 
     def _show_about_dialog(self):
-        QMessageBox.about(self, "About UVR - PySide6 Edition", "UVR GUI PySide6 Refactor.")
+        QMessageBox.about(self, ac.ABOUT_TITLE, ac.ABOUT_MESSAGE)
 
     def show_status_message(self, message, timeout=0):
         self.status_bar.showMessage(message, timeout)

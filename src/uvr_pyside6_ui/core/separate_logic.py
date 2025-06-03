@@ -421,7 +421,8 @@ class SeperateMDXLogic(SeparatorAttributesLogic):
         
         primary_stem_data = self._demix_mdx(mix_audio_norm_np.T)
         if primary_stem_data is None: return None
-        self._console_log(ac.DONE_MESSAGE); outputs = {}
+        self._console_log(ac.DONE_MESSAGE)
+        outputs = {}
 
         if not md.is_primary_stem_only:
             if primary_stem_data.shape == mix_audio_norm_np.shape:
@@ -434,7 +435,8 @@ class SeperateMDXLogic(SeparatorAttributesLogic):
             self.primary_source = primary_stem_data
             self.primary_source_map = self._final_process_stem("", primary_stem_data, self.secondary_source_primary, md.primary_stem, md.model_samplerate)
             outputs.update(self.primary_source_map)
-        clear_gpu_cache_logic(); return outputs
+        clear_gpu_cache_logic()
+        return outputs
 
 class SeperateMDXCLogic(SeparatorAttributesLogic):
     def _demix_mdxc(self, mix_processed_norm_np: np.ndarray) -> Optional[Dict[str, np.ndarray] | np.ndarray]: # mix is (channels, length)
@@ -535,7 +537,8 @@ class SeperateMDXCLogic(SeparatorAttributesLogic):
 
         processed_output = self._demix_mdxc(mix_audio_norm_np.T) 
         if processed_output is None: return None
-        self._console_log(ac.DONE_MESSAGE); outputs = {}
+        self._console_log(ac.DONE_MESSAGE)
+        outputs = {}
 
         if isinstance(processed_output, dict): 
             for stem_name, stem_data_np in processed_output.items():
@@ -555,7 +558,8 @@ class SeperateMDXCLogic(SeparatorAttributesLogic):
                     self.secondary_source_map = self._final_process_stem("", secondary_stem_data, self.secondary_source_secondary, md.secondary_stem, md.model_samplerate)
                     outputs.update(self.secondary_source_map)
                 else: print(f"Warning: Shape mismatch for MDX-C secondary stem {md.model_name}")
-        clear_gpu_cache_logic(); return outputs
+        clear_gpu_cache_logic()
+        return outputs
 
 
 class SeperateDemucsLogic(SeparatorAttributesLogic):
@@ -942,27 +946,15 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
             else:
                 silent_output = np.zeros((num_expected_sources, 2, mix_audio_norm_np.shape[0]))
             all_stems_output = silent_output
-        self._console_log(ac.DONE_MESSAGE);
+        self._console_log(ac.DONE_MESSAGE)
         outputs = {}
 
         # Use md.demucs_source_map for indexing, as it's derived correctly in ModelData
-        # actual_model_sources = list(self.model_run_instance.sources) if hasattr(self.model_run_instance, 'sources') else [s.lower() for s in md.demucs_source_list]
-        # actual_source_to_idx_map = {name: i for i, name in enumerate(actual_model_sources)}
-
-        print(f"DEBUG: md.demucs_stems value: '{md.demucs_stems}'")
-        print(f"DEBUG: ac.ALL_STEMS value: '{ac.ALL_STEMS}'")
-        print(f"DEBUG: md.demucs_stems == ac.ALL_STEMS: {md.demucs_stems == ac.ALL_STEMS}")
-        print(f"DEBUG: md.primary_stem: '{md.primary_stem}'")
-        print(f"DEBUG: md.secondary_stem: '{md.secondary_stem}'")
-        print(f"DEBUG: md.is_primary_stem_only: {md.is_primary_stem_only}")
-        print(f"DEBUG: md.is_secondary_stem_only: {md.is_secondary_stem_only}")
-
         if md.demucs_stems == ac.ALL_STEMS:
-            print("DEBUG: Processing ALL_STEMS - will output all 4 stems")
             for stem_name, stem_idx in md.demucs_source_map.items():
                 if stem_idx < all_stems_output.shape[0]:  # Ensure index is valid
                     stem_data = all_stems_output[stem_idx].T
-                    self._write_stem(stem_name, stem_data, md.model_samplerate);
+                    self._write_stem(stem_name, stem_data, md.model_samplerate)
                     outputs[stem_name] = stem_data
             # Instrumental creation logic (if needed and vocals exist)
             if not md.is_primary_stem_only and md.secondary_stem == ac.INST_STEM and ac.VOCAL_STEM in md.demucs_source_map:
@@ -972,39 +964,33 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
                     for s_name, s_idx in md.demucs_source_map.items():
                         if s_name != ac.VOCAL_STEM and s_idx < all_stems_output.shape[0]:
                             instrumental_data += all_stems_output[s_idx].T
-                    self._write_stem(ac.INST_STEM, instrumental_data, md.model_samplerate);
+                    self._write_stem(ac.INST_STEM, instrumental_data, md.model_samplerate)
                     outputs[ac.INST_STEM] = instrumental_data
         else:  # Not ac.ALL_STEMS
-            print(f"DEBUG: Processing single stem: '{md.demucs_stems}' (primary_stem: '{md.primary_stem}')")
             target_primary_stem_cap = md.primary_stem
             if target_primary_stem_cap in md.demucs_source_map:
                 primary_stem_idx = md.demucs_source_map[target_primary_stem_cap]
                 if primary_stem_idx < all_stems_output.shape[0]:
                     primary_data = all_stems_output[primary_stem_idx].T
                     if not md.is_secondary_stem_only:
-                        print(f"DEBUG: Writing primary stem: '{target_primary_stem_cap}'")
                         self._write_stem(target_primary_stem_cap, primary_data, md.model_samplerate)
                         outputs[target_primary_stem_cap] = primary_data
 
                     if not md.is_primary_stem_only:
                         secondary_data = None
                         target_secondary_stem_cap = md.secondary_stem
-                        print(f"DEBUG: Checking secondary stem: '{target_secondary_stem_cap}'")
                         if target_secondary_stem_cap == ac.INST_STEM and target_primary_stem_cap == ac.VOCAL_STEM:
-                            print("DEBUG: Creating instrumental stem by combining other stems")
                             secondary_data = np.zeros_like(mix_audio_norm_np)
                             for s_name, s_idx in md.demucs_source_map.items():
                                 if s_name != ac.VOCAL_STEM and s_idx < all_stems_output.shape[0]:
                                     secondary_data += all_stems_output[s_idx].T
                         elif md.is_demucs_combine_stems:
-                            print("DEBUG: Creating secondary stem by combining remaining stems")
                             secondary_sum = np.zeros_like(mix_audio_norm_np)
                             for s_name, s_idx in md.demucs_source_map.items():
                                 if s_name != target_primary_stem_cap and s_idx < all_stems_output.shape[0]:
                                     secondary_sum += all_stems_output[s_idx].T
                             secondary_data = secondary_sum
                         else:
-                            print("DEBUG: Creating secondary stem by inverting mix")
                             if primary_data.shape == mix_audio_norm_np.shape:
                                 secondary_data = mix_audio_norm_np - primary_data
                             else:
@@ -1012,17 +998,14 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
                                     f"Shape mismatch for secondary stem ({target_secondary_stem_cap}): primary {primary_data.shape}, mix {mix_audio_norm_np.shape}")
 
                         if secondary_data is not None:
-                            print(f"DEBUG: Writing secondary stem: '{target_secondary_stem_cap}'")
                             self._write_stem(target_secondary_stem_cap, secondary_data, md.model_samplerate)
                             outputs[target_secondary_stem_cap] = secondary_data
-                        else:
-                            print("DEBUG: No secondary stem to write")
                 else:
                     print(f"Error: Index for primary stem '{target_primary_stem_cap}' out of bounds for model output.")
             else:
                 print(
                     f"Error: Selected Demucs primary stem '{target_primary_stem_cap}' not found in model source map: {md.demucs_source_map}.")
-        clear_gpu_cache_logic();
+        clear_gpu_cache_logic()
         return outputs
 
 class SeperateVRLogic(SeparatorAttributesLogic):
@@ -1059,7 +1042,7 @@ class SeperateVRLogic(SeparatorAttributesLogic):
         if not self.model_run_instance or not spec_utils: print("VR model/spec_utils error."); return None, None
         md = self.md; model_run = self.model_run_instance
         def _execute(X_mag_pad, roi_size):
-            X_dataset = []; 
+            X_dataset = []
             patches = (X_mag_pad.shape[2] - 2 * model_run.offset) // roi_size
 
             if patches == 0: print(f"Warning: Not enough data for patches (patches = {patches})."); return np.array([])
@@ -1200,7 +1183,8 @@ class SeperateVRLogic(SeparatorAttributesLogic):
 
     def seperate(self) -> Optional[Dict[str, np.ndarray]]:
         if not all([nets_new_vr, nets_vr, ModelParameters, spec_utils, self.md.vr_model_param]): print("VR dependencies/params error."); return None
-        md = self.md; self.progress_value = 0; 
+        md = self.md
+        self.progress_value = 0
         
         # Prepare original mix to get its shape for silent output generation if needed
         original_mix_audio_array = self._prepare_mix()
@@ -1275,9 +1259,10 @@ class SeperateVRLogic(SeparatorAttributesLogic):
             print("Warning: Secondary stem spectrogram contains Inf values. Attempting to fix...")
             v_spec = np.nan_to_num(v_spec, posinf=1.0, neginf=-1.0)
 
-        self._console_log(ac.DONE_MESSAGE); outputs = {}
+        self._console_log(ac.DONE_MESSAGE)
+        outputs = {}
         if not md.is_secondary_stem_only:
-            print(f"Converting {md.primary_stem}..."); 
+            print(f"Converting {md.primary_stem}...")
 
             primary_wave = self._spec_to_wav_vr_logic(y_spec)
 
@@ -1297,7 +1282,7 @@ class SeperateVRLogic(SeparatorAttributesLogic):
             else: print(f"Failed to convert {md.primary_stem} (returned None).")
         
         if not md.is_primary_stem_only:
-            print(f"Converting {md.secondary_stem}..."); 
+            print(f"Converting {md.secondary_stem}...")
 
             secondary_wave = self._spec_to_wav_vr_logic(v_spec)
 
@@ -1315,7 +1300,8 @@ class SeperateVRLogic(SeparatorAttributesLogic):
                 self.secondary_source=secondary_wave; self.secondary_source_map=self._final_process_stem("",secondary_wave,self.secondary_source_secondary,md.secondary_stem,ac.DEFAULT_SAMPLE_RATE); outputs.update(self.secondary_source_map)
             else: 
                 print(f"Failed to convert {md.secondary_stem} (returned None).")
-        clear_gpu_cache_logic(); return outputs
+        clear_gpu_cache_logic()
+        return outputs
 
 def vr_denoiser_logic(audio_input: np.ndarray, device: torch.device, model_path_str: str, 
                       is_deverber: bool = False, 

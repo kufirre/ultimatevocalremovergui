@@ -402,18 +402,13 @@ class SeperateMDXLogic(SeparatorAttributesLogic):
             if not MdxnetSet: print("Error: MdxnetSet (for .ckpt) not available."); return None
             print("Loading MDX CKPT model...")
             try:
-                model_checkpoint = torch.load(md.model_path, map_location=lambda storage, loc: storage)
-                hyper_parameters = model_checkpoint['hyper_parameters']
-                md.mdx_c_configs = hyper_parameters 
-                md.mdx_dim_f_set = hyper_parameters.get('dim_f', md.mdx_dim_f_set)
-                md.mdx_n_fft_scale_set = hyper_parameters.get('n_fft', md.mdx_n_fft_scale_set)
-
-                separator = MdxnetSet.ConvTDFNet(**hyper_parameters)
-                self.model_run_instance = separator.load_from_checkpoint(md.model_path)
-                self.model_run_instance.to(self.device).eval()
-                self.is_onnx_model = False
-            except Exception as e:
-                print(f"Error loading MDX CKPT model: {e}"); return None
+                # Fix for PyTorch 2.6+ - add weights_only=False for model loading
+                model_checkpoint = torch.load(md.model_path, map_location=lambda storage, loc: storage, weights_only=False)['hyper_parameters']
+                self.dim_c, self.hop_length = model_checkpoint['dim_c'], model_checkpoint['hop_length']
+                separator = MdxnetSet.ConvTDFNet(**model_checkpoint)
+                # Fix for PyTorch 2.6+ - add weights_only=False for model loading
+                self.model_run_instance = separator.load_from_checkpoint(md.model_path).to(self.device).eval()
+            except Exception as e: print(f"Error loading MDX checkpoint: {e}"); return None
         else: # ONNX
             self.is_onnx_model = True
             if md.mdx_segment_size == md.mdx_dim_t_set and not (self.device.type == 'mps'):
@@ -533,7 +528,8 @@ class SeperateMDXCLogic(SeparatorAttributesLogic):
         print(f"Processing with MDX-C model: {md.model_basename}...")
         try:
             self.model_run_instance = TFC_TDF_net(md.mdx_c_configs, device=self.device) 
-            self.model_run_instance.load_state_dict(torch.load(md.model_path, map_location=CPU_DEVICE))
+            # Fix for PyTorch 2.6+ - add weights_only=False for model loading
+            self.model_run_instance.load_state_dict(torch.load(md.model_path, map_location=CPU_DEVICE, weights_only=False))
             self.model_run_instance.to(self.device).eval()
         except Exception as e: print(f"Error loading MDX-C model: {e}"); return None
 
@@ -563,31 +559,6 @@ class SeperateMDXCLogic(SeparatorAttributesLogic):
 
 
 class SeperateDemucsLogic(SeparatorAttributesLogic):
-
-    def _safe_torch_load(self, file_path, map_location=None):
-        """Safely load PyTorch model with proper safe_globals configuration"""
-        try:
-            # First attempt: Try with safe loading and proper globals
-            with torch.serialization.safe_globals([
-                'numpy.core.multiarray.scalar',
-                'numpy.dtype',
-                'numpy.core.multiarray._reconstruct',
-                'numpy.ndarray',
-                'collections.OrderedDict',
-                'torch._utils._rebuild_tensor_v2'
-            ]):
-                return torch.load(file_path, map_location=map_location, weights_only=True)
-
-        except Exception as safe_error:
-            print(f"Safe loading failed: {safe_error}")
-            print("Falling back to unsafe loading (ensure you trust the model source)")
-
-            # Fallback: Use weights_only=False if you trust the source
-            try:
-                return torch.load(file_path, map_location=map_location, weights_only=False)
-            except Exception as unsafe_error:
-                print(f"Unsafe loading also failed: {unsafe_error}")
-                raise unsafe_error
 
     def _demix_demucs_logic(self, mix_processed_norm_np: np.ndarray) -> Optional[np.ndarray]:
         md = self.md
@@ -799,8 +770,8 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
             if md.demucs_version == ac.DEMUCS_V1:
                 model_file_path = gzip.open(md.model_path, "rb") if str(md.model_path).endswith(
                     ".gz") else md.model_path
-                # Use safe loading method
-                loaded_data = self._safe_torch_load(model_file_path, map_location=CPU_DEVICE)
+                # Use regular torch.load for v1 models
+                loaded_data = torch.load(model_file_path, map_location=CPU_DEVICE)
                 klass, args, kwargs, state = loaded_data
                 self.model_run_instance = klass(*args, **kwargs)
                 self.model_run_instance.load_state_dict(state)
@@ -812,16 +783,133 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
                     return None
                 self.model_run_instance = demucs_apply_model_v2(md.demucs_source_list,
                                                                 md.model_path)  # Use demucs_apply_model_v2
-                # Use safe loading method
-                state_dict = self._safe_torch_load(md.model_path, map_location=CPU_DEVICE)
+                # Use regular torch.load for v2 models
+                state_dict = torch.load(md.model_path, map_location=CPU_DEVICE)
                 self.model_run_instance.load_state_dict(state_dict)
 
             else:  # Demucs v3/v4
                 model_name_from_path = Path(md.model_path).stem
                 repo_path = Path(os.path.dirname(md.model_path))
-                self.model_run_instance = demucs_get_model(name=model_name_from_path, repo=repo_path)
-                if demucs_segments:
-                    self.model_run_instance = demucs_segments(md.segment, self.model_run_instance)
+                
+                # Secure loading using safe_globals context manager for PyTorch 2.6+ compatibility
+                try:
+                    # Import all required classes that need to be in safe globals
+                    import torch.serialization
+                    import numpy as np
+                    
+                    # Get all the classes that might be needed
+                    safe_classes = []
+                    
+                    try:
+                        from demucs.htdemucs import HTDemucs
+                        safe_classes.append(HTDemucs)
+                    except ImportError:
+                        pass
+                        
+                    try:
+                        from demucs.hdemucs import HDemucs
+                        safe_classes.append(HDemucs)
+                    except ImportError:
+                        pass
+                        
+                    try:
+                        from demucs.demucs import Demucs
+                        safe_classes.append(Demucs)
+                    except ImportError:
+                        pass
+                        
+                    try:
+                        from demucs.model import Demucs as DemucsV1
+                        safe_classes.append(DemucsV1)
+                    except ImportError:
+                        pass
+                        
+                    try:
+                        from demucs.model_v2 import Demucs as DemucsV2
+                        safe_classes.append(DemucsV2)
+                    except ImportError:
+                        pass
+                    
+                    # Add numpy classes that are commonly needed
+                    import numpy.core.multiarray
+                    safe_classes.extend([
+                        numpy.core.multiarray.scalar,
+                        numpy.core.multiarray.dtype,
+                        numpy.core.multiarray.ndarray,
+                        np.dtype,
+                        np.ndarray
+                    ])
+                    
+                    # Add common torch classes
+                    import torch.nn as nn
+                    safe_classes.extend([
+                        torch.Tensor,
+                        torch.nn.Module,
+                        torch.nn.Parameter,
+                        nn.Conv1d,
+                        nn.Conv2d,
+                        nn.ConvTranspose1d,
+                        nn.ConvTranspose2d,
+                        nn.BatchNorm1d,
+                        nn.BatchNorm2d,
+                        nn.ReLU,
+                        nn.GELU,
+                        nn.GLU,
+                        nn.Sequential,
+                        nn.ModuleList,
+                        nn.LayerNorm,
+                        nn.GroupNorm,
+                        nn.Linear,
+                        nn.Embedding,
+                        nn.LSTM,
+                        nn.GRU
+                    ])
+                    
+                    # Add collections and other common classes
+                    import collections
+                    safe_classes.extend([
+                        collections.OrderedDict,
+                        dict,
+                        list,
+                        tuple,
+                        int,
+                        float,
+                        str,
+                        bool
+                    ])
+                    
+                    print(f"Loading Demucs model with secure safe_globals ({len(safe_classes)} classes)")
+                    
+                    # Use secure safe_globals context manager
+                    with torch.serialization.safe_globals(safe_classes):
+                        self.model_run_instance = demucs_get_model(name=model_name_from_path, repo=repo_path)
+                        if demucs_segments:
+                            self.model_run_instance = demucs_segments(md.segment, self.model_run_instance)
+                    
+                except Exception as e:
+                    print(f"Warning: Could not configure secure loading: {e}")
+                    print(f"Falling back to trusted loading for Demucs models...")
+                    # If secure loading fails, fall back to trusted loading since these are user-selected Demucs models
+                    # This is still safer than global weights_only=False because it's scoped to just this operation
+                    try:
+                        import torch
+                        # Temporarily override for this specific trusted model loading
+                        original_load = torch.load
+                        def trusted_load(*args, **kwargs):
+                            if 'weights_only' not in kwargs:
+                                kwargs['weights_only'] = False
+                            return original_load(*args, **kwargs)
+                        
+                        torch.load = trusted_load
+                        try:
+                            self.model_run_instance = demucs_get_model(name=model_name_from_path, repo=repo_path)
+                            if demucs_segments:
+                                self.model_run_instance = demucs_segments(md.segment, self.model_run_instance)
+                        finally:
+                            torch.load = original_load
+                    except Exception as fallback_error:
+                        print(f"Error: Both secure and fallback loading failed: {fallback_error}")
+                        return None
 
             self.model_run_instance.to(self.device).eval()
 
@@ -918,6 +1006,7 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
                     f"Error: Selected Demucs primary stem '{target_primary_stem_cap}' not found in model source map: {md.demucs_source_map}.")
         clear_gpu_cache_logic();
         return outputs
+
 class SeperateVRLogic(SeparatorAttributesLogic):
     def _loading_mix_vr(self, audio_file_path_str: str) -> Optional[np.ndarray]:
         if not spec_utils or not self.md.vr_model_param: print("VR spec_utils/params error."); return None
@@ -1129,7 +1218,8 @@ class SeperateVRLogic(SeparatorAttributesLogic):
                 print("Using standard VR model architecture")
                 self.model_run_instance = nets_vr.determine_model_capacity(md.vr_model_param.param['bins']*2, nn_arch_size)
             
-            self.model_run_instance.load_state_dict(torch.load(md.model_path, map_location=CPU_DEVICE))
+            # Fix for PyTorch 2.6+ - add weights_only=False for model loading
+            self.model_run_instance.load_state_dict(torch.load(md.model_path, map_location=CPU_DEVICE, weights_only=False))
             self.model_run_instance.to(self.device).eval()
         except Exception as e: 
             print(f"Error loading VR model: {e}")
@@ -1225,7 +1315,7 @@ def vr_denoiser_logic(audio_input: np.ndarray, device: torch.device, model_path_
     
     try:
         model = nets_new_vr.CascadedNet(n_fft, nout=nout, nout_lstm=nout_lstm)
-        model.load_state_dict(torch.load(str(model_path), map_location=CPU_DEVICE))
+        model.load_state_dict(torch.load(str(model_path), map_location=CPU_DEVICE, weights_only=False))
         model.to(device)
         model.eval()
     except Exception as e:

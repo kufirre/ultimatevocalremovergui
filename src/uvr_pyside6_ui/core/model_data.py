@@ -376,102 +376,133 @@ class ModelData:
         base_model_dir = models_dir_map.get(self.process_method)
         
         if not base_model_dir:
-            # Fallback or error if self.process_method is not in the map (e.g. Ensemble Mode)
-            # For Ensemble Mode, model_path is handled differently (points to ensemble config file)
-            if self.process_method == ac.ENSEMBLE_MODE:
-                 # This case should be handled before _determine_model_path is called for ensemble master,
-                 # or this method should not be called for ensemble master.
-                 # For ensemble members, self.process_method will be VR_ARCH_TYPE etc.
-                return None 
+            if self.process_method == ac.ENSEMBLE_MODE: return None 
             print(f"Warning: base_model_dir is None for process_method: {self.process_method}")
             return None
-        current_model_name = self.model_name
-        current_model_basename = Path(current_model_name).stem
-        if Path(current_model_name).is_file() and Path(current_model_name).exists(): return str(current_model_name)
-        if (base_model_dir / current_model_name).exists(): return str(base_model_dir / current_model_name)
-        
-        # For Demucs models, check if it's a hash ID and find the corresponding file
+
+        current_display_name = self.model_name # This is the DISPLAY NAME from GUI (e.g., "v4 | htdemucs_ft")
+
+        # If current_display_name is already a valid file path (e.g., from a drag-drop or direct input)
+        if Path(current_display_name).is_file() and Path(current_display_name).exists():
+            return str(current_display_name)
+        # If current_display_name (as a filename) exists in the base_model_dir (less likely for display names)
+        if (base_model_dir / current_display_name).exists():
+             return str(base_model_dir / current_display_name)
+
+        # --- Demucs Specific Logic ---
         if self.process_method == ac.DEMUCS_ARCH_TYPE:
-            # Check if it's a YAML file first
-            yaml_path = base_model_dir / f"{current_model_name}.yaml"
-            if yaml_path.exists():
-                print(f"Found Demucs YAML file: {yaml_path}")
-                return str(yaml_path)
+            mapper_path = DEMUCS_MODELS_DIR_PATH / "model_data" / "model_name_mapper.json"
+            demucs_model_actual_filename = None
+
+            if mapper_path.exists():
+                try:
+                    with open(mapper_path, 'r', encoding='utf-8') as f:
+                        name_mapper = json.load(f)
+                    # Find the actual filename from the display name
+                    for fname, dname in name_mapper.items():
+                        if dname == current_display_name:
+                            demucs_model_actual_filename = fname
+                            break
+                except Exception as e:
+                    print(f"Error processing Demucs model name mapper: {e}")
+            else:
+                print(f"Warning: Demucs model name mapper not found at {mapper_path}")
+
+            if demucs_model_actual_filename:
+                # Determine Demucs version from display name to select correct directory
+                # This helps differentiate between older models in root Demucs_Models and newer in v3_v4_repo
+                demucs_version_for_path = ac.DEMUCS_V4 # Default assumption
+                if "v1 |" in current_display_name: demucs_version_for_path = ac.DEMUCS_V1
+                elif "v2 |" in current_display_name: demucs_version_for_path = ac.DEMUCS_V2
+                elif "v3 |" in current_display_name: demucs_version_for_path = ac.DEMUCS_V3
                 
-            # Check if it's a hash ID (like "92cfc3b6-ef3bcb9c" or just "92cfc3b6")
-            # Look for files that start with this hash
-            for file_path in base_model_dir.glob(f"{current_model_name}*"):
-                if file_path.is_file() and file_path.suffix.lower() in ['.th', '.yaml']:
-                    print(f"Found Demucs model via hash prefix: {file_path}")
-                    return str(file_path)
-                    
-            # If it's a short hash (like "92cfc3b6"), look for files with the full hash
-            if len(current_model_name) == 8:  # Short hash format
-                for file_path in base_model_dir.glob(f"{current_model_name}-*.th"):
-                    if file_path.is_file():
-                        print(f"Found Demucs model via short hash: {file_path}")
-                        return str(file_path)
-        
-        # For MDX-Net models, check if there's a mapping from display name to file name
-        if self.process_method == ac.MDX_ARCH_TYPE:
-            # Try to find the reverse mapping (from display name to file name)
-            try:
-                mapper_path = MDX_HASH_DIR_PATH / "model_name_mapper.json"
-                if mapper_path.exists():
-                    with open(mapper_path, 'r', encoding='utf-8') as f:
-                        name_mapper = json.load(f)
-                    # Find the key for this model name (reverse lookup)
+                demucs_specific_dir = DEMUCS_NEWER_REPO_DIR_PATH if demucs_version_for_path in [ac.DEMUCS_V3, ac.DEMUCS_V4] else DEMUCS_MODELS_DIR_PATH
+                
+                potential_path = demucs_specific_dir / demucs_model_actual_filename
+                if potential_path.exists():
+                    print(f"Found Demucs model via name mapper: {potential_path}")
+                    return str(potential_path)
+                else:
+                    # Check the other Demucs directory as a fallback if version parsing was ambiguous
+                    # or if a v3/v4 model was accidentally placed in the root Demucs_Models dir or vice-versa
+                    fallback_dir = DEMUCS_MODELS_DIR_PATH if demucs_specific_dir == DEMUCS_NEWER_REPO_DIR_PATH else DEMUCS_NEWER_REPO_DIR_PATH
+                    potential_fallback_path = fallback_dir / demucs_model_actual_filename
+                    if potential_fallback_path.exists():
+                        print(f"Found Demucs model via name mapper in fallback directory: {potential_fallback_path}")
+                        return str(potential_fallback_path)
+                    else:
+                        print(f"Demucs model file (from mapper: {demucs_model_actual_filename}) not found in primary ({demucs_specific_dir}) or fallback ({fallback_dir}) directories.")
+                        return None # Model in mapper but file missing
+            else:
+                # This case means the display name was not in the mapper.
+                # It could be a direct filename (e.g. user typed "htdemucs_ft.yaml" or a hash)
+                # Or it's a display name that's simply not mapped.
+                print(f"Display name '{current_display_name}' not found in Demucs mapper. Attempting direct filename resolution.")
+                # Try resolving current_display_name as a direct filename in both Demucs directories
+                # This handles cases where current_display_name is "htdemucs_ft.yaml" or "abc123hash.th"
+                path_in_newer_repo = DEMUCS_NEWER_REPO_DIR_PATH / current_display_name
+                if path_in_newer_repo.exists():
+                    print(f"Found Demucs model by direct name in v3_v4_repo: {path_in_newer_repo}")
+                    return str(path_in_newer_repo)
+                
+                path_in_root_demucs = DEMUCS_MODELS_DIR_PATH / current_display_name
+                if path_in_root_demucs.exists():
+                    print(f"Found Demucs model by direct name in root Demucs_Models: {path_in_root_demucs}")
+                    return str(path_in_root_demucs)
+
+                # If current_display_name was a display string not in mapper, and not a direct filename, this will likely fail.
+                # One last attempt: if it's a stem, try adding common extensions.
+                current_model_basename_for_fallback = Path(current_display_name).stem 
+                for ext in ac.DEMUCS_LEGACY_SCAN_EXTENSIONS + ac.DEMUCS_V3_V4_SCAN_EXTENSIONS:
+                    if (DEMUCS_MODELS_DIR_PATH / f"{current_model_basename_for_fallback}{ext}").exists(): return str(DEMUCS_MODELS_DIR_PATH / f"{current_model_basename_for_fallback}{ext}")
+                    if (DEMUCS_NEWER_REPO_DIR_PATH / f"{current_model_basename_for_fallback}{ext}").exists(): return str(DEMUCS_NEWER_REPO_DIR_PATH / f"{current_model_basename_for_fallback}{ext}")
+                
+                print(f"Could not resolve Demucs model path for '{current_display_name}' after all checks.")
+                return None # Exhausted Demucs checks
+
+        # --- MDX-Net Specific Logic ---
+        elif self.process_method == ac.MDX_ARCH_TYPE:
+            mapper_path = MDX_HASH_DIR_PATH / "model_name_mapper.json"
+            if mapper_path.exists():
+                try:
+                    with open(mapper_path, 'r', encoding='utf-8') as f: name_mapper = json.load(f)
                     for file_name, display_name in name_mapper.items():
-                        if display_name == current_model_name:
-                            # Check if this file exists with extensions
-                            for ext in ac.MDX_SCAN_EXTENSIONS:
-                                file_path = base_model_dir / f"{file_name}{ext}"
-                                if file_path.exists():
-                                    print(f"Found MDX model via name mapper: {file_path}")
-                                    return str(file_path)
-            except Exception as e:
-                print(f"Error checking model name mapper: {e}")
-        
-        extensions = []
-        if self.process_method == ac.VR_ARCH_TYPE: extensions = ac.VR_ARCH_SCAN_EXTENSIONS
-        elif self.process_method == ac.MDX_ARCH_TYPE: extensions = ac.MDX_SCAN_EXTENSIONS
-        elif self.process_method == ac.DEMUCS_ARCH_TYPE:
-            # Try to find the reverse mapping (from display name to file name)
-            try:
-                mapper_path = base_model_dir / "model_data" / "model_name_mapper.json"
-                if mapper_path.exists():
-                    with open(mapper_path, 'r', encoding='utf-8') as f:
-                        name_mapper = json.load(f)
-                    # Find the key for this model name (reverse lookup)
-                    for file_name, display_name in name_mapper.items():
-                        if display_name == current_model_name:
-                            # Check if this file exists in base_model_dir
-                            if (base_model_dir / file_name).exists():
-                                print(f"Found Demucs model via name mapper: {base_model_dir / file_name}")
-                                return str(base_model_dir / file_name)
-                            # Check if this file exists in v3_v4_repo
-                            if (DEMUCS_NEWER_REPO_DIR_PATH / file_name).exists():
-                                print(f"Found Demucs model via name mapper in v3_v4_repo: {DEMUCS_NEWER_REPO_DIR_PATH / file_name}")
-                                return str(DEMUCS_NEWER_REPO_DIR_PATH / file_name)
-                            
-                            # If the file doesn't exist, we need to download it
-                            # For now, just return None and let the caller handle the download
-                            print(f"Demucs model file not found: {file_name} for {current_model_name}")
-                            return None
-            except Exception as e:
-                print(f"Error checking Demucs model name mapper: {e}")
+                        if display_name == current_display_name:
+                            # MDX models don't have a separate v3/v4 repo structure like Demucs in this context
+                            for ext in ac.MDX_SCAN_EXTENSIONS: # Check with .onnx and .ckpt
+                                potential_path = base_model_dir / f"{file_name}{ext}" # file_name from mapper is usually without ext
+                                if potential_path.exists():
+                                    print(f"Found MDX model via name mapper: {potential_path}")
+                                    return str(potential_path)
+                                # If file_name from mapper already has extension
+                                potential_path_direct = base_model_dir / file_name
+                                if potential_path_direct.exists():
+                                     print(f"Found MDX model via name mapper (direct): {potential_path_direct}")
+                                     return str(potential_path_direct)
+                            print(f"MDX model file (from mapper) not found for: {file_name}")
+                            return None # Model in mapper but file missing
+                except Exception as e: print(f"Error checking MDX model name mapper: {e}")
             
-            # If we didn't find a mapping, try the standard extensions
-            for ext in ac.DEMUCS_LEGACY_SCAN_EXTENSIONS + ac.DEMUCS_V3_V4_SCAN_EXTENSIONS:
-                if (base_model_dir / f"{current_model_basename}{ext}").exists(): return str(base_model_dir / f"{current_model_basename}{ext}")
-                if (DEMUCS_NEWER_REPO_DIR_PATH / f"{current_model_basename}{ext}").exists(): return str(DEMUCS_NEWER_REPO_DIR_PATH / f"{current_model_basename}{ext}")
-            if current_model_name.endswith(".yaml") and (DEMUCS_NEWER_REPO_DIR_PATH / current_model_name).exists(): return str(DEMUCS_NEWER_REPO_DIR_PATH / current_model_name)
-            return None
-        for ext in extensions:
-            if (base_model_dir / f"{current_model_basename}{ext}").exists(): return str(base_model_dir / f"{current_model_basename}{ext}")
-        if self.process_method == ac.MDX_ARCH_TYPE and not current_model_basename.endswith(ac.CKPT_EXT):
-             if (base_model_dir / f"{current_model_basename}{ac.CKPT_EXT}").exists(): return str(base_model_dir / f"{current_model_basename}{ac.CKPT_EXT}")
-        return None
+            # Fallback for MDX if not found via mapper
+            current_model_basename_for_fallback = Path(current_display_name).stem
+            for ext in ac.MDX_SCAN_EXTENSIONS:
+                if (base_model_dir / f"{current_model_basename_for_fallback}{ext}").exists(): return str(base_model_dir / f"{current_model_basename_for_fallback}{ext}")
+            # Check if current_display_name is the filename itself (e.g. .onnx or .ckpt)
+            if (base_model_dir / current_display_name).exists(): return str(base_model_dir / current_display_name)
+            return None # Exhausted MDX checks
+
+        # --- VR Arch Specific Logic ---
+        elif self.process_method == ac.VR_ARCH_TYPE:
+            # VR typically doesn't use a name mapper in the same way for path resolution in UVR.py,
+            # model_name is often the direct filename (without .pth)
+            current_model_basename_for_fallback = Path(current_display_name).stem
+            for ext in ac.VR_ARCH_SCAN_EXTENSIONS: # Should be just ['.pth']
+                if (base_model_dir / f"{current_model_basename_for_fallback}{ext}").exists(): return str(base_model_dir / f"{current_model_basename_for_fallback}{ext}")
+            # Check if current_display_name is the filename itself (e.g. model.pth)
+            if (base_model_dir / current_display_name).exists(): return str(base_model_dir / current_display_name)
+            return None # Exhausted VR checks
+
+        return None # Default return if no specific logic matches or finds the file
 
     def _get_model_hash(self, model_path_str: str) -> Optional[str]: # ... (content remains the same)
         model_path_obj = Path(model_path_str)
@@ -648,15 +679,29 @@ class ModelData:
                 except Exception as e: print(f"Warning: Could not load hyper_parameters from MDX CKPT {self.model_name}: {e}")
             elif not self.is_secondary_model: print(f"Warning: MDX model params JSON not found for ONNX model {self.model_name}");
         elif self.process_method == ac.DEMUCS_ARCH_TYPE:
-            self.demucs_version = ac.DEMUCS_V4 
+            # Determine Demucs version based on model name
+            self.demucs_version = ac.DEMUCS_V4 # Default
             for ver_const, ver_str_list in ac.DEMUCS_VERSION_STRING_MAP.items():
-                if any(s in self.model_name.lower() for s in ver_str_list): self.demucs_version = ver_const; break
-            if ac.DEMUCS_UVR_MODEL_TAG in self.model_name: self.demucs_source_list, self.demucs_source_map, self.demucs_stem_count = ac.DEMUCS_2_SOURCE_LIST, ac.DEMUCS_2_SOURCE_MAPPER, 2
-            elif self.demucs_version == ac.DEMUCS_V1 or self.demucs_version == ac.DEMUCS_V2: self.demucs_source_list, self.demucs_source_map, self.demucs_stem_count = ac.DEMUCS_2_SOURCE_LIST, ac.DEMUCS_2_SOURCE_MAPPER, 2
-            elif ac.DEMUCS_6_STEM_TAG in self.model_name: self.demucs_source_list, self.demucs_source_map, self.demucs_stem_count = ac.DEMUCS_6_SOURCE_LIST, ac.DEMUCS_6_SOURCE_MAPPER, 6
-            else: self.demucs_source_list, self.demucs_source_map, self.demucs_stem_count = ac.DEMUCS_4_SOURCE_LIST, ac.DEMUCS_4_SOURCE_MAPPER, 4
-            chosen_demucs_stems_output = settings.get('demucs_stems', ac.ALL_STEMS) 
-            self.primary_stem = chosen_demucs_stems_output if chosen_demucs_stems_output != ac.ALL_STEMS else self.demucs_source_list[0] if self.demucs_source_list else ac.VOCAL_STEM
+                if any(s in self.model_name.lower() for s in ver_str_list):
+                    self.demucs_version = ver_const
+                    break
+            
+            # Determine source list, map, and count based on model name and version
+            if ac.DEMUCS_UVR_MODEL_TAG in self.model_name:
+                self.demucs_source_list, self.demucs_source_map, self.demucs_stem_count = ac.DEMUCS_2_SOURCE_LIST, ac.DEMUCS_2_SOURCE_MAPPER, 2
+            elif self.demucs_version == ac.DEMUCS_V1 or self.demucs_version == ac.DEMUCS_V2:
+                self.demucs_source_list, self.demucs_source_map, self.demucs_stem_count = ac.DEMUCS_2_SOURCE_LIST, ac.DEMUCS_2_SOURCE_MAPPER, 2
+            elif ac.DEMUCS_6_STEM_TAG in self.model_name:
+                self.demucs_source_list, self.demucs_source_map, self.demucs_stem_count = ac.DEMUCS_6_SOURCE_LIST, ac.DEMUCS_6_SOURCE_MAPPER, 6
+            else: # Default to 4-stem for v3/v4 if not specified otherwise
+                self.demucs_source_list, self.demucs_source_map, self.demucs_stem_count = ac.DEMUCS_4_SOURCE_LIST, ac.DEMUCS_4_SOURCE_MAPPER, 4
+
+            # Determine primary stem based on user selection or defaults
+            chosen_demucs_stems_output = settings.get('demucs_stems', ac.ALL_STEMS)
+            if chosen_demucs_stems_output == ac.ALL_STEMS:
+                self.primary_stem = self.demucs_source_list[0] if self.demucs_source_list else ac.VOCAL_STEM
+            else:
+                self.primary_stem = chosen_demucs_stems_output
         
         if not self.is_secondary_model and not self.is_pre_proc_model and not self.is_vocal_split_model:
              self.primary_stem_native = self.primary_stem 

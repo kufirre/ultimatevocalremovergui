@@ -320,10 +320,18 @@ class UVRCoreAdapter(QObject):
             try:
                 with open(mapper_file_path, 'r', encoding='utf-8') as f:
                     mapper_content = json.load(f)
+                    # print(f"Successfully loaded name mapper from: {mapper_file_path}")
                     return mapper_content
-            except Exception:
+            except json.JSONDecodeError as e:
+                print(f"ERROR: JSONDecodeError when loading name mapper from {mapper_file_path}: {e}")
+                # Consider logging this error more formally.
+                pass
+            except Exception as e:
+                print(f"ERROR: Unexpected error loading name mapper from {mapper_file_path}: {e}")
                 # Consider logging this error.
                 pass
+        else:
+            print(f"Warning: Name mapper file not found at: {mapper_file_path}")
         return {}
 
     def _get_display_name_from_mapper(self, scanned_identifier: str, name_mapper: dict) -> tuple[str, bool]:
@@ -361,10 +369,12 @@ class UVRCoreAdapter(QObject):
         if not scanned_identifiers: return []
         final_display_names = []
         for identifier in scanned_identifiers:
-            display_name, _ = self._get_display_name_from_mapper(identifier, name_mapper)
-            # Always add the display_name. If not mapped, display_name is the identifier itself.
-            # This ensures all valid scanned files (including .yaml for Demucs) are candidates for listing.
-            final_display_names.append(display_name)
+            display_name, was_mapped = self._get_display_name_from_mapper(identifier, name_mapper)
+            if was_mapped: # Only add if it was successfully mapped to a display name
+                final_display_names.append(display_name)
+            # Optionally, log identifiers that were not mapped if debugging is needed:
+            # else:
+            #     print(f"Debug: Identifier '{identifier}' for method '{method_name}' was not mapped and will not be shown in UI.")
             
         return natsort.natsorted(list(set(final_display_names)))
 

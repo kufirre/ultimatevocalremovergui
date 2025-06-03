@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import os 
 import time
+import yaml
 
 from . import app_constants as ac
 from .model_data import ModelData
@@ -222,32 +223,32 @@ class SeparatorAttributesLogic:
     def _update_progress(self, current_step_fraction: float, message: Optional[str] = None):
         scaled_progress = 0.1 + (current_step_fraction * 0.8)
         self.set_progress_bar(scaled_progress)
-        if message: self._console_log_base(message)
+        if message: print(message)
 
     def _prepare_mix(self) -> Optional[np.ndarray]:
         input_audio_array = self.process_data.get('input_audio_array')
         
         if input_audio_array is not None:
-            self._console_log_base(f"Using provided audio array for {self.md.model_basename}...")
+            print(f"Using provided audio array for {self.md.model_basename}...")
             # Ensure it's (length, channels)
             if input_audio_array.shape[0] < input_audio_array.shape[1] and input_audio_array.ndim == 2: # (channels, length)
                 return input_audio_array.T
             return input_audio_array # Already (length, channels) or mono
             
         elif self.audio_file_path:
-            self._console_log_base(f"Loading audio file: {self.audio_file_path.name} for {self.md.model_basename}...")
+            print(f"Loading audio file: {self.audio_file_path.name} for {self.md.model_basename}...")
             mix_audio = prepare_mix_logic(str(self.audio_file_path)) 
             if mix_audio is None: 
-                self._console_log_base(f"Error: Failed to load audio from {self.audio_file_path}")
+                print(f"Error: Failed to load audio from {self.audio_file_path}")
                 return None
             self._console_log(ac.DONE_MESSAGE)
             return mix_audio # (length, channels)
         else:
-            self._console_log_base(f"Error: No audio input (file or array) for {self.md.model_basename}.")
+            print(f"Error: No audio input (file or array) for {self.md.model_basename}.")
             return None
 
     def _write_stem(self, stem_name: str, stem_data: np.ndarray, samplerate: int):
-        if not self.export_path: self._console_log_base("Error: Export path not set."); return
+        if not self.export_path: print("Error: Export path not set."); return
         
         # Ensure the export directory exists
         self.export_path.mkdir(parents=True, exist_ok=True)
@@ -331,14 +332,14 @@ class SeperateMDXLogic(SeparatorAttributesLogic):
         try:
             self._initialize_model_settings()
         except Exception as e:
-            self._console_log_base(f"Error initializing MDX settings: {e}"); return None
+            print(f"Error initializing MDX settings: {e}"); return None
             
         md = self.md
         org_mix_shape_ref = mix_processed_norm_np.T 
         
         actual_sr_pitched = ac.DEFAULT_SAMPLE_RATE
         if md.is_pitch_change:
-            if not spec_utils: self._console_log_base("Error: spec_utils not available for pitch change."); return None
+            if not spec_utils: print("Error: spec_utils not available for pitch change."); return None
             mix_processed_norm_np, actual_sr_pitched = spec_utils.change_pitch_semitones(
                 mix_processed_norm_np, ac.DEFAULT_SAMPLE_RATE, semitone_shift=-md.semitone_shift)
         
@@ -393,15 +394,15 @@ class SeperateMDXLogic(SeparatorAttributesLogic):
 
     def seperate(self) -> Optional[Dict[str, np.ndarray]]:
         if not MdxnetSet or not ort or not onnx_load or not onnx_ConvertModel:
-            self._console_log_base("Error: MDX-Net or ONNX dependencies not available."); return None
+            print("Error: MDX-Net or ONNX dependencies not available."); return None
         md = self.md; self.progress_value = 0
         mix_audio_norm_np = self._prepare_mix()
         if mix_audio_norm_np is None: return None
-        self._console_log_base(f"Processing with {md.model_basename}...")
+        print(f"Processing with {md.model_basename}...")
         
         if md.is_mdx_ckpt:
-            if not MdxnetSet: self._console_log_base("Error: MdxnetSet (for .ckpt) not available."); return None
-            self._console_log_base("Loading MDX CKPT model...")
+            if not MdxnetSet: print("Error: MdxnetSet (for .ckpt) not available."); return None
+            print("Loading MDX CKPT model...")
             try:
                 model_checkpoint = torch.load(md.model_path, map_location=lambda storage, loc: storage)
                 hyper_parameters = model_checkpoint['hyper_parameters']
@@ -414,14 +415,14 @@ class SeperateMDXLogic(SeparatorAttributesLogic):
                 self.model_run_instance.to(self.device).eval()
                 self.is_onnx_model = False
             except Exception as e:
-                self._console_log_base(f"Error loading MDX CKPT model: {e}"); return None
+                print(f"Error loading MDX CKPT model: {e}"); return None
         else: # ONNX
             self.is_onnx_model = True
             if md.mdx_segment_size == md.mdx_dim_t_set and not (self.device.type == 'mps'):
-                if not ort: self._console_log_base("Error: ONNX Runtime not available."); return None
+                if not ort: print("Error: ONNX Runtime not available."); return None
                 self.model_run_instance = ort.InferenceSession(md.model_path, providers=self.run_type)
             else:
-                if not onnx_load or not onnx_ConvertModel: self._console_log_base("Error: ONNX conversion modules not available."); return None
+                if not onnx_load or not onnx_ConvertModel: print("Error: ONNX conversion modules not available."); return None
                 onnx_mdl = onnx_load(md.model_path)
                 self.model_run_instance = onnx_ConvertModel(onnx_mdl); self.model_run_instance.to(self.device).eval()
         
@@ -435,7 +436,7 @@ class SeperateMDXLogic(SeparatorAttributesLogic):
                  self.secondary_source = secondary_stem_data
                  self.secondary_source_map = self._final_process_stem( "", secondary_stem_data, self.secondary_source_secondary, md.secondary_stem, md.model_samplerate)
                  outputs.update(self.secondary_source_map)
-            else: self._console_log_base(f"Warning: Shape mismatch for secondary stem {md.model_name}")
+            else: print(f"Warning: Shape mismatch for secondary stem {md.model_name}")
         if not md.is_secondary_stem_only:
             self.primary_source = primary_stem_data
             self.primary_source_map = self._final_process_stem("", primary_stem_data, self.secondary_source_primary, md.primary_stem, md.model_samplerate)
@@ -446,12 +447,12 @@ class SeperateMDXCLogic(SeparatorAttributesLogic):
     def _demix_mdxc(self, mix_processed_norm_np: np.ndarray) -> Optional[Dict[str, np.ndarray] | np.ndarray]: # mix is (channels, length)
         md = self.md
         if not md.mdx_c_configs or not TFC_TDF_net:
-            self._console_log_base("Error: MDX-C configs or TFC_TDF_net not available."); return None
+            print("Error: MDX-C configs or TFC_TDF_net not available."); return None
         
         org_mix_shape_ref = mix_processed_norm_np.T # (length, channels) for pitch fix
         actual_sr_pitched = ac.DEFAULT_SAMPLE_RATE
         if md.is_pitch_change:
-            if not spec_utils: self._console_log_base("Error: spec_utils not available for pitch change."); return None
+            if not spec_utils: print("Error: spec_utils not available for pitch change."); return None
             mix_processed_norm_np, actual_sr_pitched = spec_utils.change_pitch_semitones(
                 mix_processed_norm_np, ac.DEFAULT_SAMPLE_RATE, semitone_shift=-md.semitone_shift)
 
@@ -527,16 +528,16 @@ class SeperateMDXCLogic(SeparatorAttributesLogic):
 
     def seperate(self) -> Optional[Dict[str, np.ndarray]]:
         if not TFC_TDF_net or not self.md.mdx_c_configs:
-            self._console_log_base("Error: MDX-C dependencies (TFC_TDF_net/configs) not available."); return None
+            print("Error: MDX-C dependencies (TFC_TDF_net/configs) not available."); return None
         md = self.md; self.progress_value = 0
         mix_audio_norm_np = self._prepare_mix()
         if mix_audio_norm_np is None: return None
-        self._console_log_base(f"Processing with MDX-C model: {md.model_basename}...")
+        print(f"Processing with MDX-C model: {md.model_basename}...")
         try:
             self.model_run_instance = TFC_TDF_net(md.mdx_c_configs, device=self.device) 
             self.model_run_instance.load_state_dict(torch.load(md.model_path, map_location=CPU_DEVICE))
             self.model_run_instance.to(self.device).eval()
-        except Exception as e: self._console_log_base(f"Error loading MDX-C model: {e}"); return None
+        except Exception as e: print(f"Error loading MDX-C model: {e}"); return None
 
         processed_output = self._demix_mdxc(mix_audio_norm_np.T) 
         if processed_output is None: return None
@@ -559,7 +560,7 @@ class SeperateMDXCLogic(SeparatorAttributesLogic):
                     self.secondary_source = secondary_stem_data
                     self.secondary_source_map = self._final_process_stem("", secondary_stem_data, self.secondary_source_secondary, md.secondary_stem, md.model_samplerate)
                     outputs.update(self.secondary_source_map)
-                else: self._console_log_base(f"Warning: Shape mismatch for MDX-C secondary stem {md.model_name}")
+                else: print(f"Warning: Shape mismatch for MDX-C secondary stem {md.model_name}")
         clear_gpu_cache_logic(); return outputs
         
 class SeperateDemucsLogic(SeparatorAttributesLogic):
@@ -567,11 +568,11 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
         md = self.md
 
         # Debug the input audio shape
-        self._console_log_base(f"DEBUG: Input audio shape: {mix_processed_norm_np.shape}")
-        self._console_log_base(f"DEBUG: Input audio dtype: {mix_processed_norm_np.dtype}")
-        self._console_log_base(f"DEBUG: Input audio min/max: {np.min(mix_processed_norm_np):.6f}/{np.max(mix_processed_norm_np):.6f}")
-        self._console_log_base(f"DEBUG: Input audio contains NaN: {np.isnan(mix_processed_norm_np).any()}")
-        self._console_log_base(f"DEBUG: Input audio contains Inf: {np.isinf(mix_processed_norm_np).any()}")
+        print(f"DEBUG: Input audio shape: {mix_processed_norm_np.shape}")
+        print(f"DEBUG: Input audio dtype: {mix_processed_norm_np.dtype}")
+        print(f"DEBUG: Input audio min/max: {np.min(mix_processed_norm_np):.6f}/{np.max(mix_processed_norm_np):.6f}")
+        print(f"DEBUG: Input audio contains NaN: {np.isnan(mix_processed_norm_np).any()}")
+        print(f"DEBUG: Input audio contains Inf: {np.isinf(mix_processed_norm_np).any()}")
 
         # Ensure the audio is in the correct format (channels, samples)
         if mix_processed_norm_np.ndim == 1:
@@ -581,12 +582,12 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
 
         # Convert to tensor
         mix_tensor = torch.tensor(mix_processed_norm_np).float().to(self.device)
-        self._console_log_base(f"Mix tensor shape: {mix_tensor.shape}")
+        print(f"Mix tensor shape: {mix_tensor.shape}")
 
         actual_sr_pitched = ac.DEFAULT_SAMPLE_RATE
         if md.is_pitch_change:
             if not spec_utils:
-                self._console_log_base("Error: spec_utils not available for pitch change.")
+                print("Error: spec_utils not available for pitch change.")
                 return None
             mix_tensor_np, actual_sr_pitched = spec_utils.change_pitch_semitones(mix_tensor.cpu().numpy(), ac.DEFAULT_SAMPLE_RATE, semitone_shift=-md.semitone_shift)
             mix_tensor = torch.tensor(mix_tensor_np).float().to(self.device)
@@ -594,29 +595,29 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
         # Normalize
         ref_mean = mix_tensor.mean()
         ref_std = mix_tensor.std()
-        self._console_log_base(f"DEBUG: Mix tensor mean: {ref_mean}, std: {ref_std}")
+        print(f"DEBUG: Mix tensor mean: {ref_mean}, std: {ref_std}")
         if ref_std == 0:
-            self._console_log_base("Warning: Standard deviation is zero. Using 1.0 instead.")
+            print("Warning: Standard deviation is zero. Using 1.0 instead.")
             ref_std = 1.0
         mix_tensor = (mix_tensor - ref_mean) / ref_std
-        self._console_log_base(f"DEBUG: Normalized mix tensor min/max: {mix_tensor.min().item():.6f}/{mix_tensor.max().item():.6f}")
+        print(f"DEBUG: Normalized mix tensor min/max: {mix_tensor.min().item():.6f}/{mix_tensor.max().item():.6f}")
 
         processed_sources_tensor = None
         try:
             with torch.no_grad():
                 if md.demucs_version == ac.DEMUCS_V1:
                     if not demucs_apply_model_v1:
-                        self._console_log_base("Demucs v1 apply_model not available.")
+                        print("Demucs v1 apply_model not available.")
                         return None
                     processed_sources_tensor = demucs_apply_model_v1(self.model_run_instance, mix_tensor, md.shifts, md.is_split_mode, set_progress_bar=lambda p: self._update_progress(p))
                 elif md.demucs_version == ac.DEMUCS_V2:
                     if not demucs_apply_model_v2:
-                        self._console_log_base("Demucs v2 apply_model not available.")
+                        print("Demucs v2 apply_model not available.")
                         return None
                     processed_sources_tensor = demucs_apply_model_v2(self.model_run_instance, mix_tensor, md.shifts, md.is_split_mode, md.overlap, set_progress_bar=lambda p: self._update_progress(p))
                 else:
                     if not demucs_apply_model:
-                        self._console_log_base("Demucs apply_model not available.")
+                        print("Demucs apply_model not available.")
                         return None
 
                     # Ensure mix_tensor has the right shape for demucs_apply_model
@@ -626,106 +627,71 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
                     else:
                         mix_tensor_input = mix_tensor
 
-                    self._console_log_base(f"Input tensor shape to apply_model: {mix_tensor_input.shape}")
+                    print(f"Input tensor shape to apply_model: {mix_tensor_input.shape}")
 
                     # Call apply_model with proper progress callback
                     try:
-                        self._console_log_base(f"DEBUG: Calling demucs_apply_model with shifts={md.shifts}, split_mode={md.is_split_mode}, overlap={md.overlap}")
-                        self._console_log_base(f"DEBUG: Model instance type: {type(self.model_run_instance).__name__}")
+                        print(f"DEBUG: Calling demucs_apply_model with shifts={md.shifts}, split_mode={md.is_split_mode}, overlap={md.overlap}")
+                        print(f"DEBUG: Model instance type: {type(self.model_run_instance).__name__}")
+                        if self.model_run_instance is None:
+                            print("CRITICAL ERROR: self.model_run_instance is None before calling demucs_apply_model.")
+                            processed_sources_tensor = None
+                        else:
+                            print(f"DEBUG: About to call demucs_apply_model with:")
+                            print(f"DEBUG:   - model: {type(self.model_run_instance).__name__}")
+                            print(f"DEBUG:   - mix_tensor_input shape: {mix_tensor_input.shape}")
+                            print(f"DEBUG:   - shifts: {md.shifts}")
+                            print(f"DEBUG:   - split_mode: {md.is_split_mode}")
+                            print(f"DEBUG:   - overlap: {md.overlap}")
+                            print(f"DEBUG:   - static_shifts: {1 if md.shifts == 0 else md.shifts}")
+                            print(f"DEBUG:   - device: {self.device}")
                         
-                        print(f"DEBUG: About to call demucs_apply_model with:")
-                        print(f"DEBUG:   - model: {type(self.model_run_instance).__name__}")
-                        print(f"DEBUG:   - mix_tensor_input shape: {mix_tensor_input.shape}")
-                        print(f"DEBUG:   - shifts: {md.shifts}")
-                        print(f"DEBUG:   - split_mode: {md.is_split_mode}")
-                        print(f"DEBUG:   - overlap: {md.overlap}")
-                        print(f"DEBUG:   - static_shifts: {1 if md.shifts == 0 else md.shifts}")
-                        print(f"DEBUG:   - device: {self.device}")
-                        
-                        processed_sources_tensor = demucs_apply_model(
-                            self.model_run_instance,
-                            mix_tensor_input,
-                            md.shifts,
-                            md.is_split_mode,
-                            md.overlap,
-                            static_shifts=1 if md.shifts == 0 else md.shifts,
-                            set_progress_bar=self.set_progress_bar,
-                            device=self.device
-                        )
+                            processed_sources_tensor = demucs_apply_model(
+                                self.model_run_instance,
+                                mix_tensor_input,
+                                md.shifts,
+                                md.is_split_mode,
+                                md.overlap,
+                                static_shifts=1 if md.shifts == 0 else md.shifts,
+                                set_progress_bar=self.set_progress_bar,
+                                device=self.device
+                            )
                         
                         print(f"DEBUG: demucs_apply_model completed successfully")
                         if processed_sources_tensor is not None:
-                            print(f"DEBUG: processed_sources_tensor shape: {processed_sources_tensor.shape}")
+                            print(f"DEBUG: processed_sources_tensor shape after apply_model: {processed_sources_tensor.shape}")
+                            # Ensure it's [sources, channels, samples] or [batch, sources, channels, samples]
+                            if not (len(processed_sources_tensor.shape) == 3 or len(processed_sources_tensor.shape) == 4):
+                                print(f"ERROR: demucs_apply_model returned tensor with unexpected shape: {processed_sources_tensor.shape}")
+                                processed_sources_tensor = None # Mark as failed
                         else:
-                            print(f"DEBUG: processed_sources_tensor is None")
-                    except Exception as e:
-                        self._console_log_base(f"Error during Demucs apply_model: {e}")
-                        import traceback
-                        self._console_log_base(traceback.format_exc())
-                        
-                        # Check if model file exists and is valid
-                        if hasattr(self.model_run_instance, 'sources'):
-                            self._console_log_base(f"Model sources before error: {self.model_run_instance.sources}")
-                        
-                        # Check input tensor for issues
-                        self._console_log_base(f"Input tensor shape: {mix_tensor_input.shape}")
-                        self._console_log_base(f"Input tensor device: {mix_tensor_input.device}")
-                        self._console_log_base(f"Input tensor dtype: {mix_tensor_input.dtype}")
-                        self._console_log_base(f"Input tensor contains NaN: {torch.isnan(mix_tensor_input).any().item()}")
-                        self._console_log_base(f"Input tensor contains Inf: {torch.isinf(mix_tensor_input).any().item()}")
-                        
-                        # Create a fallback output with the right shape
-                        self._console_log_base("Creating fallback output...")
-                        # Determine the expected output shape based on the model
-                        if hasattr(self.model_run_instance, 'sources'):
-                            num_sources = len(self.model_run_instance.sources)
-                        else:
-                            num_sources = 4  # Default to 4 sources (drums, bass, other, vocals)
-                        
-                        # Create a tensor of zeros with the right shape
-                        if mix_tensor_input.dim() == 3:  # [batch, channels, time]
-                            processed_sources_tensor = torch.zeros(
-                                (mix_tensor_input.shape[0], num_sources, mix_tensor_input.shape[1], mix_tensor_input.shape[2]),
-                                device=self.device
-                            )
-                        else:  # [channels, time]
-                            processed_sources_tensor = torch.zeros(
-                                (num_sources, mix_tensor_input.shape[0], mix_tensor_input.shape[1]),
-                                device=self.device
-                            )
+                            print(f"DEBUG: processed_sources_tensor is None after apply_model call.")
+                            print("ERROR: demucs_apply_model returned None.")
+                            # No need to create fallback here, the outer logic will handle it if all_stems_output is None
 
-                        # For Demucs v3/v4, the output shape should be [batch, sources, channels, time]
-                        # We need to extract the first batch item
-                        if processed_sources_tensor is not None:
-                            print(f"DEBUG: processed_sources_tensor shape before batch extraction: {processed_sources_tensor.shape}")
-                            print(f"DEBUG: processed_sources_tensor type: {type(processed_sources_tensor)}")
-                            print(f"DEBUG: processed_sources_tensor device: {processed_sources_tensor.device}")
-                            
-                            if len(processed_sources_tensor.shape) == 4:  # [batch, sources, channels, time]
-                                processed_sources_tensor = processed_sources_tensor[0]  # Remove batch dimension
-                                print(f"DEBUG: Removed batch dimension, new shape: {processed_sources_tensor.shape}")
-                            elif len(processed_sources_tensor.shape) == 3:  # [sources, channels, time]
-                                # Already in the right format
-                                print(f"DEBUG: Already in correct format [sources, channels, time]")
-                            else:
-                                self._console_log_base(f"Unexpected output shape from Demucs: {processed_sources_tensor.shape}")
-                                print(f"DEBUG: Unexpected output shape from Demucs: {processed_sources_tensor.shape}")
-                                return None
+                    except Exception as e:
+                        print(f"CRITICAL ERROR during Demucs apply_model call: {e}")
+                        import traceback
+                        print(traceback.format_exc())
+                        processed_sources_tensor = None # Ensure it's None if exception occurs
+                        
+                        # Fallback creation removed from here, will be handled by the caller if all_stems_output is None.
+                        
         except Exception as e:
-            self._console_log_base(f"Error during Demucs processing: {e}")
+            print(f"Error during Demucs processing (before or after apply_model): {e}")
             import traceback
-            self._console_log_base(traceback.format_exc())
+            print(traceback.format_exc())
             return None
 
         if processed_sources_tensor is None:
-            self._console_log_base("No output from Demucs model.")
+            print("No output from Demucs model.")
             return None
 
-        self._console_log_base(f"Processed sources tensor shape: {processed_sources_tensor.shape}")
+        print(f"Processed sources tensor shape: {processed_sources_tensor.shape}")
 
         # Denormalize
         try:
-            self._console_log_base(f"Denormalizing processed sources tensor")
+            print(f"Denormalizing processed sources tensor")
             
             # Move to CPU before numpy conversion
             processed_sources_tensor_cpu = processed_sources_tensor.cpu()
@@ -736,33 +702,33 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
             # Convert to numpy
             sources_np = denormalized_tensor.numpy()
             
-            self._console_log_base(f"Sources numpy shape: {sources_np.shape}")
+            print(f"Sources numpy shape: {sources_np.shape}")
             
             # Handle batch dimension if present
             if len(sources_np.shape) == 4:  # [batch, sources, channels, time]
-                self._console_log_base(f"Removing batch dimension from sources")
+                print(f"Removing batch dimension from sources")
                 sources_np = sources_np[0]  # Remove batch dimension
             
             # Check for NaN/Inf values
             if np.isnan(sources_np).any():
-                self._console_log_base(f"Warning: Sources contain NaN values. Fixing...")
+                print(f"Warning: Sources contain NaN values. Fixing...")
                 sources_np = np.nan_to_num(sources_np, nan=0.0)
             if np.isinf(sources_np).any():
-                self._console_log_base(f"Warning: Sources contain Inf values. Fixing...")
+                print(f"Warning: Sources contain Inf values. Fixing...")
                 sources_np = np.nan_to_num(sources_np, posinf=1.0, neginf=-1.0)
                 
             # Swap sources[0] and sources[1] - this is critical for Demucs
             # In the original separate.py, this is done with: sources_np[[0,1]] = sources_np[[1,0]]
-            self._console_log_base(f"Swapping sources[0] and sources[1] for Demucs")
+            print(f"Swapping sources[0] and sources[1] for Demucs")
             if sources_np.shape[0] >= 2:
                 sources_np[[0,1]] = sources_np[[1,0]]
         except Exception as e:
-            self._console_log_base(f"ERROR during denormalization: {e}")
+            print(f"ERROR during denormalization: {e}")
             import traceback
-            self._console_log_base(f"Traceback: {traceback.format_exc()}")
+            print(f"Traceback: {traceback.format_exc()}")
             
             # Create fallback output with appropriate shape
-            self._console_log_base(f"Creating fallback output with appropriate shape")
+            print(f"Creating fallback output with appropriate shape")
             if mix_processed_norm_np.ndim == 1:
                 sources_np = np.zeros((4, 1, len(mix_processed_norm_np)))  # 4 stems, 1 channel, original length
             else:
@@ -773,399 +739,131 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
                 final_sources = [self._pitch_fix(sources_np[i], actual_sr_pitched, mix_processed_norm_np).T for i in range(sources_np.shape[0])]
                 sources_np = np.array(final_sources)
             except Exception as e:
-                self._console_log_base(f"Error during pitch fix: {e}")
+                print(f"Error during pitch fix: {e}")
 
         return sources_np
 
     def seperate(self) -> Optional[Dict[str, np.ndarray]]:
         md = self.md
         self.progress_value = 0
-        self._console_log_base(f"Processing with Demucs model: {md.model_basename}...")
-        print(f"DEBUG: Starting Demucs separation with model: {md.model_basename}")
-        print(f"DEBUG: Model path: {md.model_path}")
-        print(f"DEBUG: Demucs version: {md.demucs_version}")
-        print(f"DEBUG: Demucs stems: {md.demucs_stems}")
-        print(f"DEBUG: Demucs source list: {md.demucs_source_list}")
-        print(f"DEBUG: Demucs source map: {md.demucs_source_map}")
+        print(f"Processing with Demucs model: {md.model_basename}...")
         
         # Check if we have the necessary Demucs modules
         if md.demucs_version not in [ac.DEMUCS_V1, ac.DEMUCS_V2] and (not demucs_get_model or not demucs_segments):
-            self._console_log_base("Demucs modules not available. Please install Demucs.")
+            print("Demucs modules not available. Please install Demucs.")
             return None
             
         try:
+            if not md.model_path or not Path(md.model_path).exists() or Path(md.model_path).stat().st_size == 0:
+                print(f"Error: Demucs model file not found or empty: {md.model_path}")
+                return None
+
             if md.demucs_version == ac.DEMUCS_V1:
-                if not os.path.exists(md.model_path) or os.path.getsize(md.model_path) == 0:
-                    self._console_log_base(f"Error: Demucs model file not found or empty: {md.model_path}")
-                    return None
-                    
-                model_file = gzip.open(md.model_path, "rb") if str(md.model_path).endswith(".gz") else md.model_path
-                klass, args, kwargs, state = torch.load(model_file, map_location=CPU_DEVICE)
+                model_file_path = gzip.open(md.model_path, "rb") if str(md.model_path).endswith(".gz") else md.model_path
+                klass, args, kwargs, state = torch.load(model_file_path, map_location=CPU_DEVICE)
                 self.model_run_instance = klass(*args, **kwargs)
                 self.model_run_instance.load_state_dict(state)
             elif md.demucs_version == ac.DEMUCS_V2:
-                if not os.path.exists(md.model_path) or os.path.getsize(md.model_path) == 0:
-                    self._console_log_base(f"Error: Demucs v2 model file not found or empty: {md.model_path}")
-                    return None
-                    
-                self._console_log_base("Loading Demucs v2 model...")
-                # Implement specific v2 loading if needed
-                self._console_log_base("Demucs v2 model loading needs specific implementation.")
-                return None
-            else:
-                # For v3 and v4 models
-                model_dir = Path(os.path.dirname(md.model_path))
-                model_file = Path(md.model_path)
-                model_name = os.path.splitext(os.path.basename(md.model_path))[0]
-                self._console_log_base(f"Loading Demucs v3/v4 model: {model_name} from {model_dir}")
-                
-                # Check if this is a YAML file (bag of models)
-                if model_file.suffix.lower() == '.yaml':
-                    self._console_log_base(f"Loading Demucs bag of models from YAML: {model_file}")
-                    
-                    # Check if the YAML file exists
-                    if not model_file.exists() or model_file.stat().st_size == 0:
-                        self._console_log_base(f"Error: YAML file not found or empty: {model_file}")
-                        return None
-                    
-                    try:
-                        # Read the YAML file to get model IDs
-                        import yaml
-                        print(f"DEBUG: Opening YAML file: {model_file}")
-                        with open(model_file, 'r') as f:
-                            yaml_content = f.read()
-                            print(f"DEBUG: YAML content: {yaml_content[:500]}...")  # Print first 500 chars
-                            yaml_data = yaml.safe_load(yaml_content)
-                        
-                        print(f"DEBUG: YAML data keys: {yaml_data.keys() if yaml_data else 'None'}")
-                        model_ids = yaml_data.get('models', [])
-                        self._console_log_base(f"Found model IDs in YAML: {model_ids}")
-                        print(f"DEBUG: Found model IDs in YAML: {model_ids}")
-                        
-                        # Check if all referenced model files exist
-                        missing_models = []
-                        for model_id in model_ids:
-                            # Look for files that start with the model ID
-                            found = False
-                            for file in model_dir.glob(f"{model_id}*.th"):
-                                if file.exists() and file.stat().st_size > 0:
-                                    found = True
-                                    break
-                            if not found:
-                                missing_models.append(model_id)
-                        
-                        if missing_models:
-                            self._console_log_base(f"Warning: Some model files referenced in YAML are missing: {missing_models}")
-                    except Exception as e:
-                        self._console_log_base(f"Error parsing YAML file: {e}")
-                        import traceback
-                        self._console_log_base(traceback.format_exc())
-                
-                # Try to load the model
-                try:
-                    self._console_log_base(f"DEBUG: Attempting to load model from path: {md.model_path}")
-                    print(f"DEBUG: Attempting to load model from path: {md.model_path}")
-                    print(f"DEBUG: Model file exists: {os.path.exists(md.model_path)}")
-                    print(f"DEBUG: Model file size: {os.path.getsize(md.model_path) if os.path.exists(md.model_path) else 'N/A'}")
-                    if not os.path.exists(md.model_path):
-                        self._console_log_base(f"ERROR: Demucs model file not found: {md.model_path}")
-                        # List files in the directory to help diagnose
-                        model_dir = os.path.dirname(md.model_path)
-                        if os.path.exists(model_dir):
-                            self._console_log_base(f"DEBUG: Files in model directory {model_dir}:")
-                            for file in os.listdir(model_dir):
-                                self._console_log_base(f"  - {file}")
-                        else:
-                            self._console_log_base(f"ERROR: Model directory does not exist: {model_dir}")
-                        
-                        # Try to use a pre-trained model from the demucs library
-                        self._console_log_base("Attempting to use pre-trained model from demucs library...")
-                        model_name = "htdemucs"  # Default to htdemucs if available
-                        self.model_run_instance = demucs_get_model(name=model_name)
-                        self._console_log_base(f"Successfully loaded pre-trained model: {model_name}")
-                    elif os.path.getsize(md.model_path) == 0:
-                        self._console_log_base(f"ERROR: Demucs model file is empty: {md.model_path}")
-                        # Try to use a pre-trained model from the demucs library
-                        self._console_log_base("Attempting to use pre-trained model from demucs library...")
-                        model_name = "htdemucs"  # Default to htdemucs if available
-                        self.model_run_instance = demucs_get_model(name=model_name)
-                        self._console_log_base(f"Successfully loaded pre-trained model: {model_name}")
-                    else:
-                        # Check if this is a hash-based model file (like 92cfc3b6-ef3bcb9c.th)
-                        model_path = Path(md.model_path)
-                        print(f"DEBUG: Model path: {model_path}")
-                        print(f"DEBUG: Model suffix: {model_path.suffix.lower()}")
-                        print(f"DEBUG: Model stem: {model_path.stem}")
-                        print(f"DEBUG: Is hash-based model: {model_path.suffix.lower() == '.th' and '-' in model_path.stem}")
-                        
-                        if model_path.suffix.lower() == '.th' and '-' in model_path.stem:
-                            # This is likely a hash-based model file
-                            self._console_log_base(f"Loading model from file: {model_path}")
-                            print(f"DEBUG: Loading hash-based model file: {model_path}")
-                            try:
-                                # Try to load directly as a torch model
-                                print(f"DEBUG: Attempting to load torch model from: {model_path}")
-                                
-                                # Import necessary modules
-                                import torch
-                                import importlib
-                                import sys
-                                
-                                # Check if we have the required dependencies
-                                try:
-                                    import einops
-                                    print(f"DEBUG: einops is available")
-                                except ImportError:
-                                    print(f"DEBUG: einops is not available - installing...")
-                                    try:
-                                        # Try to install einops
-                                        import subprocess
-                                        subprocess.check_call([sys.executable, "-m", "pip", "install", "einops"])
-                                        print(f"DEBUG: einops installed successfully")
-                                        import einops
-                                    except Exception as e:
-                                        print(f"DEBUG: Failed to install einops: {e}")
-                                
-                                # Try different approaches to load the model
-                                try:
-                                    # First try with weights_only=False (less secure but compatible with older code)
-                                    print(f"DEBUG: Trying to load with weights_only=False")
-                                    model_data = torch.load(model_path, map_location=CPU_DEVICE, weights_only=False)
-                                    print(f"DEBUG: Successfully loaded model with weights_only=False")
-                                except Exception as load_err:
-                                    print(f"DEBUG: Error loading with weights_only=False: {load_err}")
-                                    
-                                    # Try to dynamically import and add safe globals for Demucs classes
-                                    try:
-                                        print(f"DEBUG: Trying to add safe globals")
-                                        
-                                        # Try to import the modules first
-                                        try:
-                                            from demucs.htdemucs import HTDemucs
-                                            print(f"DEBUG: Successfully imported HTDemucs")
-                                            torch.serialization.add_safe_globals([HTDemucs])
-                                            print(f"DEBUG: Added HTDemucs to safe globals")
-                                        except Exception as e:
-                                            print(f"DEBUG: Could not import HTDemucs: {e}")
-                                            
-                                        try:
-                                            from demucs.hdemucs import HDemucs
-                                            print(f"DEBUG: Successfully imported HDemucs")
-                                            torch.serialization.add_safe_globals([HDemucs])
-                                            print(f"DEBUG: Added HDemucs to safe globals")
-                                        except Exception as e:
-                                            print(f"DEBUG: Could not import HDemucs: {e}")
-                                        
-                                        # Try loading again with default settings
-                                        print(f"DEBUG: Trying to load model after adding safe globals")
-                                        model_data = torch.load(model_path, map_location=CPU_DEVICE)
-                                        print(f"DEBUG: Successfully loaded model after adding safe globals")
-                                    except Exception as safe_err:
-                                        print(f"DEBUG: Error with safe globals approach: {safe_err}")
-                                        # Last resort: try to use a pre-trained model
-                                        raise
-                                
-                                print(f"DEBUG: Model data type: {type(model_data)}")
-                                print(f"DEBUG: Model data keys: {model_data.keys() if isinstance(model_data, dict) else 'Not a dict'}")
-                                
-                                if isinstance(model_data, dict):
-                                    if 'state_dict' in model_data:
-                                        # This is a state dict
-                                        self._console_log_base("Loading model from state dict...")
-                                        print(f"DEBUG: Loading model from state dict, state_dict keys: {list(model_data['state_dict'].keys())[:5]}...")
-                                        from demucs.hdemucs import HDemucs
-                                        self.model_run_instance = HDemucs(sources=["drums", "bass", "other", "vocals"])
-                                        self.model_run_instance.load_state_dict(model_data['state_dict'])
-                                        self._console_log_base("Successfully loaded model from state dict")
-                                    elif 'klass' in model_data and 'args' in model_data and 'kwargs' in model_data and 'state' in model_data:
-                                        # This is a Demucs v1 style model
-                                        self._console_log_base("Loading Demucs model from klass/args/kwargs/state...")
-                                        print(f"DEBUG: Loading Demucs model from klass/args/kwargs/state format")
-                                        try:
-                                            klass = model_data['klass']
-                                            args = model_data['args']
-                                            kwargs = model_data['kwargs']
-                                            state = model_data['state']
-                                            
-                                            # Initialize the model with the class and arguments
-                                            print(f"DEBUG: Initializing model with klass={klass}, args={args}, kwargs={kwargs}")
-                                            self.model_run_instance = klass(*args, **kwargs)
-                                            
-                                            # Load the state dict
-                                            print(f"DEBUG: Loading state dict")
-                                            self.model_run_instance.load_state_dict(state)
-                                            self._console_log_base("Successfully loaded model from klass/args/kwargs/state")
-                                        except Exception as e:
-                                            self._console_log_base(f"Error initializing model from klass/args/kwargs/state: {e}")
-                                            print(f"DEBUG: Error initializing model: {e}")
-                                            import traceback
-                                            print(f"DEBUG: Traceback: {traceback.format_exc()}")
-                                            # Fall back to using a pre-trained model
-                                            self._console_log_base("Falling back to pre-trained model...")
-                                            self.model_run_instance = demucs_get_model(name="htdemucs")
-                                    else:
-                                        # Unknown dictionary format, try to use as is
-                                        self._console_log_base("Unknown model dictionary format, attempting to use as is...")
-                                        print(f"DEBUG: Unknown model dictionary format with keys: {list(model_data.keys())}")
-                                        # Fall back to using a pre-trained model
-                                        self._console_log_base("Falling back to pre-trained model...")
-                                        self.model_run_instance = demucs_get_model(name="htdemucs")
-                                else:
-                                    # Try to load as a complete model
-                                    self._console_log_base("Loading complete model...")
-                                    self.model_run_instance = model_data
-                                    self._console_log_base("Successfully loaded complete model")
-                            except Exception as e:
-                                self._console_log_base(f"Error loading model directly: {e}")
-                                # Fall back to demucs_get_model
-                                self._console_log_base("Falling back to demucs_get_model...")
-                                model_name = model_path.stem
-                                self.model_run_instance = demucs_get_model(name=model_name, repo=model_dir)
-                        else:
-                            # Load from file using demucs_get_model
-                            self._console_log_base(f"Loading model {model_name} from {model_dir}...")
-                            self.model_run_instance = demucs_get_model(name=model_name, repo=model_dir)
-                            self._console_log_base(f"Successfully loaded model: {model_name}")
-                except Exception as e:
-                    self._console_log_base(f"Error loading Demucs model: {e}")
-                    import traceback
-                    self._console_log_base(traceback.format_exc())
-                    return None
-                
-                # Apply segmentation if needed
-                segment_val = None
-                if md.segment != ac.DEFAULT:
-                    try:
-                        segment_val = int(md.segment)
-                        self._console_log_base(f"Using segment size: {segment_val}")
-                        print(f"DEBUG: Using segment size: {segment_val}")
-                    except ValueError:
-                        self._console_log_base(f"Warning: Invalid Demucs segment value '{md.segment}'.")
-                        print(f"DEBUG: Invalid Demucs segment value '{md.segment}'.")
-                
-                # Check if demucs_source_list is properly set
-                if hasattr(self.model_run_instance, 'sources'):
-                    print(f"DEBUG: Model sources from model: {self.model_run_instance.sources}")
-                    print(f"DEBUG: Model sources from md.demucs_source_list: {md.demucs_source_list}")
-                    print(f"DEBUG: Model source map: {md.demucs_source_map}")
-                    
-                    # Check if there's a mismatch
-                    if set(self.model_run_instance.sources) != set(md.demucs_source_list):
-                        self._console_log_base(f"WARNING: Mismatch between model sources and demucs_source_list")
-                        print(f"DEBUG: WARNING: Mismatch between model sources and demucs_source_list")
-                        print(f"DEBUG: Model has: {self.model_run_instance.sources}")
-                        print(f"DEBUG: Config has: {md.demucs_source_list}")
-                
-                if segment_val is not None:
-                    try:
-                        self._console_log_base(f"DEBUG: Applying segmentation with value: {segment_val}")
-                        if not demucs_segments:
-                            self._console_log_base("ERROR: demucs_segments function not available")
-                        else:
-                            self.model_run_instance = demucs_segments(segment_val, self.model_run_instance)
-                            self._console_log_base("DEBUG: Successfully applied segmentation")
-                    except Exception as e:
-                        self._console_log_base(f"ERROR during segmentation: {e}")
-                        import traceback
-                        self._console_log_base(f"Traceback: {traceback.format_exc()}")
+                # Assuming auto_load_demucs_model_v2 is available and correctly imported
+                if demucs_apply_model_v2 is None: # Check if demucs_apply_model_v2 was imported
+                     print("Demucs v2 apply_model not available.") # Log error if not imported
+                     return None
+                self.model_run_instance = demucs_apply_model_v2(md.demucs_source_list, md.model_path) # Use demucs_apply_model_v2
+                self.model_run_instance.load_state_dict(torch.load(md.model_path, map_location=CPU_DEVICE))
+            else: # Demucs v3/v4
+                model_name_from_path = Path(md.model_path).stem
+                repo_path = Path(os.path.dirname(md.model_path))
+                self.model_run_instance = demucs_get_model(name=model_name_from_path, repo=repo_path)
+                if demucs_segments:
+                    self.model_run_instance = demucs_segments(md.segment, self.model_run_instance)
             
-                # Move model to device and set to eval mode
-                try:
-                    self.model_run_instance.to(self.device).eval()
-                    self._console_log_base(f"Model loaded and moved to {self.device}")
-                    print(f"DEBUG: Model successfully moved to {self.device} and set to eval mode")
-                except Exception as e:
-                    self._console_log_base(f"Error moving model to device: {e}")
-                    print(f"DEBUG: Error moving model to device: {e}")
-                    import traceback
-                    print(f"DEBUG: Traceback: {traceback.format_exc()}")
+            self.model_run_instance.to(self.device).eval()
             
-            # Debug model information
-            if hasattr(self.model_run_instance, 'sources'):
-                self._console_log_base(f"DEBUG: Model sources: {self.model_run_instance.sources}")
-            if hasattr(self.model_run_instance, 'audio_channels'):
-                self._console_log_base(f"DEBUG: Model audio_channels: {self.model_run_instance.audio_channels}")
-            if hasattr(self.model_run_instance, 'samplerate'):
-                self._console_log_base(f"DEBUG: Model samplerate: {self.model_run_instance.samplerate}")
-            if hasattr(self.model_run_instance, 'segment'):
-                self._console_log_base(f"DEBUG: Model segment: {self.model_run_instance.segment}")
-            
+            if hasattr(self.model_run_instance, 'sources'): print(f"DEBUG: Model sources: {self.model_run_instance.sources}")
+            if hasattr(self.model_run_instance, 'audio_channels'): print(f"DEBUG: Model audio_channels: {self.model_run_instance.audio_channels}")
+            if hasattr(self.model_run_instance, 'samplerate'): print(f"DEBUG: Model samplerate: {self.model_run_instance.samplerate}")
+            if hasattr(self.model_run_instance, 'segment'): print(f"DEBUG: Model segment: {self.model_run_instance.segment}")
+
         except Exception as e:
-            self._console_log_base(f"Error loading Demucs model: {e}")
+            print(f"Error loading Demucs model: {e}")
             import traceback
-            self._console_log_base(traceback.format_exc())
+            print(traceback.format_exc())
             return None
 
-        # Prepare the audio mix
         mix_audio_norm_np = self._prepare_mix()
-        if mix_audio_norm_np is None:
-            self._console_log_base("Failed to prepare audio mix.")
-            return None
+        if mix_audio_norm_np is None: print("Failed to prepare audio mix."); return None
             
-        # Process the audio
-        self._console_log_base("Starting Demucs processing...")
+        print("Starting Demucs processing...")
         all_stems_output = self._demix_demucs_logic(mix_audio_norm_np)
         
-        # If processing failed completely, create silent outputs
         if all_stems_output is None:
-            self._console_log_base("Demucs processing failed. Creating silent outputs.")
-            # Create silent outputs with the same shape as the input
-            if mix_audio_norm_np.ndim == 1:
-                # For mono input
-                silent_output = np.zeros((4, 1, len(mix_audio_norm_np)))  # 4 stems, 1 channel, original length
-            else:
-                # For stereo input
-                silent_output = np.zeros((4, 2, mix_audio_norm_np.shape[0]))  # 4 stems, 2 channels, original length
+            print("Demucs processing failed. Creating silent outputs.")
+            num_expected_sources = len(md.demucs_source_list) if md.demucs_source_list else 4
+            if mix_audio_norm_np.ndim == 1: silent_output = np.zeros((num_expected_sources, 1, len(mix_audio_norm_np)))
+            else: silent_output = np.zeros((num_expected_sources, 2, mix_audio_norm_np.shape[0]))
             all_stems_output = silent_output
         self._console_log(ac.DONE_MESSAGE); outputs = {}
 
+        # Use md.demucs_source_map for indexing, as it's derived correctly in ModelData
+        # actual_model_sources = list(self.model_run_instance.sources) if hasattr(self.model_run_instance, 'sources') else [s.lower() for s in md.demucs_source_list]
+        # actual_source_to_idx_map = {name: i for i, name in enumerate(actual_model_sources)}
+
         if md.demucs_stems == ac.ALL_STEMS:
             for stem_name, stem_idx in md.demucs_source_map.items():
-                if stem_idx < all_stems_output.shape[0]:
+                if stem_idx < all_stems_output.shape[0]: # Ensure index is valid
                     stem_data = all_stems_output[stem_idx].T 
                     self._write_stem(stem_name, stem_data, md.model_samplerate); outputs[stem_name] = stem_data
-            
-            # If we need an instrumental stem (combination of non-vocal stems)
-            if not md.is_primary_stem_only and md.secondary_stem == "instrumental" and "vocals" in md.demucs_source_map:
-                self._console_log_base("Creating instrumental stem by combining non-vocal stems...")
-                instrumental_data = np.zeros_like(mix_audio_norm_np)
-                for stem_name, stem_idx in md.demucs_source_map.items():
-                    if stem_name != "vocals" and stem_idx < all_stems_output.shape[0]:
-                        instrumental_data += all_stems_output[stem_idx].T
-                self._write_stem("instrumental", instrumental_data, md.model_samplerate)
-                outputs["instrumental"] = instrumental_data
-        else: 
-            primary_stem_idx = md.demucs_source_map.get(md.primary_stem)
-            if primary_stem_idx is not None and primary_stem_idx < all_stems_output.shape[0]:
-                primary_data = all_stems_output[primary_stem_idx].T
-                if not md.is_secondary_stem_only: self._write_stem(md.primary_stem, primary_data, md.model_samplerate); outputs[md.primary_stem] = primary_data
-                if not md.is_primary_stem_only:
-                    secondary_data = None
-                    if md.secondary_stem == "instrumental" and md.primary_stem == "vocals":
-                        # Create instrumental stem by combining all non-vocal stems
-                        self._console_log_base("Creating instrumental stem by combining non-vocal stems...")
-                        secondary_data = np.zeros_like(primary_data)
-                        for s_name, s_idx in md.demucs_source_map.items():
-                            if s_name != "vocals" and s_idx < all_stems_output.shape[0]:
-                                secondary_data += all_stems_output[s_idx].T
-                    elif md.is_demucs_combine_stems:
-                        secondary_sum = np.zeros_like(primary_data)
-                        for s_name, s_idx in md.demucs_source_map.items():
-                            if s_name != md.primary_stem and s_idx < all_stems_output.shape[0]: 
-                                secondary_sum += all_stems_output[s_idx].T
-                        secondary_data = secondary_sum
-                    else: 
-                        secondary_data = mix_audio_norm_np - primary_data
+            # Instrumental creation logic (if needed and vocals exist)
+            if not md.is_primary_stem_only and md.secondary_stem == ac.INST_STEM and ac.VOCAL_STEM in md.demucs_source_map:
+                vocal_idx = md.demucs_source_map[ac.VOCAL_STEM]
+                if vocal_idx < all_stems_output.shape[0]:
+                    instrumental_data = np.zeros_like(mix_audio_norm_np)
+                    for s_name, s_idx in md.demucs_source_map.items():
+                        if s_name != ac.VOCAL_STEM and s_idx < all_stems_output.shape[0]: 
+                            instrumental_data += all_stems_output[s_idx].T
+                    self._write_stem(ac.INST_STEM, instrumental_data, md.model_samplerate); outputs[ac.INST_STEM] = instrumental_data
+        else: # Not ac.ALL_STEMS
+            target_primary_stem_cap = md.primary_stem
+            if target_primary_stem_cap in md.demucs_source_map:
+                primary_stem_idx = md.demucs_source_map[target_primary_stem_cap]
+                if primary_stem_idx < all_stems_output.shape[0]:
+                    primary_data = all_stems_output[primary_stem_idx].T
+                    if not md.is_secondary_stem_only: 
+                        self._write_stem(target_primary_stem_cap, primary_data, md.model_samplerate)
+                        outputs[target_primary_stem_cap] = primary_data
                     
-                    if secondary_data is not None: 
-                        self._write_stem(md.secondary_stem, secondary_data, md.model_samplerate)
-                        outputs[md.secondary_stem] = secondary_data
-            else: self._console_log_base(f"Error: Selected Demucs stem '{md.primary_stem}' not found.")
+                    if not md.is_primary_stem_only:
+                        secondary_data = None
+                        target_secondary_stem_cap = md.secondary_stem
+                        if target_secondary_stem_cap == ac.INST_STEM and target_primary_stem_cap == ac.VOCAL_STEM:
+                            secondary_data = np.zeros_like(mix_audio_norm_np)
+                            for s_name, s_idx in md.demucs_source_map.items():
+                                if s_name != ac.VOCAL_STEM and s_idx < all_stems_output.shape[0]:
+                                    secondary_data += all_stems_output[s_idx].T
+                        elif md.is_demucs_combine_stems:
+                            secondary_sum = np.zeros_like(mix_audio_norm_np)
+                            for s_name, s_idx in md.demucs_source_map.items():
+                                if s_name != target_primary_stem_cap and s_idx < all_stems_output.shape[0]:
+                                    secondary_sum += all_stems_output[s_idx].T
+                            secondary_data = secondary_sum
+                        else: 
+                            if primary_data.shape == mix_audio_norm_np.shape:
+                                secondary_data = mix_audio_norm_np - primary_data
+                            else:
+                                print(f"Shape mismatch for secondary stem ({target_secondary_stem_cap}): primary {primary_data.shape}, mix {mix_audio_norm_np.shape}")
+                        
+                        if secondary_data is not None:
+                            self._write_stem(target_secondary_stem_cap, secondary_data, md.model_samplerate)
+                            outputs[target_secondary_stem_cap] = secondary_data
+                else:
+                    print(f"Error: Index for primary stem '{target_primary_stem_cap}' out of bounds for model output.")
+            else: 
+                print(f"Error: Selected Demucs primary stem '{target_primary_stem_cap}' not found in model source map: {md.demucs_source_map}.")
         clear_gpu_cache_logic(); return outputs
         
 class SeperateVRLogic(SeparatorAttributesLogic):
     def _loading_mix_vr(self, audio_file_path_str: str) -> Optional[np.ndarray]:
-        if not spec_utils or not self.md.vr_model_param: self._console_log_base("VR spec_utils/params error."); return None
+        if not spec_utils or not self.md.vr_model_param: print("VR spec_utils/params error."); return None
         X_wave: Dict[int, np.ndarray] = {}; X_spec_s: Dict[int, np.ndarray] = {}
         mp = self.md.vr_model_param; bands_n = len(mp.param['band'])
         is_mp3 = Path(audio_file_path_str).suffix.lower() == '.mp3'
@@ -1194,13 +892,13 @@ class SeperateVRLogic(SeparatorAttributesLogic):
         return combined_spec
 
     def _inference_vr_logic(self, X_spec: np.ndarray) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
-        if not self.model_run_instance or not spec_utils: self._console_log_base("VR model/spec_utils error."); return None, None
+        if not self.model_run_instance or not spec_utils: print("VR model/spec_utils error."); return None, None
         md = self.md; model_run = self.model_run_instance
         def _execute(X_mag_pad, roi_size):
             X_dataset = []; 
             patches = (X_mag_pad.shape[2] - 2 * model_run.offset) // roi_size
 
-            if patches == 0: self._console_log_base(f"Warning: Not enough data for patches (patches = {patches})."); return np.array([])
+            if patches == 0: print(f"Warning: Not enough data for patches (patches = {patches})."); return np.array([])
             total_iterations = patches // md.batch_size if not md.is_tta else (patches // md.batch_size) * 2; self.progress_value = 0
             for i in range(patches): 
                 patch = X_mag_pad[:, :, i*roi_size : i*roi_size + md.window_size]
@@ -1216,7 +914,7 @@ class SeperateVRLogic(SeparatorAttributesLogic):
 
                     if not pred.shape[3] > 0: raise ValueError(ac.WINDOW_SIZE_ERROR_MESSAGE)
                     mask_chunks.append(pred.detach().cpu().numpy())
-                if not mask_chunks: self._console_log_base("Warning: No mask chunks."); return np.array([])
+                if not mask_chunks: print("Warning: No mask chunks."); return np.array([])
                 # Concatenate each chunk along time axis
                 concatenated_chunks = [np.concatenate(chunk, axis=2) for chunk in mask_chunks]
                 mask = np.concatenate(concatenated_chunks, axis=2)
@@ -1228,7 +926,7 @@ class SeperateVRLogic(SeparatorAttributesLogic):
         X_mag_pad = np.pad(X_mag, ((0,0),(0,0),(pad_l,pad_r)), mode='constant'); X_mag_pad /= X_mag_pad.max() if X_mag_pad.max() > 0 else 1.0
         mask_pred = _execute(X_mag_pad, roi_size)
         if mask_pred.size == 0: 
-            self._console_log_base("Error: Mask prediction failed (mask_pred is empty). This usually means the audio is too short for the model's window size."); 
+            print("Error: Mask prediction failed (mask_pred is empty). This usually means the audio is too short for the model's window size."); 
             # Return appropriately shaped zero spectrograms to avoid downstream errors with empty arrays
             # This will lead to silent output stems instead of a crash.
             zero_spec_shape = X_mag.shape # (2, freq_bins, n_frame)
@@ -1239,7 +937,7 @@ class SeperateVRLogic(SeparatorAttributesLogic):
             X_mag_pad_tta = np.pad(X_mag, ((0,0),(0,0),(pad_l+roi_size//2,pad_r+roi_size//2)), mode='constant'); X_mag_pad_tta /= X_mag_pad_tta.max() if X_mag_pad_tta.max() > 0 else 1.0
             mask_tta_pred = _execute(X_mag_pad_tta, roi_size)
             if mask_tta_pred.size != 0: mask_pred = (mask_pred[:,:,:n_frame] + mask_tta_pred[:,:,roi_size//2:roi_size//2+n_frame]) * 0.5
-            else: self._console_log_base("Warning: TTA mask prediction failed.")
+            else: print("Warning: TTA mask prediction failed.")
         else: mask_pred = mask_pred[:,:,:n_frame]
         is_non_accom_stem = any(stem == md.primary_stem for stem in ac.NON_ACCOM_STEMS)
         agg_split_bin = md.vr_model_param.param['band'][1]['crop_stop'] if md.vr_model_param and 'band' in md.vr_model_param.param and len(md.vr_model_param.param['band']) > 1 else 1024
@@ -1251,7 +949,7 @@ class SeperateVRLogic(SeparatorAttributesLogic):
 
     def _spec_to_wav_vr_logic(self, spec: np.ndarray) -> Optional[np.ndarray]:
         if not spec_utils or not self.md.vr_model_param:
-            self._console_log_base("VR spec_utils/params error.")
+            print("VR spec_utils/params error.")
             return None
 
         # Debug info about the input spectrogram
@@ -1260,15 +958,15 @@ class SeperateVRLogic(SeparatorAttributesLogic):
 
         # Check for NaN/Inf values in the spectrogram
         if np.isnan(np.sum(spec)):
-            self._console_log_base("Warning: Spectrogram contains NaN values. Attempting to fix...")
+            print("Warning: Spectrogram contains NaN values. Attempting to fix...")
             spec = np.nan_to_num(spec, nan=0.0)
         if np.isinf(np.sum(spec)):
-            self._console_log_base("Warning: Spectrogram contains Inf values. Attempting to fix...")
+            print("Warning: Spectrogram contains Inf values. Attempting to fix...")
             spec = np.nan_to_num(spec, posinf=1.0, neginf=-1.0)
 
         # Additional check for zero values
         if np.all(np.abs(spec) < 1e-10):
-            self._console_log_base(f"Warning: Spectrogram for {stem_name} contains all zeros or very small values.")
+            print(f"Warning: Spectrogram for {stem_name} contains all zeros or very small values.")
             # Create a small non-zero spectrogram instead of returning empty array
             # This helps avoid downstream issues with empty arrays
             dummy_spec = np.ones_like(spec) * 1e-5
@@ -1283,15 +981,15 @@ class SeperateVRLogic(SeparatorAttributesLogic):
                     input_high_end_mirrored = spec_utils.mirroring('mirroring', spec, self.input_high_end, self.md.vr_model_param)
                     result = spec_utils.cmb_spectrogram_to_wave(spec, self.md.vr_model_param, self.input_high_end_h, input_high_end_mirrored, is_v51_model=self.md.is_vr_51_model)
                 except Exception as e:
-                    self._console_log_base(f"Error in high-end processing: {e}")
+                    print(f"Error in high-end processing: {e}")
                     # Fall back to regular processing
                     result = spec_utils.cmb_spectrogram_to_wave(spec, self.md.vr_model_param, is_v51_model=self.md.is_vr_51_model)
             else:
                 result = spec_utils.cmb_spectrogram_to_wave(spec, self.md.vr_model_param, is_v51_model=self.md.is_vr_51_model)
         except Exception as e:
-            self._console_log_base(f"Error in spectrogram to wave conversion: {e}")
+            print(f"Error in spectrogram to wave conversion: {e}")
             import traceback
-            self._console_log_base(f"Traceback: {traceback.format_exc()}")
+            print(f"Traceback: {traceback.format_exc()}")
             # Create a small non-zero waveform instead of empty array
             return np.ones((2, 1000)) * 1e-5  # Small non-zero array
 
@@ -1300,12 +998,12 @@ class SeperateVRLogic(SeparatorAttributesLogic):
 
         # Check if result is empty or None
         if result is None:
-            self._console_log_base(f"Warning: Conversion returned None for {stem_name}.")
+            print(f"Warning: Conversion returned None for {stem_name}.")
             return np.ones((2, 1000)) * 1e-5  # Small non-zero array
 
         if result.size == 0 or result.shape[1] == 0:
             print(f"DEBUG: {stem_name} is empty (shape {result.shape}) BEFORE resampling. Creating non-empty output.")
-            self._console_log_base(f"Warning: Conversion produced empty output for {stem_name}. Creating non-empty output.")
+            print(f"Warning: Conversion produced empty output for {stem_name}. Creating non-empty output.")
             
             # Get the original audio file to determine the length for silent output
             original_mix_audio_array = self.process_data.get('input_audio_array')
@@ -1328,58 +1026,58 @@ class SeperateVRLogic(SeparatorAttributesLogic):
 
         # Check for NaN/Inf values in the result
         if np.isnan(np.sum(result)):
-            self._console_log_base(f"Warning: Result contains NaN values. Fixing...")
+            print(f"Warning: Result contains NaN values. Fixing...")
             result = np.nan_to_num(result, nan=0.0)
         if np.isinf(np.sum(result)):
-            self._console_log_base(f"Warning: Result contains Inf values. Fixing...")
+            print(f"Warning: Result contains Inf values. Fixing...")
             result = np.nan_to_num(result, posinf=1.0, neginf=-1.0)
 
         return result
 
     def seperate(self) -> Optional[Dict[str, np.ndarray]]:
-        if not all([nets_new_vr, nets_vr, ModelParameters, spec_utils, self.md.vr_model_param]): self._console_log_base("VR dependencies/params error."); return None
+        if not all([nets_new_vr, nets_vr, ModelParameters, spec_utils, self.md.vr_model_param]): print("VR dependencies/params error."); return None
         md = self.md; self.progress_value = 0; 
         
         # Prepare original mix to get its shape for silent output generation if needed
         original_mix_audio_array = self._prepare_mix()
         if original_mix_audio_array is None:
-            self._console_log_base("Failed to load original audio, cannot proceed.")
+            print("Failed to load original audio, cannot proceed.")
             return None
         # original_mix_audio_array is (length, channels)
 
-        self._console_log_base(f"Processing with VR model: {md.model_basename}...")
+        print(f"Processing with VR model: {md.model_basename}...")
         try:
             # Get model hash for debugging
             import hashlib
             with open(md.model_path, 'rb') as f:
                 model_hash = hashlib.md5(f.read()).hexdigest()
-            self._console_log_base(f"Model file hash: {model_hash}")
+            print(f"Model file hash: {model_hash}")
             
             # Check if hash exists in model_data.json
             model_hash_found = False
             if hasattr(md, 'vr_model_param') and md.vr_model_param:
-                self._console_log_base(f"Using VR model parameters: {md.vr_model_param.param['band'][1]['sr']} Hz, {md.vr_model_param.param['band'][1]['n_fft']} FFT")
+                print(f"Using VR model parameters: {md.vr_model_param.param['band'][1]['sr']} Hz, {md.vr_model_param.param['band'][1]['n_fft']} FFT")
                 model_hash_found = True
             else:
-                self._console_log_base("Warning: VR model parameters not found or invalid")
+                print("Warning: VR model parameters not found or invalid")
             
             nn_arch_sizes=[31191,33966,56817,123821,123812,129605,218409,537238,537227]; vr_5_1_models_sizes=[56817,218409]
             model_size_kb = Path(md.model_path).stat().st_size/1024; nn_arch_size=min(nn_arch_sizes, key=lambda x:abs(x-model_size_kb))
-            self._console_log_base(f"Model size: {model_size_kb} KB, Selected architecture size: {nn_arch_size}")
+            print(f"Model size: {model_size_kb} KB, Selected architecture size: {nn_arch_size}")
             
             if nn_arch_size in vr_5_1_models_sizes or md.is_vr_51_model:
-                self._console_log_base("Using VR 5.1 model architecture")
+                print("Using VR 5.1 model architecture")
                 self.model_run_instance = nets_new_vr.CascadedNet(md.vr_model_param.param['bins']*2, nn_arch_size, nout=md.model_capacity[0], nout_lstm=md.model_capacity[1])
             else:
-                self._console_log_base("Using standard VR model architecture")
+                print("Using standard VR model architecture")
                 self.model_run_instance = nets_vr.determine_model_capacity(md.vr_model_param.param['bins']*2, nn_arch_size)
             
             self.model_run_instance.load_state_dict(torch.load(md.model_path, map_location=CPU_DEVICE))
             self.model_run_instance.to(self.device).eval()
         except Exception as e: 
-            self._console_log_base(f"Error loading VR model: {e}")
+            print(f"Error loading VR model: {e}")
             import traceback
-            self._console_log_base(f"Traceback: {traceback.format_exc()}")
+            print(f"Traceback: {traceback.format_exc()}")
             return None
             
         self._update_progress(0.0, message="Loading audio mix...")
@@ -1388,70 +1086,70 @@ class SeperateVRLogic(SeparatorAttributesLogic):
         
         # Check spectrogram
         if np.all(np.abs(X_spec) < 1e-10):
-            self._console_log_base("Warning: Input spectrogram contains all zeros or very small values")
+            print("Warning: Input spectrogram contains all zeros or very small values")
         
-        self._console_log_base("Running VR inference...")
+        print("Running VR inference...")
         y_spec, v_spec = self._inference_vr_logic(X_spec)
         
         if y_spec is None or v_spec is None: 
-            self._console_log_base("VR inference error.")
+            print("VR inference error.")
             return None
 
         # NaN/Inf check for y_spec and v_spec
         if np.isnan(np.sum(y_spec)):
-            self._console_log_base("Warning: Primary stem spectrogram contains NaN values. Attempting to fix...")
+            print("Warning: Primary stem spectrogram contains NaN values. Attempting to fix...")
             y_spec = np.nan_to_num(y_spec, nan=0.0)
         if np.isinf(np.sum(y_spec)):
-            self._console_log_base("Warning: Primary stem spectrogram contains Inf values. Attempting to fix...")
+            print("Warning: Primary stem spectrogram contains Inf values. Attempting to fix...")
             y_spec = np.nan_to_num(y_spec, posinf=1.0, neginf=-1.0)
             
         if np.isnan(np.sum(v_spec)):
-            self._console_log_base("Warning: Secondary stem spectrogram contains NaN values. Attempting to fix...")
+            print("Warning: Secondary stem spectrogram contains NaN values. Attempting to fix...")
             v_spec = np.nan_to_num(v_spec, nan=0.0)
         if np.isinf(np.sum(v_spec)):
-            self._console_log_base("Warning: Secondary stem spectrogram contains Inf values. Attempting to fix...")
+            print("Warning: Secondary stem spectrogram contains Inf values. Attempting to fix...")
             v_spec = np.nan_to_num(v_spec, posinf=1.0, neginf=-1.0)
 
         self._console_log(ac.DONE_MESSAGE); outputs = {}
         if not md.is_secondary_stem_only:
-            self._console_log_base(f"Converting {md.primary_stem}..."); 
+            print(f"Converting {md.primary_stem}..."); 
 
             primary_wave = self._spec_to_wav_vr_logic(y_spec)
 
             if primary_wave is not None:
                 if primary_wave.size == 0:
-                    self._console_log_base(f"Warning: {md.primary_stem} wave is empty. Creating silent output.")
+                    print(f"Warning: {md.primary_stem} wave is empty. Creating silent output.")
                     primary_wave = np.zeros_like(original_mix_audio_array) 
                 
                 if md.model_samplerate!=ac.DEFAULT_SAMPLE_RATE and primary_wave.size > 0: # Ensure not resampling empty array
-                    self._console_log_base(f"Resampling {md.primary_stem} from {md.model_samplerate} Hz to {ac.DEFAULT_SAMPLE_RATE} Hz")
+                    print(f"Resampling {md.primary_stem} from {md.model_samplerate} Hz to {ac.DEFAULT_SAMPLE_RATE} Hz")
                     primary_wave=librosa.resample(primary_wave.T,orig_sr=md.model_samplerate,target_sr=ac.DEFAULT_SAMPLE_RATE).T
                 elif primary_wave.size == 0 and md.model_samplerate != ac.DEFAULT_SAMPLE_RATE:
                     # If it was empty and SR mismatch, it remains an empty array correctly shaped by np.zeros_like
                     pass
 
                 self.primary_source=primary_wave; self.primary_source_map=self._final_process_stem("",primary_wave,self.secondary_source_primary,md.primary_stem,ac.DEFAULT_SAMPLE_RATE); outputs.update(self.primary_source_map)
-            else: self._console_log_base(f"Failed to convert {md.primary_stem} (returned None).")
+            else: print(f"Failed to convert {md.primary_stem} (returned None).")
         
         if not md.is_primary_stem_only:
-            self._console_log_base(f"Converting {md.secondary_stem}..."); 
+            print(f"Converting {md.secondary_stem}..."); 
 
             secondary_wave = self._spec_to_wav_vr_logic(v_spec)
 
             if secondary_wave is not None:
                 if secondary_wave.size == 0:
-                    self._console_log_base(f"Warning: {md.secondary_stem} wave is empty. Creating silent output.")
+                    print(f"Warning: {md.secondary_stem} wave is empty. Creating silent output.")
                     secondary_wave = np.zeros_like(original_mix_audio_array)
 
                 if md.model_samplerate!=ac.DEFAULT_SAMPLE_RATE and secondary_wave.size > 0: # Ensure not resampling empty array
-                    self._console_log_base(f"Resampling {md.secondary_stem} from {md.model_samplerate} Hz to {ac.DEFAULT_SAMPLE_RATE} Hz")
+                    print(f"Resampling {md.secondary_stem} from {md.model_samplerate} Hz to {ac.DEFAULT_SAMPLE_RATE} Hz")
                     secondary_wave=librosa.resample(secondary_wave.T,orig_sr=md.model_samplerate,target_sr=ac.DEFAULT_SAMPLE_RATE).T
                 elif secondary_wave.size == 0 and md.model_samplerate != ac.DEFAULT_SAMPLE_RATE:
                     pass
                     
                 self.secondary_source=secondary_wave; self.secondary_source_map=self._final_process_stem("",secondary_wave,self.secondary_source_secondary,md.secondary_stem,ac.DEFAULT_SAMPLE_RATE); outputs.update(self.secondary_source_map)
             else: 
-                self._console_log_base(f"Failed to convert {md.secondary_stem} (returned None).")
+                print(f"Failed to convert {md.secondary_stem} (returned None).")
         clear_gpu_cache_logic(); return outputs
 
 def vr_denoiser_logic(audio_input: np.ndarray, device: torch.device, model_path_str: str, 
@@ -1500,41 +1198,19 @@ def vr_denoiser_logic(audio_input: np.ndarray, device: torch.device, model_path_
         for i in range(0, X_dataset_np.shape[0], 4): 
             X_batch = torch.from_numpy(X_dataset_np[i:i+4]).to(device)
             pred = model.predict_mask(X_batch)
-            # Assuming pred is (batch_actual, C, F, T_roi)
-            # We need to concatenate along time for each item in batch, then collect these.
-            # Original UVR's _execute in SeperateVR.inference_vr had:
-            # mask_chunks.append(pred.detach().cpu().numpy())
-            # ...
-            # mask = np.concatenate([np.concatenate(chunk, axis=2) for chunk in mask_chunks], axis=2)
-            # This implies pred.detach().cpu().numpy() is a batch of masks, and each mask in that batch
-            # is then concatenated along its time axis (axis=2).
-            # However, if pred is already (batch_size, C, F, T_roi), then np.concatenate(pred_numpy, axis=2)
-            # would try to treat the batch_size dim as the sequence to concatenate, which is wrong.
-            # It should be that each item *within* the batch (if pred is a list of tensors) is concatenated,
-            # or if pred is a single tensor (batch, C, F, T_roi), then it's used directly or split.
-
-            # Let's assume pred.detach().cpu().numpy() is (actual_batch_size, C, F, T_roi)
             batch_masks_np = pred.detach().cpu().numpy()
-            # We want to append each mask in the batch to mask_list, after ensuring it's (C,F,T_roi)
-            # The original code `np.concatenate(pred.detach().cpu().numpy(), axis=2)` was likely intended
-            # if `predict_mask` returned a list of tensors. If it returns a single batched tensor,
-            # we need to iterate through the batch.
-            for single_mask_in_batch in batch_masks_np: # single_mask_in_batch is (C,F,T_roi)
-                 mask_list.append(single_mask_in_batch) # Append each (C,F,T_roi)
+            for single_mask_in_batch in batch_masks_np: 
+                 mask_list.append(single_mask_in_batch) 
 
     if not mask_list: 
         return audio_input
         
-    # Now mask_list contains individual masks of shape (C,F,T_roi)
-    # We need to concatenate them along the time axis (axis=2)
     mask = np.concatenate(mask_list, axis=2)
-    mask = mask[:,:,:n_frame] # Trim to original n_frame
+    mask = mask[:,:,:n_frame] 
 
     v_spec = (mask if is_deverber else (1-mask)) * X_mag * np.exp(1.j * X_phase)
-    wave = spec_utils.spectrogram_to_wave_old(v_spec, hop_length=hop_length) # Expects (C,F,T)
+    wave = spec_utils.spectrogram_to_wave_old(v_spec, hop_length=hop_length) 
     
-    # Ensure wave is (channels, length) before transposing for match_array_shapes
     if wave.shape[0] > wave.shape[1]: wave = wave.T 
     
-    # audio_input was (channels, length), org_mix_shape_ref for match_array_shapes should be (length, channels)
-    return spec_utils.match_array_shapes(wave.T, audio_input.T).T # Return (channels, length)
+    return spec_utils.match_array_shapes(wave.T, audio_input.T).T

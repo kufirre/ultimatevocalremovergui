@@ -1,6 +1,6 @@
 #!/bin/bash
 # Code formatting script for UVR PySide6 project
-# This script formats Python code using black and isort
+# This script automatically formats code to maintain consistent style
 
 set -e  # Exit on any error
 
@@ -11,28 +11,26 @@ if [[ -z "${VIRTUAL_ENV}" ]]; then
     echo "⚠️  Warning: Not in a virtual environment. Make sure you have the dev dependencies installed."
 fi
 
-# Format with black
+# Format Python code with black
 echo "📝 Running black formatter..."
-python -m black src/ tests/ --line-length 88 --target-version py38 --verbose
+python -m black src/ tests/ --line-length=88
 
-# Sort imports with isort (compatible with black)
-echo "📋 Sorting imports with isort..."
-python -m isort src/ tests/ --profile black --line-length 88 --multi-line 3 --trailing-comma --force-grid-wrap 0 --combine-as --src src
+# Sort and organize imports with ruff (replacing isort to avoid conflicts)
+echo "📋 Fixing imports with ruff..."
+python -m ruff check src/ tests/ --fix --select I
 
-# Optional: Format any standalone Python files
-if [ -f "UVR.py" ]; then
-    echo "📄 Formatting standalone files..."
-    python -m black UVR.py --line-length 88 --target-version py38
-    python -m isort UVR.py --profile black
+# Format additional files if they exist
+echo "📄 Formatting standalone files..."
+if [ -f "setup.py" ]; then
+    python -m black setup.py --line-length=88
 fi
 
-if [ -f "separate.py" ]; then
-    python -m black separate.py --line-length 88 --target-version py38
-    python -m isort separate.py --profile black
+if [ -f "conftest.py" ]; then
+    python -m black conftest.py --line-length=88
 fi
 
 echo "✅ Code formatting completed!"
 echo "📊 Summary:"
 echo "   - Black: Python code formatted to 88 character line length"
-echo "   - isort: Imports sorted and organized"
+echo "   - Ruff: Imports sorted and organized"
 echo "   - Target: Python 3.8+ compatibility" 

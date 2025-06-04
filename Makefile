@@ -39,19 +39,35 @@ lint:
 	@echo "🔍 Running linting checks..."
 	./scripts/lint.sh
 
-# Testing targets  
+# Testing targets
 test:
-	@echo "🧪 Running full test suite..."
-	./run_tests.sh
+	@echo "🧪 Running tests..."
+	./run_tests.sh --all
 
 test-fast:
 	@echo "⚡ Running fast tests..."
-	python -m pytest tests/unit/core/test_app_constants.py tests/unit/core/test_logger_utils.py -v
+	./run_tests.sh --fast
 
-# Comprehensive quality check
+test-critical:
+	@echo "🚨 Running critical tests..."
+	python -m pytest tests/unit/core/test_application_startup.py -m critical -v
+
+test-unit:
+	@echo "🔬 Running unit tests..."
+	./run_tests.sh --unit
+
+# Quality assurance targets
 check-all:
 	@echo "🏆 Running comprehensive quality checks..."
 	./scripts/check-all.sh
+
+check-critical:
+	@echo "🚨 Running critical functionality checks..."
+	python -m pytest tests/unit/core/test_application_startup.py -m critical -v --tb=short
+
+pre-commit:
+	@echo "🔒 Running pre-commit checks..."
+	./scripts/pre-commit-checks.sh
 
 # Development setup
 setup-hooks:

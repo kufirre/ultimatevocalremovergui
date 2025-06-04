@@ -48,6 +48,98 @@ class EnsembleSettingsPresenter(QObject):
         # The view's action combo is now static, so we don't populate it with saved ensembles here.
         # Saved ensembles will be loaded via a dialog or a separate mechanism.
 
+    def _filter_models_by_stem_compatibility(self, stem_pair: str) -> List[str]:
+        """Filter models to only include those compatible with the selected stem pair.
+        
+        This mimics the filtering logic from UVR.py's model_list() function.
+        """
+        if stem_pair == "4 Stem Ensemble":
+            # For 4-stem ensemble, include all Demucs 4-stem models and multi-stem MDX models
+            filtered_models = []
+            
+            # Get all models and check which ones support 4-stem output
+            for model_type, models in self._all_local_models_by_type.items():
+                for model_name in models:
+                    try:
+                        # Check model capabilities through adapter
+                        model_info = self.adapter.get_model_info(model_name, model_type)
+                        if model_info:
+                            # For Demucs models, check if they output 4 stems
+                            if model_type == ac.DEMUCS_MODELS_KEY:
+                                # Most Demucs models output 4 stems (vocals, drums, bass, other)
+                                filtered_models.append(f"{model_type}:{model_name}")
+                            # For MDX models, check if they output multiple stems
+                            elif model_type == ac.MDX_NET_MODELS_KEY and hasattr(model_info, 'mdx_stem_count'):
+                                if getattr(model_info, 'mdx_stem_count', 0) >= 4:
+                                    filtered_models.append(f"{model_type}:{model_name}")
+                    except Exception:
+                        # If we can't get model info, skip this model
+                        continue
+                        
+            return filtered_models
+            
+        elif stem_pair == "Multi-stem Ensemble":
+            # Include all models for multi-stem ensemble
+            all_models = []
+            for model_type, models in self._all_local_models_by_type.items():
+                for model_name in models:
+                    all_models.append(f"{model_type}:{model_name}")
+            return all_models
+            
+        else:
+            # For specific stem pairs (Vocals/Instrumental, Bass/No Bass, etc.)
+            # Parse the stem pair to get primary and secondary stems
+            if "/" in stem_pair:
+                primary_stem, secondary_stem = stem_pair.split("/", 1)
+            else:
+                primary_stem = stem_pair
+                secondary_stem = f"No {primary_stem}"
+            
+            filtered_models = []
+            
+            for model_type, models in self._all_local_models_by_type.items():
+                for model_name in models:
+                    try:
+                        # Check if model can produce the required stems
+                        model_info = self.adapter.get_model_info(model_name, model_type)
+                        if model_info:
+                            model_can_produce_stems = False
+                            
+                            # For VR models, check primary stem
+                            if model_type == ac.VR_ARCH_MODELS_KEY:
+                                if hasattr(model_info, 'primary_stem'):
+                                    model_primary = getattr(model_info, 'primary_stem', '')
+                                    if model_primary in [primary_stem, secondary_stem]:
+                                        model_can_produce_stems = True
+                            
+                            # For MDX models, check if they can produce the required stems
+                            elif model_type == ac.MDX_NET_MODELS_KEY:
+                                if hasattr(model_info, 'mdx_model_stems'):
+                                    model_stems = getattr(model_info, 'mdx_model_stems', [])
+                                    if primary_stem in model_stems or any(stem in model_stems for stem in [primary_stem, secondary_stem]):
+                                        model_can_produce_stems = True
+                                # Also check for common vocal/instrumental models
+                                elif primary_stem in [ac.VOCAL_STEM, ac.INST_STEM]:
+                                    # Most MDX models can do vocal/instrumental separation
+                                    model_can_produce_stems = True
+                            
+                            # For Demucs models, check if they output the required stem
+                            elif model_type == ac.DEMUCS_MODELS_KEY:
+                                # Demucs models typically output vocals, drums, bass, other
+                                demucs_stems = [ac.VOCAL_STEM, ac.DRUM_STEM, ac.BASS_STEM, ac.OTHER_STEM]
+                                if primary_stem in demucs_stems:
+                                    model_can_produce_stems = True
+                            
+                            if model_can_produce_stems:
+                                filtered_models.append(f"{model_type}:{model_name}")
+                                
+                    except Exception:
+                        # If we can't get model info, include it anyway (safer approach)
+                        filtered_models.append(f"{model_type}:{model_name}")
+                        continue
+            
+            return filtered_models
+
     @Slot(str)
     def handle_ensemble_action(self, action_text: str):
         # Debug print removed
@@ -92,11 +184,28 @@ class EnsembleSettingsPresenter(QObject):
             self._current_algorithm = self.view.algorithm_combo.itemText(0)
             self.view.set_current_algorithm(self._current_algorithm)  # Reflect in view
 
-        combined_local_models = []
-        for model_type_list in self._all_local_models_by_type.values():
-            combined_local_models.extend(model_type_list)
-        unique_combined_models = natsort.natsorted(list(set(combined_local_models)))
-        self.view.populate_available_models(unique_combined_models)
+        # CRITICAL FIX: Filter models based on stem compatibility instead of showing all models
+        filtered_models = self._filter_models_by_stem_compatibility(stem_pair)
+        
+        # Convert from "model_type:model_name" format back to just model names for display
+        display_models = []
+        for model_entry in filtered_models:
+            if ":" in model_entry:
+                _, model_name = model_entry.split(":", 1)
+                display_models.append(model_name)
+            else:
+                display_models.append(model_entry)
+        
+        unique_display_models = natsort.natsorted(list(set(display_models)))
+        self.view.populate_available_models(unique_display_models)
+        
+        # Filter currently selected models to only include compatible ones
+        compatible_selected_models = []
+        for selected_model in self._currently_selected_models_for_ensemble:
+            if selected_model in unique_display_models:
+                compatible_selected_models.append(selected_model)
+        
+        self._currently_selected_models_for_ensemble = compatible_selected_models
         self.view.set_selected_models_in_list(self._currently_selected_models_for_ensemble)
 
     @Slot(str)

@@ -200,6 +200,62 @@ class UVRCoreAdapter(QObject):
         if success:
             self.model_download_completed.emit(model_type_ui_name)
 
+    def get_model_info(self, model_name: str, model_type: str) -> dict | None:
+        """Get basic model information for filtering purposes.
+        
+        This is a simplified version of the ModelData functionality from the original UVR
+        to help with ensemble model filtering.
+        """
+        try:
+            base_models_dir = self._get_project_models_dir()
+            if not base_models_dir:
+                return None
+                
+            model_info = {
+                'model_name': model_name,
+                'model_type': model_type,
+                'primary_stem': None,
+                'mdx_model_stems': [],
+                'mdx_stem_count': 0,
+                'is_4_stem': False,
+                'demucs_stems': []
+            }
+            
+            # For VR models, most are vocal/instrumental separation
+            if model_type == ac.VR_ARCH_MODELS_KEY:
+                # Most VR models output vocals as primary stem
+                model_info['primary_stem'] = ac.VOCAL_STEM
+                
+            # For MDX models, check if it's a multi-stem model or vocal/instrumental
+            elif model_type == ac.MDX_NET_MODELS_KEY:
+                # Most MDX models can do vocal/instrumental separation
+                model_info['mdx_model_stems'] = [ac.VOCAL_STEM, ac.INST_STEM]
+                model_info['mdx_stem_count'] = 2
+                
+                # Check for specific multi-stem models (these are usually named specifically)
+                model_lower = model_name.lower()
+                if any(keyword in model_lower for keyword in ['4stem', '4-stem', 'multi']):
+                    model_info['mdx_model_stems'] = [ac.VOCAL_STEM, ac.INST_STEM, ac.BASS_STEM, ac.DRUM_STEM]
+                    model_info['mdx_stem_count'] = 4
+                    model_info['is_4_stem'] = True
+                    
+            # For Demucs models, most are 4-stem (vocals, drums, bass, other)
+            elif model_type == ac.DEMUCS_MODELS_KEY:
+                model_info['demucs_stems'] = [ac.VOCAL_STEM, ac.DRUM_STEM, ac.BASS_STEM, ac.OTHER_STEM]
+                model_info['is_4_stem'] = True
+                
+                # Check if it's a 2-stem model (some Demucs models are vocal/instrumental only)
+                model_lower = model_name.lower()
+                if any(keyword in model_lower for keyword in ['2stem', '2-stem', 'vocal', 'inst']):
+                    model_info['demucs_stems'] = [ac.VOCAL_STEM, ac.INST_STEM]
+                    model_info['is_4_stem'] = False
+                    
+            return model_info
+            
+        except Exception as e:
+            print(f"Error getting model info for {model_name}: {e}")
+            return None
+
     def download_model(self, model_type_ui_name: str, model_display_name: str, download_target_info: Any):
         """Downloads the specified model using the download manager."""
         # Initial progress

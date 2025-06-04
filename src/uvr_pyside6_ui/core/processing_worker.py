@@ -66,8 +66,14 @@ class RealProcessingWorker(QObject):
             
             if not self.model_data.is_ensemble_mode and (not self.model_data.model_path or not Path(self.model_data.model_path).exists()):
                 self.processing_finished.emit(False, f"Error: Primary model file not found: {self.model_data.model_path}"); return
-            elif self.model_data.is_ensemble_mode and (not self.model_data.model_path or not Path(self.model_data.model_path).exists()):
-                 self.processing_finished.emit(False, f"Error: Ensemble configuration file not found: {self.model_data.model_path}"); return
+            elif self.model_data.is_ensemble_mode:
+                # For live ensembles, check if we have ensemble_models instead of a model_path file
+                if self.model_data.ensemble_models:
+                    # Live ensemble - no model_path file needed, models are in ensemble_models list
+                    pass
+                elif not self.model_data.model_path or not Path(self.model_data.model_path).exists():
+                    # Saved ensemble - requires model_path file
+                    self.processing_finished.emit(False, f"Error: Ensemble configuration file not found: {self.model_data.model_path}"); return
 
             self.progress_updated.emit(5, "Loading audio file...")
             current_input_audio = None
@@ -108,8 +114,14 @@ class RealProcessingWorker(QObject):
             
             if not self._is_running: return
 
-            if self.model_data.is_ensemble_mode and not self.model_data.is_ensemble_member: 
-                self._process_ensemble(current_input_audio) 
+            self._write_to_console(f"DEBUG: is_ensemble_mode = {self.model_data.is_ensemble_mode}", "")
+            self._write_to_console(f"DEBUG: is_ensemble_member = {self.model_data.is_ensemble_member}", "")
+            self._write_to_console(f"DEBUG: process_method = {self.model_data.process_method}", "")
+            self._write_to_console(f"DEBUG: model_basename = {self.model_data.model_basename}", "")
+
+            if self.model_data.is_ensemble_mode and not self.model_data.is_ensemble_member:
+                self._write_to_console("DEBUG: ====== CALLING _process_ensemble ======", "")
+                self._process_ensemble(current_input_audio)
             else: 
                 main_process_data = self._create_process_data(current_input_audio if current_input_audio is not None else None)
                 self.progress_updated.emit(15, f"Processing with primary model: {self.model_data.model_basename}...")
@@ -311,111 +323,212 @@ class RealProcessingWorker(QObject):
         return aligned_specs
 
     def _process_ensemble(self, initial_input_audio: np.ndarray):
+        self._write_to_console("DEBUG: ====== ENTERING _process_ensemble ======", "")
         if not self.model_data or not self.model_data.ensemble_models:
             self.processing_finished.emit(False, "Ensemble not configured or no models in ensemble."); return
 
         self.progress_updated.emit(10, f"Starting Ensemble: {self.model_data.model_basename}...")
-        all_results_by_stem: Dict[str, List[np.ndarray]] = {}
-        all_spectrograms_by_stem: Dict[str, List[Dict[str, Any]]] = {} 
+        self._write_to_console(f"DEBUG: Starting ensemble with {len(self.model_data.ensemble_models)} models", "")
+        
+        # Store all outputs from ensemble models
+        all_outputs: Dict[str, List[np.ndarray]] = {}
         num_models = len(self.model_data.ensemble_models)
         
         ensemble_output_base = Path(self.model_data.audio_file).stem if self.model_data.audio_file else "ensemble_output"
-        ensemble_output_base = f"{ensemble_output_base}_({self.model_data.model_basename})"
 
-        ref_member_md = self.model_data.ensemble_models[0]
-        # Try to get n_fft from MDX, then VR, then default for ensemble STFT
-        if ref_member_md.mdx_n_fft_scale_set: ensemble_n_fft = ref_member_md.mdx_n_fft_scale_set
-        elif ref_member_md.vr_model_param and ref_member_md.vr_model_param.param['band'][1]['n_fft']: ensemble_n_fft = ref_member_md.vr_model_param.param['band'][1]['n_fft']
-        else: ensemble_n_fft = 2048
-        ensemble_hop_length = ensemble_n_fft // 4 
-
+        # Process each model in the ensemble
         for i, member_model_data in enumerate(self.model_data.ensemble_models):
             if not self._is_running: return
             self.progress_updated.emit(15 + int(i/num_models * 60), f"Ensemble: Processing model {i+1}/{num_models} ({member_model_data.model_basename})...")
-            member_pd_audio_input = initial_input_audio 
+            
             member_process_data = self._create_process_data_for_chained_model(
-                member_model_data, member_pd_audio_input, is_ensemble_run=True, 
-                ensemble_audio_file_base=Path(self.model_data.audio_file).stem if self.model_data.audio_file else "output"
+                member_model_data, initial_input_audio, is_ensemble_run=True, 
+                ensemble_audio_file_base=ensemble_output_base
             )
             member_separator = self._get_separator_for_model(member_model_data, member_process_data)
+            
             if not member_separator:
-                self._write_to_console(f"Skipping ensemble member {member_model_data.model_basename}: Could not create separator.", ""); continue
+                self._write_to_console(f"Skipping ensemble member {member_model_data.model_basename}: Could not create separator.", "")
+                continue
+                
             member_results = member_separator.seperate() 
             if member_results and self._is_running:
+                self._write_to_console(f"DEBUG: Model {member_model_data.model_basename} produced stems: {list(member_results.keys())}", "")
+                
+                # Store outputs by stem name
                 for stem_name, stem_audio in member_results.items():
-                    if stem_name not in all_results_by_stem: all_results_by_stem[stem_name] = []
-                    all_results_by_stem[stem_name].append(stem_audio)
-                    if self.model_data.ensemble_type in [ac.MAX_SPEC_ENSEMBLE, ac.MIN_SPEC_ENSEMBLE] and spec_utils:
-                        if stem_name not in all_spectrograms_by_stem: all_spectrograms_by_stem[stem_name] = []
-                        try:
-                            audio_for_spec = stem_audio.T if stem_audio.ndim == 2 and stem_audio.shape[0] < stem_audio.shape[1] else stem_audio
-                            if audio_for_spec.ndim == 1: audio_for_spec = np.asfortranarray([audio_for_spec, audio_for_spec])
-                            spec = spec_utils.wave_to_spectrogram_old(audio_for_spec, ensemble_hop_length, ensemble_n_fft)
-                            all_spectrograms_by_stem[stem_name].append({'spec': spec, 'samplerate': member_model_data.model_samplerate, 'md': member_model_data, 'phase': np.angle(spec)})
-                        except Exception as e_spec: self._write_to_console(f"Error converting {stem_name} from {member_model_data.model_basename} to spectrogram: {e_spec}", "")
-            elif self._is_running: self._write_to_console(f"Ensemble member {member_model_data.model_basename} produced no results.", "")
-            if clear_gpu_cache_logic: clear_gpu_cache_logic()
+                    if stem_audio is not None and stem_audio.size > 0:
+                        self._write_to_console(f"DEBUG: {stem_name} shape: {stem_audio.shape}", "")
+                        if stem_name not in all_outputs:
+                            all_outputs[stem_name] = []
+                        all_outputs[stem_name].append(stem_audio)
+                    else:
+                        self._write_to_console(f"DEBUG: {stem_name} is None or empty, skipping", "")
+            elif self._is_running: 
+                self._write_to_console(f"Ensemble member {member_model_data.model_basename} produced no results.", "")
+                
+            if clear_gpu_cache_logic: 
+                clear_gpu_cache_logic()
 
-        if not self._is_running or (not all_results_by_stem and not all_spectrograms_by_stem) :
-            if self._is_running: self.processing_finished.emit(False, "Ensemble processing failed: No results from members."); return
+        if not self._is_running or not all_outputs:
+            if self._is_running: 
+                self.processing_finished.emit(False, "Ensemble processing failed: No results from members."); 
+            return
 
         self.progress_updated.emit(90, "Combining ensemble results...")
-        final_ensemble_stems_to_save: Dict[str, np.ndarray] = {}
-        stems_to_process = list(all_results_by_stem.keys()) if self.model_data.ensemble_type == ac.AVERAGE_ENSEMBLE else list(all_spectrograms_by_stem.keys())
-
-        for stem_name in stems_to_process:
-            if not self._is_running: return
-            ensembled_audio = None
-            if self.model_data.ensemble_type == ac.AVERAGE_ENSEMBLE:
-                if stem_name in all_results_by_stem and all_results_by_stem[stem_name]:
-                    try:
-                        min_len = min(s.shape[0] for s in all_results_by_stem[stem_name])
-                        aligned_audio_for_avg = [s[:min_len] for s in all_results_by_stem[stem_name]]
-                        stacked_audio = np.stack(aligned_audio_for_avg)
-                        ensembled_audio = np.mean(stacked_audio, axis=0)
-                    except Exception as e_avg: self._write_to_console(f"Error averaging {stem_name}: {e_avg}", "")
-            elif self.model_data.ensemble_type in [ac.MAX_SPEC_ENSEMBLE, ac.MIN_SPEC_ENSEMBLE] and spec_utils:
-                if stem_name in all_spectrograms_by_stem and all_spectrograms_by_stem[stem_name]:
-                    specs_data_list = all_spectrograms_by_stem[stem_name]
-                    if not specs_data_list: continue
-                    
-                    raw_specs = [data['spec'] for data in specs_data_list]
-                    aligned_specs_list = self._align_spectrograms(raw_specs)
-                    
-                    if not aligned_specs_list: 
-                        self._write_to_console(f"Could not align spectrograms for stem {stem_name}. Skipping spectral ensemble.", ""); continue
-                    
-                    stacked_magnitudes = np.stack([np.abs(s) for s in aligned_specs_list])
-                    ensembled_magnitude = None
-                    if self.model_data.ensemble_type == ac.MAX_SPEC_ENSEMBLE: ensembled_magnitude = np.max(stacked_magnitudes, axis=0)
-                    elif self.model_data.ensemble_type == ac.MIN_SPEC_ENSEMBLE: ensembled_magnitude = np.min(stacked_magnitudes, axis=0)
-                    
-                    if ensembled_magnitude is not None:
-                        ref_phase = np.angle(aligned_specs_list[0]) 
-                        ensembled_complex_spec = ensembled_magnitude * np.exp(1.j * ref_phase)
-                        try:
-                            audio_transposed = spec_utils.spectrogram_to_wave_old(ensembled_complex_spec, hop_length=ensemble_hop_length)
-                            if audio_transposed is not None: ensembled_audio = audio_transposed.T
-                        except Exception as e_istft: self._write_to_console(f"Error converting ensembled spec to wave for {stem_name}: {e_istft}", "")
-            
-            if ensembled_audio is not None:
-                final_ensemble_stems_to_save[stem_name] = ensembled_audio
-                save_md = ModelData(save_format=self.model_data.save_format, wav_type_set=self.model_data.wav_type_set, mp3_bit_set=self.model_data.mp3_bit_set, is_normalization=self.model_data.is_normalization)
-                samplerate_to_save = self.model_data.ensemble_models[0].model_samplerate if self.model_data.ensemble_models else ac.DEFAULT_SAMPLE_RATE
-                if ensembled_audio.ndim == 1: ensembled_audio = np.asfortranarray([ensembled_audio, ensembled_audio])
-                if ensembled_audio.shape[0] < ensembled_audio.shape[1] and ensembled_audio.ndim == 2 : ensembled_audio = ensembled_audio.T
-                write_audio_logic(
-                    stem_path_str=str(Path(self.model_data.export_path) / f"{ensemble_output_base}_({stem_name}_Ensemble).{save_md.save_format.lower()}"),
-                    stem_source=ensembled_audio, samplerate=samplerate_to_save, model_data=save_md,
-                    stem_name=f"{stem_name} (Ensemble)", process_data=self._create_process_data()
-                )
         
-        if not final_ensemble_stems_to_save and self._is_running:
-             self.processing_finished.emit(False, "Ensemble processing completed but no final stems were generated/saved."); return
+        # Available stems from models
+        available_stems = list(all_outputs.keys())
+        self._write_to_console(f"DEBUG: Available stems from all models: {available_stems}", "")
+        self._write_to_console(f"DEBUG: Ensemble primary stem: {self.model_data.ensemble_primary_stem}", "")
+        self._write_to_console(f"DEBUG: Ensemble secondary stem: {self.model_data.ensemble_secondary_stem}", "")
+        self._write_to_console(f"DEBUG: Ensemble type: {self.model_data.ensemble_type}", "")
+        
+        # Process each available stem
+        for stem_name in available_stems:
+            if not self._is_running: return
+            
+            stem_outputs = all_outputs[stem_name]
+            if len(stem_outputs) < 2:
+                self._write_to_console(f"DEBUG: Only {len(stem_outputs)} outputs for {stem_name}, skipping ensemble", "")
+                continue
+                
+            self._write_to_console(f"DEBUG: Processing stem: {stem_name} with {len(stem_outputs)} outputs", "")
+            
+            # Apply ensemble algorithm
+            ensembled_audio = self._combine_ensemble_outputs(stem_outputs, self.model_data.ensemble_type)
+            
+            if ensembled_audio is not None and ensembled_audio.size > 0:
+                self._write_to_console(f"DEBUG: Ensembled {stem_name} shape: {ensembled_audio.shape}", "")
+                
+                # Save the ensembled result
+                save_md = ModelData(save_format=self.model_data.save_format, wav_type_set=self.model_data.wav_type_set, 
+                                  mp3_bit_set=self.model_data.mp3_bit_set, is_normalization=self.model_data.is_normalization)
+                samplerate_to_save = self.model_data.ensemble_models[0].model_samplerate if self.model_data.ensemble_models else ac.DEFAULT_SAMPLE_RATE
+                
+                # Ensure proper audio format for writing
+                if ensembled_audio.ndim == 1: 
+                    ensembled_audio = np.asfortranarray([ensembled_audio, ensembled_audio])
+                if ensembled_audio.shape[0] < ensembled_audio.shape[1] and ensembled_audio.ndim == 2: 
+                    ensembled_audio = ensembled_audio.T
+                
+                output_path = Path(self.model_data.export_path) / f"{ensemble_output_base}_({stem_name}_Ensemble).{save_md.save_format.lower()}"
+                
+                write_audio_logic(
+                    stem_path_str=str(output_path),
+                    stem_source=ensembled_audio, 
+                    samplerate=samplerate_to_save, 
+                    model_data=save_md,
+                    stem_name=f"{stem_name} (Ensemble)", 
+                    process_data=self._create_process_data()
+                )
+            else:
+                self._write_to_console(f"DEBUG: Failed to ensemble {stem_name}: empty result", "")
 
         if self._is_running:
             self.progress_updated.emit(100, "Ensemble processing complete!")
             self.processing_finished.emit(True, "Successfully processed ensemble.")
+
+    def _combine_ensemble_outputs(self, outputs: List[np.ndarray], algorithm: str) -> np.ndarray:
+        """Combine multiple audio outputs using the specified ensemble algorithm."""
+        if not outputs or len(outputs) < 2:
+            return None
+            
+        self._write_to_console(f"DEBUG: Combining {len(outputs)} outputs with algorithm: {algorithm}", "")
+        
+        # Log shapes before combining
+        for i, output in enumerate(outputs):
+            self._write_to_console(f"DEBUG: Output {i} shape: {output.shape}", "")
+        
+        try:
+            if algorithm == ac.AVERAGE_ENSEMBLE:
+                return self._average_ensemble(outputs)
+            elif algorithm == ac.MAX_SPEC_ENSEMBLE:
+                return self._spectral_ensemble(outputs, is_max=True)
+            elif algorithm == ac.MIN_SPEC_ENSEMBLE:
+                return self._spectral_ensemble(outputs, is_max=False)
+            else:
+                self._write_to_console(f"DEBUG: Unknown ensemble algorithm: {algorithm}, using average", "")
+                return self._average_ensemble(outputs)
+        except Exception as e:
+            self._write_to_console(f"DEBUG: Error during ensemble combination: {e}", "")
+            return None
+    
+    def _average_ensemble(self, outputs: List[np.ndarray]) -> np.ndarray:
+        """Combine outputs using averaging (similar to spec_utils.average_audio)."""
+        if not outputs:
+            return None
+            
+        # Find the minimum length to align all outputs
+        min_length = min(output.shape[-1] for output in outputs)  # Use last dimension (time)
+        self._write_to_console(f"DEBUG: Aligning outputs to min length: {min_length}", "")
+        
+        # Align all outputs to the same length
+        aligned_outputs = []
+        for output in outputs:
+            if output.ndim == 1:
+                aligned = output[:min_length]
+            elif output.ndim == 2:
+                aligned = output[:, :min_length]
+            else:
+                aligned = output  # Keep as is for higher dimensions
+            aligned_outputs.append(aligned)
+        
+        # Stack and average
+        stacked = np.stack(aligned_outputs, axis=0)
+        averaged = np.mean(stacked, axis=0)
+        
+        self._write_to_console(f"DEBUG: Averaged result shape: {averaged.shape}", "")
+        return averaged
+    
+    def _spectral_ensemble(self, outputs: List[np.ndarray], is_max: bool = True) -> np.ndarray:
+        """Combine outputs using spectral ensemble (min/max magnitude)."""
+        if not outputs or not spec_utils:
+            return None
+            
+        try:
+            # Convert audio to spectrograms
+            spectrograms = []
+            for output in outputs:
+                # Ensure audio is in the right format for spectrogram conversion
+                if output.ndim == 2 and output.shape[0] < output.shape[1]:
+                    audio_for_spec = output.T  # Transpose if needed
+                else:
+                    audio_for_spec = output
+                    
+                if audio_for_spec.ndim == 1:
+                    audio_for_spec = np.asfortranarray([audio_for_spec, audio_for_spec])
+                
+                spec = spec_utils.wave_to_spectrogram_old(audio_for_spec, hop_length=1024, n_fft=2048)
+                spectrograms.append(spec)
+            
+            # Align spectrograms to same shape
+            aligned_spectrograms = self._align_spectrograms(spectrograms)
+            if not aligned_spectrograms:
+                self._write_to_console(f"DEBUG: Failed to align spectrograms for spectral ensemble", "")
+                return None
+            
+            # Apply spectral ensemble algorithm (similar to spec_utils.ensembling)
+            result_spec = aligned_spectrograms[0]
+            for i in range(1, len(aligned_spectrograms)):
+                if is_max:
+                    result_spec = np.where(np.abs(aligned_spectrograms[i]) >= np.abs(result_spec), 
+                                         aligned_spectrograms[i], result_spec)
+                else:
+                    result_spec = np.where(np.abs(aligned_spectrograms[i]) <= np.abs(result_spec), 
+                                         aligned_spectrograms[i], result_spec)
+            
+            # Convert back to audio
+            result_audio = spec_utils.spectrogram_to_wave_old(result_spec, hop_length=1024)
+            if result_audio.ndim == 2:
+                result_audio = result_audio.T  # Transpose back if needed
+                
+            self._write_to_console(f"DEBUG: Spectral ensemble result shape: {result_audio.shape}", "")
+            return result_audio
+            
+        except Exception as e:
+            self._write_to_console(f"DEBUG: Error in spectral ensemble: {e}", "")
+            return None
 
     def _create_process_data_for_chained_model(self, chained_model_data: ModelData, 
                                              input_audio_array: np.ndarray, 

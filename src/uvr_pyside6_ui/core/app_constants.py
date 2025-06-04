@@ -426,5 +426,5 @@ DEFAULT_LOG_LEVEL = LOG_LEVEL_INFO
 DEBUG_LOG_LEVEL = LOG_LEVEL_DEBUG
 
 # Log format
-LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+LOG_FORMAT = '%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(message)s'
 LOG_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'

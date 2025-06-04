@@ -160,6 +160,7 @@ class ModelData:
     is_primary_model_secondary_stem_only: bool = False
 
     is_ensemble_mode: bool = False # True if this instance is the master ensemble config
+    is_ensemble_member: bool = False # True if this instance is a member of an ensemble (not the master)
     ensemble_models: List['ModelData'] = field(default_factory=list) 
     ensemble_type: str = ac.AVERAGE_ENSEMBLE # Default, e.g., "Average", "Max Spec", "Min Spec"
     ensemble_primary_stem: Optional[str] = None 
@@ -199,6 +200,7 @@ class ModelData:
         init_kwargs['is_vocal_split_model'] = _is_vocal_split_model_instance
         init_kwargs['is_primary_model_primary_stem_only'] = _primary_model_primary_stem_only
         init_kwargs['is_primary_model_secondary_stem_only'] = _primary_model_secondary_stem_only
+        init_kwargs['is_ensemble_member'] = _is_ensemble_member
         
         # This instance is an ensemble member if _is_ensemble_member is true.
         # If _is_ensemble_member is false, it could be a master ensemble object OR a single model.
@@ -215,7 +217,13 @@ class ModelData:
                 init_kwargs['model_and_process_tag'] = _model_name_override
                 init_kwargs['process_method'], _, model_name = _model_name_override.partition("==")
         elif process_method == ac.ENSEMBLE_MODE:
-            model_name = settings.get('ensemble_model', "") 
+            # For live ensembles from UI, create a synthetic model name
+            if 'ensemble_selected_models' in settings and settings['ensemble_selected_models']:
+                model_name = f"Live_Ensemble_{len(settings['ensemble_selected_models'])}_models"
+            else:
+                # Only use ensemble_model if it's not empty
+                ensemble_model_setting = settings.get('ensemble_model', "")
+                model_name = ensemble_model_setting if ensemble_model_setting else ""
             init_kwargs['is_ensemble_mode'] = True # This instance IS the ensemble master
         elif process_method == ac.VR_ARCH_TYPE: model_name = settings.get('vr_model', "")
         elif process_method == ac.MDX_ARCH_TYPE: model_name = settings.get('mdx_net_model', "")
@@ -301,15 +309,26 @@ class ModelData:
         else:
             instance.export_path = None
 
-        if instance.model_status and instance.model_name and instance.model_name != ac.CHOOSE_MODEL:
-            if instance.process_method == ac.ENSEMBLE_MODE and not _is_ensemble_member: 
+        # Handle ensemble mode first - live ensembles might not have a model_name
+        if instance.process_method == ac.ENSEMBLE_MODE and not _is_ensemble_member:
+            # Check if this is a live ensemble from UI (has ensemble_selected_models)
+            # Prioritize live ensemble creation even if model_name is empty
+            if 'ensemble_selected_models' in settings and settings['ensemble_selected_models']:
+                instance._create_live_ensemble_from_ui_settings(settings)
+            elif instance.model_name and instance.model_name != ac.CHOOSE_MODEL and instance.model_name.strip():
+                # Original behavior: load from saved JSON file
                 instance.model_path = str(ENSEMBLE_CACHE_DIR / instance.model_name) 
                 if Path(instance.model_path).exists():
                     instance._load_ensemble_config(settings) 
                 else:
-                    print(f"Warning: Ensemble config file not found: {instance.model_path}")
+                    print(f"Error: Ensemble configuration file not found: {instance.model_path}")
                     instance.model_status = False
-            elif not _is_ensemble_member or (instance.process_method != ac.ENSEMBLE_MODE): 
+            else:
+                print("Error: No ensemble configuration provided (neither live models nor saved ensemble)")
+                instance.model_status = False
+        # Handle regular models (non-ensemble)
+        elif instance.model_status and instance.model_name and instance.model_name != ac.CHOOSE_MODEL:
+            if not _is_ensemble_member or (instance.process_method != ac.ENSEMBLE_MODE): 
                 instance.model_path = instance._determine_model_path()
                 if instance.model_path and Path(instance.model_path).exists():
                     instance.model_hash = instance._get_model_hash(instance.model_path)
@@ -712,3 +731,120 @@ class ModelData:
 
     def to_dict(self) -> Dict[str, Any]:
         return self.__dict__
+
+    def _create_live_ensemble_from_ui_settings(self, settings: Dict[str, Any]):
+        """Creates an ensemble from live UI settings without requiring a saved JSON file."""
+        try:
+            # Extract ensemble configuration from UI settings
+            self.ensemble_primary_stem = self._parse_stem_pair_to_primary_stem(
+                settings.get("ensemble_main_stem_pair", ac.ENSEMBLE_MAIN_STEM_OPTIONS[0])
+            )
+            self.ensemble_secondary_stem = ac.secondary_stem(self.ensemble_primary_stem)
+            
+            # Map UI algorithm names to internal ensemble types
+            ui_algorithm = settings.get("ensemble_algorithm", ac.ENSEMBLE_ALGORITHM_OPTIONS[0])
+            self.ensemble_type = self._map_ui_algorithm_to_ensemble_type(ui_algorithm)
+            
+            # Determine ensemble characteristics
+            stem_pair = settings.get("ensemble_main_stem_pair", "")
+            self.is_4_stem_ensemble = stem_pair == ac.ENSEMBLE_MAIN_STEM_OPTIONS[4]  # "4 Stem Ensemble"
+            self.is_multi_stem_ensemble = stem_pair == ac.ENSEMBLE_MAIN_STEM_OPTIONS[5]  # "Multi-stem Ensemble"
+            
+            # Create ModelData instances for each selected model
+            self.ensemble_models = []
+            selected_models = settings.get("ensemble_selected_models", [])
+            
+            for model_name in selected_models:
+                if not model_name:
+                    continue
+                    
+                # Determine the process method for this model based on its name/location
+                model_process_method = self._determine_model_process_method(model_name)
+                
+                if model_process_method:
+                    # Create member settings dict for this model
+                    member_settings = settings.copy()
+                    member_settings['chosen_process_method'] = model_process_method
+                    
+                    # Create ModelData instance for ensemble member
+                    member_model_data = ModelData.from_settings_dict(
+                        member_settings,
+                        _model_name_override=model_name,
+                        _process_method_override=model_process_method,
+                        _is_ensemble_member=True
+                    )
+                    
+                    if member_model_data.model_status:
+                        self.ensemble_models.append(member_model_data)
+                    else:
+                        print(f"Warning: Failed to load ensemble member: {model_name}")
+                        
+            if not self.ensemble_models:
+                print("Warning: Live ensemble created no valid models.")
+                self.model_status = False
+            else:
+                # Create a synthetic model name for the ensemble
+                self.model_basename = f"Live_Ensemble_{len(self.ensemble_models)}_models"
+                print(f"Created live ensemble with {len(self.ensemble_models)} models: {[m.model_basename for m in self.ensemble_models]}")
+                
+        except Exception as e:
+            print(f"Error creating live ensemble from UI settings: {e}")
+            self.model_status = False
+
+    def _parse_stem_pair_to_primary_stem(self, stem_pair: str) -> str:
+        """Convert UI stem pair selection to primary stem."""
+        stem_pair_map = {
+            "Vocals/Instrumental": ac.VOCAL_STEM,
+            "Other/No Other": ac.OTHER_STEM,
+            "Drums/No Drums": ac.DRUM_STEM,
+            "Bass/No Bass": ac.BASS_STEM,
+            "4 Stem Ensemble": ac.VOCAL_STEM,  # Default for 4-stem
+            "Multi-stem Ensemble": ac.VOCAL_STEM  # Default for multi-stem
+        }
+        return stem_pair_map.get(stem_pair, ac.VOCAL_STEM)
+
+    def _map_ui_algorithm_to_ensemble_type(self, ui_algorithm: str) -> str:
+        """Map UI algorithm names to internal ensemble type constants."""
+        if "Average" in ui_algorithm:
+            return ac.AVERAGE_ENSEMBLE
+        elif "Max Spec" in ui_algorithm:
+            return ac.MAX_SPEC_ENSEMBLE
+        elif "Min Spec" in ui_algorithm:
+            return ac.MIN_SPEC_ENSEMBLE
+        else:
+            return ac.AVERAGE_ENSEMBLE  # Default fallback
+
+    def _determine_model_process_method(self, model_name: str) -> Optional[str]:
+        """Determine the process method (VR/MDX/Demucs) for a given model name."""
+        # Use file extension to determine model type - this is more reliable than scanning directories
+        model_path = Path(model_name)
+        extension = model_path.suffix.lower()
+        
+        if extension == '.pth':
+            return ac.VR_ARCH_TYPE
+        elif extension in ['.onnx', '.ckpt']:
+            return ac.MDX_ARCH_TYPE
+        elif extension in ['.yaml', '.th', '.gz']:
+            return ac.DEMUCS_ARCH_TYPE
+        else:
+            # Fallback: try to check if it's in model directories
+            try:
+                from ..core.uvr_core_adapter import UVRCoreAdapter
+                adapter = UVRCoreAdapter(None)
+                
+                vr_models = adapter.get_available_models(ac.VR_ARCH_MODELS_KEY)
+                if model_name in vr_models:
+                    return ac.VR_ARCH_TYPE
+                    
+                mdx_models = adapter.get_available_models(ac.MDX_NET_MODELS_KEY) 
+                if model_name in mdx_models:
+                    return ac.MDX_ARCH_TYPE
+                    
+                demucs_models = adapter.get_available_models(ac.DEMUCS_MODELS_KEY)
+                if model_name in demucs_models:
+                    return ac.DEMUCS_ARCH_TYPE
+            except Exception:
+                pass
+                
+        print(f"Warning: Could not determine process method for model: {model_name}")
+        return None

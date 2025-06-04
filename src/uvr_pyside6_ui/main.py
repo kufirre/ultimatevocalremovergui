@@ -1,15 +1,15 @@
-import sys
 import os
-from pathlib import Path
+import sys
 
-from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QFile, QIODevice, QTextStream
 from PySide6.QtGui import QFontDatabase
+from PySide6.QtWidgets import QApplication
 
-from . import resources_rc
-from .ui.main_window_view import MainWindowView
+# Import resources to register them with Qt
+from . import resources_rc  # noqa: F401
 from .core import app_constants as ac
 from .core.logger_utils import UVRLogger, get_logger
+from .ui.main_window_view import MainWindowView
 
 # Configure logging early
 UVRLogger.configure_logging()
@@ -19,7 +19,7 @@ logger = get_logger("main")
 def run():
     """Initializes and runs the PySide6 application."""
     # Determine the base path of the application
-    if getattr(sys, 'frozen', False):
+    if getattr(sys, "frozen", False):
         # If the application is run as a bundle, use PyInstaller's _MEIPASS
         BASE_PATH = sys._MEIPASS
     else:
@@ -36,16 +36,22 @@ def run():
     try:
         font_id = QFontDatabase.addApplicationFont(ac.QRC_CENTURY_GOTHIC_PATH)
         if font_id != -1:
-            logger.info(f"Successfully loaded font from QRC: {ac.CENTURY_GOTHIC_FONT} (from {ac.QRC_CENTURY_GOTHIC_PATH})")
+            logger.info(
+                f"Successfully loaded font from QRC: {ac.CENTURY_GOTHIC_FONT} (from {ac.QRC_CENTURY_GOTHIC_PATH})"
+            )
         else:
-            logger.warning(f"Failed to load font from QRC: {ac.QRC_CENTURY_GOTHIC_PATH}")
+            logger.warning(
+                f"Failed to load font from QRC: {ac.QRC_CENTURY_GOTHIC_PATH}"
+            )
     except Exception as e:
         logger.error(f"Error loading Century Gothic font: {e}")
 
     try:
         font_id = QFontDatabase.addApplicationFont(ac.QRC_MONTSERRAT_PATH)
         if font_id != -1:
-            logger.info(f"Successfully loaded font from QRC: {ac.MONTSERRAT_FONT} (from {ac.QRC_MONTSERRAT_PATH})")
+            logger.info(
+                f"Successfully loaded font from QRC: {ac.MONTSERRAT_FONT} (from {ac.QRC_MONTSERRAT_PATH})"
+            )
         else:
             logger.warning(f"Failed to load font from QRC: {ac.QRC_MONTSERRAT_PATH}")
     except Exception as e:
@@ -57,9 +63,13 @@ def run():
         if qss_file.open(QIODevice.ReadOnly | QIODevice.Text):
             stream = QTextStream(qss_file)
             app.setStyleSheet(stream.readAll())
-            logger.info(f"Successfully loaded stylesheet from QRC: {ac.QRC_MAIN_STYLESHEET_PATH}")
+            logger.info(
+                f"Successfully loaded stylesheet from QRC: {ac.QRC_MAIN_STYLESHEET_PATH}"
+            )
         else:
-            logger.warning(f"Failed to open stylesheet file: {ac.QRC_MAIN_STYLESHEET_PATH}")
+            logger.warning(
+                f"Failed to open stylesheet file: {ac.QRC_MAIN_STYLESHEET_PATH}"
+            )
     except Exception as e:
         logger.error(f"Error loading main stylesheet: {e}")
 
@@ -71,9 +81,13 @@ def run():
             progress_stylesheet = stream.readAll()
             # Append to existing stylesheet
             app.setStyleSheet(app.styleSheet() + "\n" + progress_stylesheet)
-            logger.info(f"Successfully loaded progress bar stylesheet from QRC: {ac.QRC_PROGRESS_STYLESHEET_PATH}")
+            logger.info(
+                f"Successfully loaded progress bar stylesheet from QRC: {ac.QRC_PROGRESS_STYLESHEET_PATH}"
+            )
         else:
-            logger.warning(f"Failed to open progress stylesheet file: {ac.QRC_PROGRESS_STYLESHEET_PATH}")
+            logger.warning(
+                f"Failed to open progress stylesheet file: {ac.QRC_PROGRESS_STYLESHEET_PATH}"
+            )
     except Exception as e:
         logger.error(f"Error loading progress bar stylesheet: {e}")
 

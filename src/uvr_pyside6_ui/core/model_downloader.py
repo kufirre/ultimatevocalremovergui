@@ -67,25 +67,27 @@ def download_model_file(model_name: str, download_url: str, model_type: str,
     local_model_path = target_dir / local_model_filename
     local_config_path_str: Optional[str] = None
 
+    # Handle Demucs models specially - check if this should go in v3_v4_repo
+    if model_type == ac.DEMUCS_MODELS_KEY:
+        # Check if this is a v3/v4 model that should go in the v3_v4_repo directory
+        # This checks for v3/v4 in model name OR .yaml extension in the file
+        should_use_v3_v4_repo = (any(tag in model_name.lower() for tag in [ac.DEMUCS_V3, ac.DEMUCS_V4]) or 
+                                 local_model_filename.endswith('.yaml'))
+        
+        if should_use_v3_v4_repo:
+            # Create the v3_v4_repo directory if it doesn't exist
+            v3_v4_repo_dir = target_dir / ac.DEMUCS_V3_V4_REPO_DIR_NAME
+            v3_v4_repo_dir.mkdir(exist_ok=True)
+            
+            # Update the local path to save in the v3_v4_repo directory
+            local_model_path = v3_v4_repo_dir / local_model_filename
+
     files_to_download = [(download_url, local_model_path, "model")]
+    
     if config_url:
         local_config_filename = Path(config_url).name
-        config_target_dir = target_dir
-        # Handle Demucs models specially
-        if model_type == ac.DEMUCS_MODELS_KEY:
-            # Check if this is a v3/v4 model that should go in the v3_v4_repo directory
-            if any(tag in model_name for tag in [ac.DEMUCS_V3, ac.DEMUCS_V4]) or ".yaml" in local_model_filename:
-                # Create the v3_v4_repo directory if it doesn't exist
-                v3_v4_repo_dir = target_dir / ac.DEMUCS_V3_V4_REPO_DIR_NAME
-                v3_v4_repo_dir.mkdir(exist_ok=True)
-                
-                # Update the local path to save in the v3_v4_repo directory
-                local_model_path = v3_v4_repo_dir / local_model_filename
-                
-                # If there's a config file, it should also go in the v3_v4_repo directory
-                if config_url:
-                    config_target_dir = v3_v4_repo_dir
-        
+        # Config files should go in the same directory as the model
+        config_target_dir = local_model_path.parent
         local_config_path = config_target_dir / local_config_filename
         local_config_path_str = str(local_config_path)
         files_to_download.append((config_url, local_config_path, "config"))

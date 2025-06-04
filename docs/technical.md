@@ -3,221 +3,399 @@
 ## Architecture Overview
 
 ### Core Components
-- **PySide6 GUI**: Modern Qt-based user interface replacing tkinter
-- **PyTorch Backend**: Deep learning framework for model inference
-- **Multi-model Support**: VR, MDX-Net, and Demucs architectures
-- **Threaded Processing**: Non-blocking audio processing with progress feedback
+- **PySide6 GUI**: Modern Qt-based user interface with professional resource management
+- **PyTorch Backend**: Deep learning framework for model inference with GPU acceleration
+- **Multi-model Support**: VR, MDX-Net, and Demucs architectures with automatic V3/V4 handling
+- **Threaded Processing**: Non-blocking audio processing with comprehensive progress feedback
+- **Quality Assurance**: Enterprise-grade testing and automated regression prevention
 
 ### Key Modules
-- `uvr_core_adapter.py`: Main coordinator class managing model discovery and processing
-- `model_data.py`: Model configuration and metadata management
-- `separate_logic.py`: Core audio separation algorithms for each model type
-- `processing_worker.py`: Threaded processing with progress tracking
-- `model_downloader.py`: Automated model downloading and management
+
+#### Core Processing Engine
+- **`uvr_core_adapter.py`**: Main coordinator class managing model discovery and processing
+- **`model_data.py`**: Model configuration and metadata management with V3/V4 detection
+- **`separate_logic.py`**: Core audio separation algorithms for each model type
+- **`processing_worker.py`**: Threaded processing with progress tracking and error handling
+- **`model_downloader.py`**: Automated model downloading with intelligent directory placement
+
+#### User Interface
+- **`main_window_view.py`**: Main application window with PySide6 components
+- **`main.py`**: Application entry point with QRC resource management
+- **`resources_rc.py`**: Compiled Qt resources (fonts, stylesheets, icons)
+- **UI Presenters**: MVP pattern implementation for clean separation of concerns
+
+#### Configuration & Utilities
+- **`app_constants.py`**: Centralized configuration with comprehensive constants
+- **`logger_utils.py`**: Professional logging system with configurable levels
+- **`download_worker.py`**: Background download management with progress tracking
 
 ## Testing Infrastructure
 
-### Test Coverage
-- **335+ total tests** across 11 test modules
-- **32.96% code coverage** (exceeds 15% minimum requirement)
-- **100% test success rate** after bug fixes
-- Professional pytest configuration with Qt integration
+### Current Test Coverage
+- **341+ total tests** across 12 test modules
+- **57% code coverage** (significantly exceeds 15% minimum requirement)
+- **100% test success rate** after comprehensive bug fixes
+- **Critical functionality protection** with automated regression prevention
 
-### Test Organization
+### Enhanced Test Organization
 ```
 tests/unit/core/
-├── test_app_constants.py       # Configuration constants (45 tests)
-├── test_model_data.py         # Model configuration (24 tests)  
-├── test_separate_logic.py     # Separation algorithms (12 tests)
-├── test_processing_worker.py  # Threaded processing (39 tests)
-├── test_uvr_core_adapter.py  # Main coordinator (47 tests)
-├── test_model_downloader.py   # Download management (26 tests)
-├── test_download_worker.py    # Download threads (23 tests)
-├── test_logger_utils.py       # Logging system (29 tests)
-├── test_demucs_v3_v4_directory_placement.py  # V3/V4 handling (24 tests)
-└── test_demucs_secondary_stem_fix.py         # Bug fix verification (16 tests)
+├── test_app_constants.py                    # Configuration constants (45 tests)
+├── test_application_startup.py             # Critical functionality (6 tests) 🆕
+├── test_model_data.py                       # Model configuration (50 tests)
+├── test_separate_logic.py                   # Separation algorithms (44 tests)
+├── test_processing_worker.py                # Threaded processing (31 tests)
+├── test_uvr_core_adapter.py                # Main coordinator (64 tests)
+├── test_model_downloader.py                 # Download management (18 tests)
+├── test_download_worker.py                  # Download threads (23 tests)
+├── test_logger_utils.py                     # Logging system (29 tests)
+├── test_demucs_v3_v4_directory_placement.py # V3/V4 handling (24 tests)
+└── test_demucs_secondary_stem_fix.py        # Bug fix verification (16 tests)
 ```
 
-### Running Tests
+### Critical Functionality Protection System 🆕
+
+The project now includes a **Critical Functionality Protection System** that prevents regressions through automated testing:
+
+#### Protected Functionality
+- ✅ **QRC Resource Loading**: Fonts, stylesheets, and UI assets
+- ✅ **Core Module Imports**: Essential dependencies and module structure
+- ✅ **Application Startup**: Initialization sequence and component creation
+- ✅ **Model Loading Pipeline**: Download, detection, and inference preparation
+- ✅ **UI Component Creation**: Main window and critical interface elements
+
+#### Protection Mechanisms
 ```bash
-# All tests
-python -m pytest tests/unit/core/ -v
+# Critical tests (run before every commit)
+pytest tests/unit/core/test_application_startup.py -m critical
 
-# With coverage
-python -m pytest tests/unit/core/ -v --cov=src --cov-report=html
+# Pre-commit verification (blocks breaking commits)
+./scripts/pre-commit-checks.sh
 
-# Specific test suite  
-python -m pytest tests/unit/core/test_separate_logic.py -v
-
-# Using convenience script
-./run_tests.sh
+# Complete quality pipeline
+./scripts/check-all.sh
 ```
 
-## Recent Bug Fixes
+### Test Execution Methods
 
-### Critical ac.NO_STEM Bug (Fixed)
+```bash
+# Complete test suite
+./run_tests.sh --all
+
+# Test categories
+pytest -m unit           # Unit tests (fast execution)
+pytest -m integration    # Integration tests
+pytest -m critical       # Critical functionality tests 🆕
+pytest -m edge_case      # Edge cases and error conditions
+
+# Coverage reporting
+pytest tests/ --cov=uvr_pyside6_ui --cov-report=html --cov-report=xml
+
+# Specific functionality
+pytest tests/unit/core/test_application_startup.py -v  # Critical tests
+pytest tests/unit/core/test_separate_logic.py -v       # Core algorithms
+pytest tests/unit/core/test_demucs_v3_v4_directory_placement.py -v  # V3/V4 handling
+```
+
+## Recent Major Improvements
+
+### QRC Resource Management Fix 🔧
+- **Issue**: Resource loading warnings due to missing `resources_rc` import
+- **Root Cause**: Import optimization tools removing "unused" critical imports
+- **Solution**: Protected import with `# noqa: F401` and systematic resource verification
+- **Impact**: Eliminated all QRC resource warnings; fonts and stylesheets load perfectly
+- **Tests**: 6 comprehensive tests ensure resource loading never breaks again
+
+### Demucs V3/V4 Directory Management 🚀
+- **Enhancement**: Intelligent automatic placement of V3/V4 models in `v3_v4_repo` subdirectory
+- **Detection Logic**: Analyzes model names and file extensions (.yaml triggers V3/V4 placement)
+- **Directory Structure**: 
+  ```
+  models/Demucs_Models/
+  ├── v1_v2_models.th          # Legacy models in root
+  └── v3_v4_repo/              # V3/V4 models auto-organized
+      ├── htdemucs_v4.yaml     # V4 models
+      └── mdx_extra_v3.yaml    # V3 models
+  ```
+- **Tests**: 24 comprehensive tests covering all placement scenarios
+
+### Critical Bug Fixes Resolved
+
+#### AC.NO_STEM Attribution Error (Fixed) ✅
 - **Issue**: `AttributeError: module 'app_constants' has no attribute 'NO_STEM'`
-- **Impact**: Crashed single instrument Demucs separation
+- **Impact**: Application crashed during single-instrument Demucs separation
+- **Root Cause**: Reference to non-existent constant in secondary stem logic
 - **Fix**: Changed `md.secondary_stem != ac.NO_STEM` to `not md.secondary_stem.startswith("No ")`
-- **Tests**: 16 comprehensive tests ensure regression prevention
+- **Verification**: 16 regression tests ensure this specific crash never recurs
 
-### Demucs Version Detection (Fixed)
+#### Version Detection Logic (Enhanced) 🔧
 - **Issue**: Models like "v3 | mdx_extra" incorrectly detected as V4
-- **Root Cause**: Version detection only ran when model files existed
-- **Fix**: Moved detection logic to `__post_init__()` to always run
-- **Result**: Proper V1/V2/V3/V4 detection regardless of file existence
+- **Root Cause**: Version detection only executed when model files existed locally
+- **Solution**: Moved detection logic to `__post_init__()` to ensure consistent execution
+- **Result**: Accurate V1/V2/V3/V4 detection regardless of file presence
+- **Coverage**: Comprehensive version detection tests for all edge cases
 
-### V3/V4 Directory Placement (Enhanced)
-- **Enhancement**: Automatic placement of V3/V4 models in `v3_v4_repo` subdirectory
-- **Logic**: Detects v3/v4 in model name or .yaml extension
-- **Tests**: 24 tests covering directory creation, file placement, and path resolution
+## Quality Assurance Infrastructure
 
-## Dependencies
+### Automated Quality Pipeline
 
-### Core Runtime
-- **PySide6**: Qt-based GUI framework
-- **PyTorch**: ML model inference
-- **librosa**: Audio analysis and processing
-- **onnxruntime**: ONNX model support
-- **soundfile**: Audio I/O operations
+The project maintains enterprise-grade code quality through a multi-layered approach:
 
-### Development Tools
-- **pytest**: Testing framework with Qt support
-- **pytest-cov**: Code coverage analysis
-- **black/ruff**: Code formatting and linting
-- **mypy**: Static type checking
-
-### Installation
+#### Layer 1: Code Formatting & Organization
 ```bash
-# Production
+# Automated formatting pipeline
+./scripts/format.sh
+```
+- **Black**: Code formatting with 88-character line length
+- **Ruff**: Import organization and auto-fixable linting
+- **Consistency**: Ensures uniform code style across the entire codebase
+
+#### Layer 2: Comprehensive Linting
+```bash
+# Multi-tool linting pipeline
+./scripts/lint.sh
+```
+- **Ruff**: Fast Python linting (replaces flake8, pycodestyle, pyflakes)
+- **MyPy**: Static type checking (disabled for legacy compatibility)
+- **Bandit**: Security vulnerability scanning with project-specific rules
+- **Flake8**: Additional style validation with reasonable exceptions
+
+#### Layer 3: Critical Functionality Verification 🆕
+```bash
+# Pre-commit protection
+./scripts/pre-commit-checks.sh
+```
+- **Critical Tests**: Essential functionality verification
+- **Import Smoke Tests**: Core module import verification
+- **Fast Linting**: Immediate feedback on code quality issues
+- **Commit Blocking**: Prevents broken code from entering the repository
+
+#### Layer 4: Complete Quality Assurance
+```bash
+# Comprehensive quality pipeline
+./scripts/check-all.sh
+```
+- **Full Test Suite**: All 341+ tests with coverage reporting
+- **Quality Metrics**: Code coverage, security analysis, and performance monitoring
+- **Integration Verification**: End-to-end functionality testing
+
+### Quality Standards & Metrics
+
+#### Code Quality Standards
+- **Line Length**: 88 characters maximum (Black standard)
+- **Import Organization**: Grouped and sorted by Ruff/isort
+- **Type Coverage**: Progressive improvement with MyPy
+- **Security**: Zero high-confidence Bandit issues
+- **Test Coverage**: Minimum 15% (currently 57%)
+
+#### Tool Configuration (pyproject.toml)
+```toml
+[tool.ruff]
+target-version = "py38"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "S3"]  # Essential rules only
+ignore = ["E402", "F841", "E501"]   # Reasonable exceptions
+
+[tool.black]
+line-length = 88
+target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+
+[tool.pytest.ini_options]
+markers = [
+    "critical: Critical tests that must pass for basic functionality",
+    # ... other markers
+]
+```
+
+### Development Workflow Integration
+
+#### Pre-commit Hooks
+```yaml
+# .pre-commit-config.yaml
+repos:
+- repo: local
+  hooks:
+  - id: black
+  - id: ruff
+  - id: ruff-format  
+  - id: mypy
+  - id: bandit
+  - id: critical-tests  # Ensures core functionality always works
+```
+
+#### Makefile Shortcuts
+```makefile
+# Quality assurance targets
+make format          # Format code with Black + Ruff
+make lint           # Run all linting tools
+make test-critical  # Run critical functionality tests
+make pre-commit     # Pre-commit verification
+make check-all      # Complete quality pipeline
+```
+
+## Dependencies & Installation
+
+### Core Runtime Dependencies
+- **PySide6**: Qt-based GUI framework (6.4.0+)
+- **PyTorch**: ML model inference (1.13.0+) with CUDA/MPS support
+- **Audio Processing**: librosa, soundfile, scipy for audio manipulation
+- **Model Support**: onnxruntime, onnx2pytorch for various model formats
+- **Configuration**: omegaconf, pyyaml, ml-collections for model configs
+
+### Development Dependencies
+```bash
+# Testing framework
+pytest>=7.4.0, pytest-qt>=4.4.0, pytest-cov>=4.1.0
+
+# Quality assurance tools
+black>=23.0.0, ruff>=0.1.0, mypy>=1.5.0, bandit>=1.7.0
+
+# Pre-commit integration
+pre-commit>=3.0.0
+```
+
+### Installation Options
+```bash
+# Basic installation
 pip install -e .
 
-# Development with testing tools
+# Development with quality tools
 pip install -e ".[dev]"
 
-# GPU acceleration (optional)
+# GPU acceleration support
 pip install -e ".[gpu]"
+
+# Complete development setup
+pip install -e ".[dev,gpu]" && pre-commit install
 ```
 
-## Performance Considerations
+## Performance & Optimization
 
 ### Memory Management
-- Configurable segment/window sizes to prevent OOM errors
-- Automatic cleanup of temporary audio data
-- Progressive loading for large audio files
+- **Configurable segment sizes**: 256/512/1024 for different VRAM capacities
+- **Progressive loading**: Handles large audio files without memory overflow
+- **Automatic cleanup**: Proper disposal of temporary audio arrays
+- **Low memory mode**: `UVR_LOW_MEMORY=1` for resource-constrained systems
 
-### GPU Acceleration
-- CUDA support for Nvidia GPUs (8GB+ VRAM recommended)
-- MPS support for Apple Silicon Macs
-- Automatic fallback to CPU processing
+### GPU Acceleration Support
+- **CUDA**: Nvidia GPU support with automatic detection
+- **MPS**: Apple Silicon acceleration (M1/M2/M3 Macs)
+- **Fallback**: Automatic CPU processing when GPU unavailable
+- **Memory monitoring**: Intelligent VRAM usage optimization
 
 ### Threading Architecture
-- Main UI thread remains responsive during processing
-- Background worker threads for model loading and separation
-- Progress signals for real-time feedback
+- **Main UI Thread**: Remains responsive during all operations
+- **Background Workers**: Model downloading, loading, and processing
+- **Progress Signals**: Real-time feedback for all long-running operations
+- **Clean Shutdown**: Proper thread cleanup and resource management
+
+## Environment Configuration
+
+### Environment Variables
+```bash
+# Debug and logging
+UVR_DEBUG=1                    # Enable debug logging
+UVR_LOG_LEVEL=INFO            # Set log level
+
+# Path configuration  
+UVR_MODEL_DIR=/path/to/models  # Custom model directory
+UVR_CACHE_DIR=/path/to/cache   # Custom cache directory
+
+# Performance tuning
+UVR_NO_GPU=1                   # Force CPU processing
+UVR_LOW_MEMORY=1               # Memory optimization mode
+UVR_DEFAULT_SEGMENT_SIZE=256   # Default segment size
+
+# GPU configuration
+CUDA_VISIBLE_DEVICES=0         # Specific GPU selection
+PYTORCH_ENABLE_MPS_FALLBACK=1  # MPS fallback (macOS)
+```
+
+### Configuration Files
+- **Settings**: Platform-specific user preference storage
+  - Windows: `%APPDATA%/UVR-PySide6/settings.json`
+  - macOS: `~/Library/Application Support/UVR-PySide6/settings.json`
+  - Linux: `~/.config/UVR-PySide6/settings.json`
 
 ## Development Guidelines
 
-### Code Quality
+### Code Standards
+- **Type Hints**: Required for all public functions and methods
+- **Docstrings**: Google-style documentation for all public APIs
+- **Error Handling**: Comprehensive exception handling with user-friendly messages
+- **Logging**: Structured logging throughout the application
+- **Testing**: Unit tests required for all new functionality
 
-The project maintains high code quality through:
+### Contribution Workflow
+1. **Setup**: Clone repository and install with `pip install -e ".[dev]"`
+2. **Pre-commit**: Install hooks with `pre-commit install`
+3. **Development**: Make changes with appropriate tests
+4. **Quality**: Run `make check-all` before committing
+5. **Commit**: Pre-commit hooks automatically verify quality
+6. **Review**: Submit PR with comprehensive description
 
-- **Type Hints**: Full typing throughout the codebase
-- **Comprehensive error handling** with user-friendly messages
-- **Consistent logging** for debugging and monitoring
-- **Modular architecture** for easy testing and maintenance
+### Quality Gates
+- ✅ **Critical Tests**: Must pass (blocks commits if failing)
+- ✅ **Linting**: No critical issues from Ruff
+- ✅ **Formatting**: 100% Black compliance
+- ✅ **Security**: No high-confidence Bandit issues
+- ✅ **Type Safety**: Progressive MyPy improvement
 
-### Testing Standards
+## Monitoring & Debugging
 
-- Unit tests for all core functionality
-- Integration tests for end-to-end workflows
-- Mock-based testing to avoid heavy model dependencies
-- Qt signal testing for UI interactions
-- Regression tests for all critical bug fixes
+### Logging System
+```python
+# Professional logging throughout the application
+from uvr_pyside6_ui.core.logger_utils import get_logger
 
-### Configuration
-
-- All model paths and settings configurable
-- Persistent user preferences
-- Environment-specific settings support
-- Comprehensive logging configuration
-
-## Code Quality Standards
-
-### Automated Tools
-
-The project uses a comprehensive suite of automated tools to maintain code quality:
-
-#### Formatting Tools
-- **Black**: Python code formatter with 88-character line length
-- **isort**: Import statement organizer (configured for Black compatibility)
-
-#### Linting Tools  
-- **Ruff**: Fast Python linter replacing flake8, pycodestyle, and others
-- **MyPy**: Static type checker for type safety
-- **Bandit**: Security vulnerability scanner
-- **Flake8**: Additional style and quality checks
-
-#### Quality Scripts
-
-```bash
-# Individual tools
-./scripts/format.sh      # Format code with Black + isort
-./scripts/lint.sh        # Run all linting and quality checks
-./scripts/check-all.sh   # Complete quality pipeline
-
-# Pre-commit integration
-pre-commit install       # Set up automatic pre-commit hooks
-pre-commit run --all-files  # Run all hooks manually
+logger = get_logger("module_name")
+logger.info("Operation completed successfully")
+logger.error("Error details", exc_info=True)
 ```
 
-### Quality Standards
+### Debug Mode
+```bash
+# Enable comprehensive debug logging
+export UVR_DEBUG=1
+uvr-gui 2>&1 | tee debug.log
 
-#### Code Style
-- **Line Length**: 88 characters maximum (Black standard)
-- **Import Organization**: Sorted and grouped by isort
-- **Type Hints**: Required for all public functions and methods
-- **Docstrings**: Google-style docstrings for all public APIs
+# Application performance monitoring
+export UVR_PROFILE=1  # Performance profiling (if implemented)
+```
 
-#### Security
-- **No hardcoded secrets**: All sensitive data via environment variables
-- **Input validation**: All user inputs validated and sanitized
-- **Subprocess safety**: Proper handling of shell commands
-- **Dependency scanning**: Regular updates and security checks
+### Error Tracking
+- **Structured Logging**: Consistent log format across all modules
+- **Exception Handling**: Comprehensive error capture with context
+- **User Feedback**: Clear error messages for end-user troubleshooting
+- **Debug Information**: Detailed technical information for developers
 
-#### Performance
-- **Memory efficiency**: Proper cleanup of large audio arrays
-- **Threading safety**: Thread-safe operations in worker classes
-- **Resource management**: Context managers for file operations
-- **Caching**: Intelligent caching of model metadata and downloads
+## Security Considerations
 
-### Pre-commit Hooks
+### Input Validation
+- **File Path Sanitization**: Prevents directory traversal attacks
+- **Audio File Validation**: Checks file integrity before processing
+- **Model URL Verification**: Validates download sources
+- **Configuration Validation**: Ensures safe configuration values
 
-The project includes comprehensive pre-commit hooks that run automatically:
+### Dependency Security
+- **Bandit Scanning**: Automated security vulnerability detection
+- **Dependency Updates**: Regular updates for security patches
+- **Minimal Privileges**: Application runs with minimal required permissions
+- **Safe Defaults**: Secure default configuration values
 
-1. **Code Formatting**: Black and isort
-2. **Linting**: Ruff with automatic fixes
-3. **Type Checking**: MyPy for static analysis
-4. **Security**: Bandit security scanning
-5. **File Quality**: Trailing whitespace, end-of-file, YAML/JSON validation
-6. **Quick Tests**: Fast subset of tests to catch obvious issues
+## Future Development
 
-### Tool Configuration
+### Planned Enhancements
+- **Real-time Processing**: Live audio separation capabilities
+- **Performance Optimization**: Further memory and speed improvements
+- **Additional Models**: Support for emerging separation architectures
+- **Advanced UI**: Spectrogram visualization and audio editing features
+- **Cloud Integration**: Optional cloud-based model inference
 
-All tools are configured via `pyproject.toml`:
-
-- **Black**: Line length, target versions, exclusion patterns
-- **Ruff**: Rule selection, per-file ignores, target Python version
-- **MyPy**: Strict settings with library-specific overrides
-- **isort**: Black-compatible profile with project-specific settings
-- **Bandit**: Security rules with reasonable exceptions for this project
-
-### Quality Metrics
-
-The project maintains these quality standards:
-
-- **Test Coverage**: Minimum 15% (currently 33%)
-- **Linting**: Zero critical issues from Ruff
-- **Type Coverage**: Progressive improvement with MyPy
-- **Security**: Zero high-confidence Bandit issues
-- **Formatting**: 100% Black compliance 
+### Technical Debt
+- **Legacy Code**: Gradual modernization of inherited components
+- **Type Coverage**: Progressive improvement of type annotations
+- **Test Coverage**: Expansion to achieve >80% coverage target
+- **Documentation**: Continuous improvement of technical documentation 

@@ -1,7 +1,9 @@
 from PySide6.QtCore import QObject, Slot
 
+
 class MDXNetSettingsPresenter(QObject):
     """Presenter for MDX-Net settings."""
+
     def __init__(self, view):
         super().__init__()
         self.view = view

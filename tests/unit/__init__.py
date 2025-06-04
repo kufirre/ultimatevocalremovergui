@@ -1,1 +1,1 @@
-# Unit tests for UVR PySide6 core components 
+# Unit tests for UVR PySide6 core components

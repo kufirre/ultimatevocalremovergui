@@ -1,9 +1,14 @@
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QGroupBox, QHBoxLayout,
-    QLineEdit, QPushButton, QFileDialog
-)
+from PySide6.QtCore import QSize, Signal, Slot
 from PySide6.QtGui import QIcon
-from PySide6.QtCore import Signal, Slot, QSize
+from PySide6.QtWidgets import (
+    QFileDialog,
+    QGroupBox,
+    QHBoxLayout,
+    QLineEdit,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 
 class FileIOView(QWidget):
@@ -12,6 +17,7 @@ class FileIOView(QWidget):
     Emits signals when user interacts, and has slots to update display.
     It should be 'passive' - it doesn't contain complex logic.
     """
+
     # Signals that the Presenter will connect to
     select_input_clicked = Signal()
     select_output_clicked = Signal()
@@ -35,13 +41,13 @@ class FileIOView(QWidget):
         self.input_path_edit = QLineEdit()
         self.input_path_edit.setPlaceholderText("Select Input File(s) or Folder...")
         self.input_path_edit.textChanged.connect(self.input_path_changed)
-        
+
         self.select_input_button = QPushButton("Browse...")
         try:
             browse_icon = QIcon(":/uvr/img/File.png")
             if not browse_icon.isNull():
                 self.select_input_button.setIcon(browse_icon)
-                self.select_input_button.setIconSize(QSize(16, 16)) # Adjust as needed
+                self.select_input_button.setIconSize(QSize(16, 16))  # Adjust as needed
         except Exception as e:
             print(f"Error loading browse_icon for input button: {e}")
         self.select_input_button.clicked.connect(self.select_input_clicked)
@@ -57,10 +63,12 @@ class FileIOView(QWidget):
 
         self.select_output_button = QPushButton("Browse...")
         try:
-            browse_icon = QIcon(":/uvr/img/File.png") # Re-use the same icon object or QIcon(":/uvr/img/File.png")
+            browse_icon = QIcon(
+                ":/uvr/img/File.png"
+            )  # Re-use the same icon object or QIcon(":/uvr/img/File.png")
             if not browse_icon.isNull():
                 self.select_output_button.setIcon(browse_icon)
-                self.select_output_button.setIconSize(QSize(16, 16)) # Adjust as needed
+                self.select_output_button.setIconSize(QSize(16, 16))  # Adjust as needed
         except Exception as e:
             print(f"Error loading browse_icon for output button: {e}")
         self.select_output_button.clicked.connect(self.select_output_clicked)
@@ -102,7 +110,7 @@ class FileIOView(QWidget):
             self,
             "Select Input Audio File",
             "",  # Start directory (can be set by presenter later)
-            "Audio Files (*.wav *.mp3 *.flac *.m4a);;All Files (*)"
+            "Audio Files (*.wav *.mp3 *.flac *.m4a);;All Files (*)",
         )
         if file_path:
             self.set_input_path_text(file_path)  # Update text
@@ -112,9 +120,7 @@ class FileIOView(QWidget):
     def show_output_folder_dialog(self):
         """Shows a folder dialog for output. Returns the selected path or None."""
         folder_path = QFileDialog.getExistingDirectory(
-            self,
-            "Select Output Folder",
-            ""  # Start directory
+            self, "Select Output Folder", ""  # Start directory
         )
         if folder_path:
             self.set_output_path_text(folder_path)  # Update text

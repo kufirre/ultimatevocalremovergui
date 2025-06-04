@@ -1,1 +1,1 @@
-# Test package for UVR PySide6 application 
+# Test package for UVR PySide6 application

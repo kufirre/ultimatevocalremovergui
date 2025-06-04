@@ -1,7 +1,9 @@
 from PySide6.QtCore import QObject, Slot
 
+
 class DemucsSettingsPresenter(QObject):
     """Presenter for Demucs settings."""
+
     def __init__(self, view):
         super().__init__()
         self.view = view

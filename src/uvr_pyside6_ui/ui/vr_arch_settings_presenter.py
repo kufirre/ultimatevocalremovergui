@@ -1,4 +1,5 @@
 from PySide6.QtCore import QObject, Slot
+
 from ..core.logger_utils import get_logger
 
 logger = get_logger("vr_settings_presenter")
@@ -6,6 +7,7 @@ logger = get_logger("vr_settings_presenter")
 
 class VRArchSettingsPresenter(QObject):
     """Presenter for VR Architecture settings."""
+
     def __init__(self, view):
         super().__init__()
         self.view = view
@@ -23,9 +25,11 @@ class VRArchSettingsPresenter(QObject):
         self.view.high_end_changed.connect(self.set_high_end)
         self.view.tta_changed.connect(self.set_tta)
         self.view.post_process_changed.connect(self.set_post_process)
-        self.view.post_process_threshold_changed.connect(self.set_post_process_threshold)
+        self.view.post_process_threshold_changed.connect(
+            self.set_post_process_threshold
+        )
         self.view.batch_size_changed.connect(self.set_batch_size)
-        
+
         logger.debug("VRArchSettingsPresenter initialized")
 
     @Slot(str)
@@ -71,5 +75,5 @@ class VRArchSettingsPresenter(QObject):
             "is_tta": self._tta,
             "is_post_process": self._post_process,
             "post_process_threshold": self._post_process_threshold,
-            "batch_size": self._batch_size
+            "batch_size": self._batch_size,
         }

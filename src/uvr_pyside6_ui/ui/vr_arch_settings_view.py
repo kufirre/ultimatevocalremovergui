@@ -1,8 +1,16 @@
+from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QGroupBox, QComboBox,
-    QLabel, QHBoxLayout, QCheckBox, QSlider, QGridLayout, QSpinBox
+    QCheckBox,
+    QComboBox,
+    QGridLayout,
+    QGroupBox,
+    QLabel,
+    QSlider,
+    QSpinBox,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Signal, Slot, Qt
+
 from ..core.logger_utils import get_logger
 
 logger = get_logger("vr_settings_view")
@@ -10,6 +18,7 @@ logger = get_logger("vr_settings_view")
 
 class VRArchSettingsView(QWidget):
     """View for VR Architecture specific settings."""
+
     # Define signals for changes
     window_size_changed = Signal(str)
     aggression_changed = Signal(int)
@@ -35,15 +44,19 @@ class VRArchSettingsView(QWidget):
         self.win_combo = QComboBox()
         self.win_combo.addItems(["320", "512", "1024"])
         self.win_combo.setCurrentText("512")
-        self.win_combo.setToolTip("Size of the processing window. Larger values may improve quality but use more memory.")
+        self.win_combo.setToolTip(
+            "Size of the processing window. Larger values may improve quality but use more memory."
+        )
         self.win_combo.currentTextChanged.connect(self.window_size_changed)
-        
+
         batch_label = QLabel("Batch Size:")
         self.batch_spin = QSpinBox()
         self.batch_spin.setMinimum(1)
         self.batch_spin.setMaximum(16)
         self.batch_spin.setValue(4)
-        self.batch_spin.setToolTip("Number of samples processed simultaneously. Higher values use more memory.")
+        self.batch_spin.setToolTip(
+            "Number of samples processed simultaneously. Higher values use more memory."
+        )
         self.batch_spin.valueChanged.connect(self.batch_size_changed)
 
         grid_layout.addWidget(win_label, 0, 0)
@@ -57,13 +70,15 @@ class VRArchSettingsView(QWidget):
         self.agg_slider.setMinimum(1)
         self.agg_slider.setMaximum(100)
         self.agg_slider.setValue(5)
-        self.agg_slider.setToolTip("Separation aggressiveness. Higher values may improve separation but can introduce artifacts.")
+        self.agg_slider.setToolTip(
+            "Separation aggressiveness. Higher values may improve separation but can introduce artifacts."
+        )
         self.agg_value_label = QLabel(f"{self.agg_slider.value():3d}")
         self.agg_value_label.setMinimumWidth(30)
-        
+
         def update_aggression_label(value):
             self.agg_value_label.setText(f"{value:3d}")
-            
+
         self.agg_slider.valueChanged.connect(update_aggression_label)
         self.agg_slider.valueChanged.connect(self.aggression_changed)
 
@@ -78,15 +93,19 @@ class VRArchSettingsView(QWidget):
         self.pp_threshold_slider.setMaximum(50)
         self.pp_threshold_slider.setValue(20)
         self.pp_threshold_slider.setEnabled(False)  # Disabled by default
-        self.pp_threshold_slider.setToolTip("Threshold for post-processing artifact removal.")
-        self.pp_threshold_value_label = QLabel(f"{self.pp_threshold_slider.value()/100:.2f}")
+        self.pp_threshold_slider.setToolTip(
+            "Threshold for post-processing artifact removal."
+        )
+        self.pp_threshold_value_label = QLabel(
+            f"{self.pp_threshold_slider.value()/100:.2f}"
+        )
         self.pp_threshold_value_label.setMinimumWidth(40)
-        
+
         def update_pp_threshold_label(value):
             threshold_val = value / 100.0
             self.pp_threshold_value_label.setText(f"{threshold_val:.2f}")
             self.post_process_threshold_changed.emit(threshold_val)
-            
+
         self.pp_threshold_slider.valueChanged.connect(update_pp_threshold_label)
 
         grid_layout.addWidget(pp_threshold_label, 2, 0)
@@ -95,11 +114,15 @@ class VRArchSettingsView(QWidget):
 
         # Row 3: Advanced Options Checkboxes
         self.high_end_checkbox = QCheckBox("High End Process")
-        self.high_end_checkbox.setToolTip("Enable high-end frequency processing for better quality.")
+        self.high_end_checkbox.setToolTip(
+            "Enable high-end frequency processing for better quality."
+        )
         self.high_end_checkbox.toggled.connect(self.high_end_changed)
 
         self.tta_checkbox = QCheckBox("TTA (Test Time Augmentation)")
-        self.tta_checkbox.setToolTip("Enable test-time augmentation for potentially better results (slower processing).")
+        self.tta_checkbox.setToolTip(
+            "Enable test-time augmentation for potentially better results (slower processing)."
+        )
         self.tta_checkbox.toggled.connect(self.tta_changed)
 
         grid_layout.addWidget(self.high_end_checkbox, 3, 0, 1, 2)  # Span 2 columns
@@ -107,14 +130,16 @@ class VRArchSettingsView(QWidget):
 
         # Row 4: Post Process checkbox
         self.post_process_checkbox = QCheckBox("Post Process")
-        self.post_process_checkbox.setToolTip("Enable post-processing to reduce artifacts.")
-        
+        self.post_process_checkbox.setToolTip(
+            "Enable post-processing to reduce artifacts."
+        )
+
         def toggle_post_process(enabled):
             self.pp_threshold_slider.setEnabled(enabled)
             self.pp_threshold_value_label.setEnabled(enabled)
             pp_threshold_label.setEnabled(enabled)
             self.post_process_changed.emit(enabled)
-            
+
         self.post_process_checkbox.toggled.connect(toggle_post_process)
 
         grid_layout.addWidget(self.post_process_checkbox, 4, 0, 1, 2)  # Span 2 columns
@@ -122,12 +147,14 @@ class VRArchSettingsView(QWidget):
         # Set column stretch ratios for better space utilization
         grid_layout.setColumnStretch(0, 0)  # Labels take minimum space
         grid_layout.setColumnStretch(1, 1)  # Controls take available space
-        grid_layout.setColumnStretch(2, 0)  # Second set of labels take minimum space  
-        grid_layout.setColumnStretch(3, 1)  # Second set of controls take available space
+        grid_layout.setColumnStretch(2, 0)  # Second set of labels take minimum space
+        grid_layout.setColumnStretch(
+            3, 1
+        )  # Second set of controls take available space
 
         main_container_layout.addWidget(settings_group)
         self.setLayout(main_container_layout)
-        
+
         logger.debug("VRArchSettingsView initialized")
 
     # --- Slots (Called by Presenter) ---

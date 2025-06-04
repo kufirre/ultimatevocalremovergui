@@ -1,17 +1,23 @@
+from PySide6.QtCore import QSize, Signal, Slot  # Import QSize
+from PySide6.QtGui import QIcon  # Import QIcon
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QGroupBox, QPushButton,
-    QProgressBar, QTextEdit, QLabel, QHBoxLayout
+    QGroupBox,
+    QLabel,
+    QProgressBar,
+    QPushButton,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtGui import QIcon # Import QIcon
-from PySide6.QtCore import Signal, Slot, QSize # Import QSize
 
 
 class ExecutionControlView(QWidget):
     """
     View for starting the process and displaying progress/logs.
     """
+
     start_processing_clicked = Signal()
-    stop_processing_clicked = Signal() # Good to plan for a stop button
+    stop_processing_clicked = Signal()  # Good to plan for a stop button
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -24,12 +30,12 @@ class ExecutionControlView(QWidget):
 
         # --- Start/Stop Button ---
         self.start_button = QPushButton("Start Processing")
-        self.start_button.setObjectName("prominentButton") # Set object name for QSS
+        self.start_button.setObjectName("prominentButton")  # Set object name for QSS
         try:
             play_icon = QIcon(":/uvr/img/play.png")
             if not play_icon.isNull():
                 self.start_button.setIcon(play_icon)
-                self.start_button.setIconSize(QSize(18, 18)) # Adjust size as needed
+                self.start_button.setIconSize(QSize(18, 18))  # Adjust size as needed
             else:
                 print("Warning: Could not load play.png icon for Start button.")
         except Exception as e:
@@ -42,29 +48,29 @@ class ExecutionControlView(QWidget):
         progress_layout = QVBoxLayout(progress_container)
         progress_layout.setContentsMargins(0, 0, 0, 0)
         progress_layout.setSpacing(2)
-        
+
         # Add label above progress bar
         self.progress_label = QLabel("Ready")
         self.progress_label.setProperty("progressLabel", True)  # For QSS styling
         progress_layout.addWidget(self.progress_label)
-        
+
         # Progress bar
         self.progress_bar = QProgressBar()
         self.progress_bar.setObjectName("mainProgressBar")  # Set object name for QSS
         self.progress_bar.setTextVisible(False)  # Hide text inside progress bar
         self.progress_bar.setValue(0)  # Start at 0
         progress_layout.addWidget(self.progress_bar)
-        
+
         exec_layout.addWidget(progress_container)
 
         # --- Status/Log Area ---
         self.log_text_edit = QTextEdit()
         self.log_text_edit.setReadOnly(True)
-        
+
         self.log_text_edit.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
-        
-        self.log_text_edit.setFixedHeight(100) # Give it a fixed height for now
-        self.log_text_edit.setObjectName("logConsole") # Set object name for QSS
+
+        self.log_text_edit.setFixedHeight(100)  # Give it a fixed height for now
+        self.log_text_edit.setObjectName("logConsole")  # Set object name for QSS
         exec_layout.addWidget(self.log_text_edit)
 
         layout.addWidget(exec_group)
@@ -100,7 +106,7 @@ class ExecutionControlView(QWidget):
     def set_start_button_text(self, text: str):
         """Changes the text on the Start button."""
         self.start_button.setText(text)
-        
+
     @Slot()
     def clear_logs(self):
         """Clears the log area."""

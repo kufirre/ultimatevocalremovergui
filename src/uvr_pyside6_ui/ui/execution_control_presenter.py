@@ -1,8 +1,9 @@
 from PySide6.QtCore import QObject, Slot
+
 from ..core import app_constants as ac
 
-
 # No QTimer needed here now, as adapter handles it
+
 
 class ExecutionControlPresenter(QObject):
     """
@@ -43,16 +44,18 @@ class ExecutionControlPresenter(QObject):
         model_details = model_sel.get_current_selection()
         settings = proc_set.get_settings()
 
-        all_settings.update({
-            "input_paths": [input_path] if input_path else [],
-            "output_path": output_path,
-        })
+        all_settings.update(
+            {
+                "input_paths": [input_path] if input_path else [],
+                "output_path": output_path,
+            }
+        )
         # Add general processing settings
         all_settings.update(settings)
 
         # Add specific model settings based on selection
-        internal_method_name = model_details.get('chosen_process_method')
-        
+        internal_method_name = model_details.get("chosen_process_method")
+
         # Map internal method name back to UI key for presenter lookup
         ui_method_key = None
         if internal_method_name == ac.VR_ARCH_TYPE:
@@ -63,10 +66,10 @@ class ExecutionControlPresenter(QObject):
             ui_method_key = ac.DEMUCS_PRESENTER_KEY
         elif internal_method_name == ac.ENSEMBLE_MODE:
             ui_method_key = ac.ENSEMBLE_PRESENTER_KEY
-            
+
         if ui_method_key and ui_method_key in self.presenters:
             all_settings.update(self.presenters[ui_method_key].get_settings())
-        
+
         # Add model selection details last, so model_data can correctly pick up method and model
         all_settings.update(model_details)
 
@@ -84,10 +87,10 @@ class ExecutionControlPresenter(QObject):
         self.view.set_start_button_enabled(False)
         self.view.set_start_button_text(ac.BTN_STARTING)
         self._is_processing = True
-        
+
         # Reset completion logging flag for new processing session
-        if hasattr(self, '_logged_completion'):
-            delattr(self, '_logged_completion')
+        if hasattr(self, "_logged_completion"):
+            delattr(self, "_logged_completion")
 
         try:
             settings_dict = self._gather_all_settings()
@@ -98,7 +101,9 @@ class ExecutionControlPresenter(QObject):
                 self.view.append_log_message(f"  {k}: {v}")
             self.view.append_log_message(ac.MSG_SETTINGS_FOOTER)
 
-            if not settings_dict.get("input_paths") or not settings_dict.get("output_path"):
+            if not settings_dict.get("input_paths") or not settings_dict.get(
+                "output_path"
+            ):
                 raise ValueError(ac.MSG_INPUT_OUTPUT_REQUIRED)
 
             # --- Call the Adapter ---
@@ -113,18 +118,18 @@ class ExecutionControlPresenter(QObject):
     @Slot(int, str)
     def on_progress_update(self, value: int, text: str):
         """Updates the view when the adapter sends progress."""
-        if not self._is_processing: 
+        if not self._is_processing:
             return
-            
+
         self.view.set_progress_value(value)
         self.view.set_progress_text(text)
-        
+
         # Only log progress at key milestones and avoid repetitive 100% logs
         if value % 20 == 0 and value > 0 and value < 100:
             self.view.append_log_message(f"  ▶ {value}% completed...")
         elif value == 100:
             # Only log 100% once per processing session
-            if not hasattr(self, '_logged_completion'):
+            if not hasattr(self, "_logged_completion"):
                 self.view.append_log_message(f"  ✓ {ac.MSG_PROGRESS_COMPLETED}")
                 self._logged_completion = True
 
@@ -133,13 +138,15 @@ class ExecutionControlPresenter(QObject):
         """Updates the view when the adapter signals completion."""
         # Debug print removed
         self._is_processing = False
-        
+
         # Reset completion logging flag for next processing session
-        if hasattr(self, '_logged_completion'):
-            delattr(self, '_logged_completion')
-            
+        if hasattr(self, "_logged_completion"):
+            delattr(self, "_logged_completion")
+
         self.view.append_log_message(message)
         self.view.set_progress_value(100 if success else 0)
-        self.view.set_progress_text(ac.STATUS_COMPLETED if success else ac.STATUS_FAILED)
+        self.view.set_progress_text(
+            ac.STATUS_COMPLETED if success else ac.STATUS_FAILED
+        )
         self.view.set_start_button_enabled(True)
         self.view.set_start_button_text(ac.BTN_START_PROCESSING)

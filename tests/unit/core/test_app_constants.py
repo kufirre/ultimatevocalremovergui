@@ -4,11 +4,13 @@ Unit tests for app_constants module.
 Tests cover all constants, mappings, functions, and classes defined
 in the app_constants module to ensure consistency and correctness.
 """
-import pytest
+
 import json
 import tempfile
 from pathlib import Path
-from unittest.mock import patch, mock_open
+from unittest.mock import patch
+
+import pytest
 
 from uvr_pyside6_ui.core import app_constants as ac
 
@@ -29,9 +31,9 @@ class TestAppConstants:
         """Test model subdirectories mapping is correct."""
         expected_subdirs = {
             "VR Arch": "VR_Models",
-            "MDX-Net": "MDX_Net_Models", 
+            "MDX-Net": "MDX_Net_Models",
             "Demucs": "Demucs_Models",
-            "Ensemble": None
+            "Ensemble": None,
         }
         assert ac.MODEL_TYPE_SUBDIRS == expected_subdirs
 
@@ -47,23 +49,28 @@ class TestAppConstants:
         assert len(ac.ENSEMBLE_MAIN_STEM_OPTIONS) > 0
         assert "Vocals/Instrumental" in ac.ENSEMBLE_MAIN_STEM_OPTIONS
         assert "4 Stem Ensemble" in ac.ENSEMBLE_MAIN_STEM_OPTIONS
-        
+
         assert len(ac.ENSEMBLE_ALGORITHM_OPTIONS) > 0
         assert "Average/Average" in ac.ENSEMBLE_ALGORITHM_OPTIONS
         assert "Max Spec/Min Spec" in ac.ENSEMBLE_ALGORITHM_OPTIONS
 
     def test_processing_method_constants(self):
         """Test processing method constants are defined."""
-        assert ac.VR_ARCH_TYPE == 'VR Arc'
-        assert ac.MDX_ARCH_TYPE == 'MDX-Net'
-        assert ac.DEMUCS_ARCH_TYPE == 'Demucs'
-        assert ac.ENSEMBLE_MODE == 'Ensemble Mode'
+        assert ac.VR_ARCH_TYPE == "VR Arc"
+        assert ac.MDX_ARCH_TYPE == "MDX-Net"
+        assert ac.DEMUCS_ARCH_TYPE == "Demucs"
+        assert ac.ENSEMBLE_MODE == "Ensemble Mode"
 
     def test_stem_constants(self):
         """Test stem constants are properly defined."""
         expected_stems = [
-            ac.VOCAL_STEM, ac.INST_STEM, ac.OTHER_STEM,
-            ac.BASS_STEM, ac.DRUM_STEM, ac.GUITAR_STEM, ac.PIANO_STEM
+            ac.VOCAL_STEM,
+            ac.INST_STEM,
+            ac.OTHER_STEM,
+            ac.BASS_STEM,
+            ac.DRUM_STEM,
+            ac.GUITAR_STEM,
+            ac.PIANO_STEM,
         ]
         for stem in expected_stems:
             assert isinstance(stem, str)
@@ -81,23 +88,23 @@ class TestAppConstants:
         """Test secondary stem mapping function."""
         assert ac.secondary_stem(ac.VOCAL_STEM) == ac.INST_STEM
         assert ac.secondary_stem(ac.INST_STEM) == ac.VOCAL_STEM
-        assert ac.secondary_stem(ac.OTHER_STEM) == f'No {ac.OTHER_STEM}'
-        assert ac.secondary_stem(ac.BASS_STEM) == f'No {ac.BASS_STEM}'
-        assert ac.secondary_stem(ac.DRUM_STEM) == f'No {ac.DRUM_STEM}'
-        assert ac.secondary_stem('Unknown') == 'No Unknown'
+        assert ac.secondary_stem(ac.OTHER_STEM) == f"No {ac.OTHER_STEM}"
+        assert ac.secondary_stem(ac.BASS_STEM) == f"No {ac.BASS_STEM}"
+        assert ac.secondary_stem(ac.DRUM_STEM) == f"No {ac.DRUM_STEM}"
+        assert ac.secondary_stem("Unknown") == "No Unknown"
 
     def test_audio_format_constants(self):
         """Test audio format constants."""
-        assert ac.WAV == 'WAV'
-        assert ac.FLAC == 'FLAC'
-        assert ac.MP3 == 'MP3'
+        assert ac.WAV == "WAV"
+        assert ac.FLAC == "FLAC"
+        assert ac.MP3 == "MP3"
 
     def test_demucs_version_constants(self):
         """Test Demucs version constants."""
-        assert ac.DEMUCS_V1 == 'v1'
-        assert ac.DEMUCS_V2 == 'v2'
-        assert ac.DEMUCS_V3 == 'v3'
-        assert ac.DEMUCS_V4 == 'v4'
+        assert ac.DEMUCS_V1 == "v1"
+        assert ac.DEMUCS_V2 == "v2"
+        assert ac.DEMUCS_V3 == "v3"
+        assert ac.DEMUCS_V4 == "v4"
 
     def test_demucs_source_mappers(self):
         """Test Demucs source mapping dictionaries."""
@@ -129,24 +136,24 @@ class TestAppConstants:
 
     def test_device_constants(self):
         """Test device constants for ML processing."""
-        assert ac.CPU_DEVICE == 'cpu'
-        assert ac.CUDA_DEVICE == 'cuda'
-        assert ac.MPS_DEVICE == 'mps'
+        assert ac.CPU_DEVICE == "cpu"
+        assert ac.CUDA_DEVICE == "cuda"
+        assert ac.MPS_DEVICE == "mps"
 
     def test_execution_provider_constants(self):
         """Test ONNX execution provider constants."""
-        assert ac.CPU_EXECUTION_PROVIDER == 'CPUExecutionProvider'
-        assert ac.CUDA_EXECUTION_PROVIDER == 'CUDAExecutionProvider'
+        assert ac.CPU_EXECUTION_PROVIDER == "CPUExecutionProvider"
+        assert ac.CUDA_EXECUTION_PROVIDER == "CUDAExecutionProvider"
 
     def test_file_extension_constants(self):
         """Test file extension constants."""
-        assert ac.ONNX_EXT == '.onnx'
-        assert ac.CKPT_EXT == '.ckpt'
-        assert ac.PTH_EXT == '.pth'
-        assert ac.YAML_EXT == '.yaml'
-        assert ac.WAV_EXT == '.wav'
-        assert ac.FLAC_EXT == '.flac'
-        assert ac.MP3_EXT == '.mp3'
+        assert ac.ONNX_EXT == ".onnx"
+        assert ac.CKPT_EXT == ".ckpt"
+        assert ac.PTH_EXT == ".pth"
+        assert ac.YAML_EXT == ".yaml"
+        assert ac.WAV_EXT == ".wav"
+        assert ac.FLAC_EXT == ".flac"
+        assert ac.MP3_EXT == ".mp3"
 
     def test_default_values(self):
         """Test default configuration values."""
@@ -172,8 +179,12 @@ class TestAppConstants:
     def test_status_messages(self):
         """Test status message constants."""
         status_messages = [
-            ac.STATUS_READY, ac.STATUS_IDLE, ac.STATUS_COMPLETED,
-            ac.STATUS_FAILED, ac.STATUS_PROCESSING, ac.STATUS_STARTING
+            ac.STATUS_READY,
+            ac.STATUS_IDLE,
+            ac.STATUS_COMPLETED,
+            ac.STATUS_FAILED,
+            ac.STATUS_PROCESSING,
+            ac.STATUS_STARTING,
         ]
         for message in status_messages:
             assert isinstance(message, str)
@@ -188,8 +199,11 @@ class TestAppConstants:
     def test_quality_settings(self):
         """Test audio quality setting constants."""
         quality_settings = [
-            ac.QUALITY_PCM_16, ac.QUALITY_PCM_24, ac.QUALITY_PCM_32,
-            ac.QUALITY_FLOAT, ac.QUALITY_DOUBLE
+            ac.QUALITY_PCM_16,
+            ac.QUALITY_PCM_24,
+            ac.QUALITY_PCM_32,
+            ac.QUALITY_FLOAT,
+            ac.QUALITY_DOUBLE,
         ]
         for quality in quality_settings:
             assert isinstance(quality, str)
@@ -198,8 +212,11 @@ class TestAppConstants:
     def test_log_level_constants(self):
         """Test logging level constants."""
         log_levels = [
-            ac.LOG_LEVEL_DEBUG, ac.LOG_LEVEL_INFO, ac.LOG_LEVEL_WARNING,
-            ac.LOG_LEVEL_ERROR, ac.LOG_LEVEL_CRITICAL
+            ac.LOG_LEVEL_DEBUG,
+            ac.LOG_LEVEL_INFO,
+            ac.LOG_LEVEL_WARNING,
+            ac.LOG_LEVEL_ERROR,
+            ac.LOG_LEVEL_CRITICAL,
         ]
         for level in log_levels:
             assert isinstance(level, str)
@@ -212,10 +229,18 @@ class TestAppConstants:
         assert ac.ONLINE_MDX_DOWNLOAD_LIST_KEY in ac.FALLBACK_ONLINE_CATALOG
         assert ac.ONLINE_DEMUCS_DOWNLOAD_LIST_KEY in ac.FALLBACK_ONLINE_CATALOG
 
-    @pytest.mark.parametrize("stem", [
-        ac.VOCAL_STEM, ac.INST_STEM, ac.OTHER_STEM, 
-        ac.BASS_STEM, ac.DRUM_STEM, ac.GUITAR_STEM, ac.PIANO_STEM
-    ])
+    @pytest.mark.parametrize(
+        "stem",
+        [
+            ac.VOCAL_STEM,
+            ac.INST_STEM,
+            ac.OTHER_STEM,
+            ac.BASS_STEM,
+            ac.DRUM_STEM,
+            ac.GUITAR_STEM,
+            ac.PIANO_STEM,
+        ],
+    )
     def test_stem_secondary_mapping(self, stem):
         """Test secondary stem mapping for all defined stems."""
         secondary = ac.secondary_stem(stem)
@@ -224,78 +249,76 @@ class TestAppConstants:
 
 
 @pytest.mark.unit
-@pytest.mark.model  
+@pytest.mark.model
 class TestDummyModelParameters:
     """Test cases for DummyModelParameters class."""
 
     def test_dummy_model_parameters_default_init(self):
         """Test DummyModelParameters initialization with defaults."""
         params = ac.DummyModelParameters()
-        
-        assert hasattr(params, 'param')
+
+        assert hasattr(params, "param")
         assert isinstance(params.param, dict)
-        assert 'bins' in params.param
-        assert params.param['bins'] == 0
-        assert 'band' in params.param
-        assert isinstance(params.param['band'], dict)
+        assert "bins" in params.param
+        assert params.param["bins"] == 0
+        assert "band" in params.param
+        assert isinstance(params.param["band"], dict)
 
     def test_dummy_model_parameters_band_structure(self):
         """Test band structure in default parameters."""
         params = ac.DummyModelParameters()
-        
-        assert 1 in params.param['band']
-        band_1 = params.param['band'][1]
-        assert 'sr' in band_1
-        assert band_1['sr'] == 44100
-        assert 'hl' in band_1
-        assert 'n_fft' in band_1
-        assert 'crop_stop' in band_1
+
+        assert 1 in params.param["band"]
+        band_1 = params.param["band"][1]
+        assert "sr" in band_1
+        assert band_1["sr"] == 44100
+        assert "hl" in band_1
+        assert "n_fft" in band_1
+        assert "crop_stop" in band_1
 
     def test_dummy_model_parameters_with_valid_json_file(self):
         """Test loading parameters from a valid JSON file."""
         test_params = {
-            'bins': 1024,
-            'band': {
-                "1": {'sr': 48000, 'hl': 2048, 'n_fft': 4096, 'crop_stop': 1}
-            },
-            'pre_filter_start': 100,
-            'pre_filter_stop': 8000
+            "bins": 1024,
+            "band": {"1": {"sr": 48000, "hl": 2048, "n_fft": 4096, "crop_stop": 1}},
+            "pre_filter_start": 100,
+            "pre_filter_stop": 8000,
         }
-        
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(test_params, f)
             temp_path = f.name
-        
+
         try:
             params = ac.DummyModelParameters(temp_path)
-            
-            assert params.param['bins'] == 1024
-            assert params.param['band']["1"]['sr'] == 48000
-            assert params.param['pre_filter_start'] == 100
-            assert params.param['pre_filter_stop'] == 8000
+
+            assert params.param["bins"] == 1024
+            assert params.param["band"]["1"]["sr"] == 48000
+            assert params.param["pre_filter_start"] == 100
+            assert params.param["pre_filter_stop"] == 8000
         finally:
             Path(temp_path).unlink()
 
     def test_dummy_model_parameters_with_nonexistent_file(self):
         """Test handling of nonexistent file path."""
         params = ac.DummyModelParameters("/nonexistent/path.json")
-        
+
         # Should fall back to defaults
-        assert params.param['bins'] == 0
-        assert 1 in params.param['band']
+        assert params.param["bins"] == 0
+        assert 1 in params.param["band"]
 
     def test_dummy_model_parameters_with_invalid_json(self):
         """Test handling of invalid JSON file."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             f.write("invalid json content {")
             temp_path = f.name
-        
+
         try:
-            with patch('builtins.print') as mock_print:
+            with patch("builtins.print") as mock_print:
                 params = ac.DummyModelParameters(temp_path)
-                
+
                 # Should fall back to defaults and print warning
-                assert params.param['bins'] == 0
+                assert params.param["bins"] == 0
                 mock_print.assert_called_once()
                 assert "Warning" in mock_print.call_args[0][0]
         finally:
@@ -304,42 +327,48 @@ class TestDummyModelParameters:
     def test_dummy_model_parameters_with_string_input(self):
         """Test handling of string input that's not a file path."""
         params = ac.DummyModelParameters("just a string")
-        
+
         # Should use defaults since string is not a valid file path
-        assert params.param['bins'] == 0
-        assert 1 in params.param['band']
+        assert params.param["bins"] == 0
+        assert 1 in params.param["band"]
 
     @pytest.mark.edge_case
     def test_dummy_model_parameters_with_none(self):
         """Test handling of None input."""
         params = ac.DummyModelParameters(None)
-        
-        assert params.param['bins'] == 0
-        assert 1 in params.param['band']
+
+        assert params.param["bins"] == 0
+        assert 1 in params.param["band"]
 
     def test_dummy_model_parameters_param_structure(self):
         """Test complete parameter structure is correct."""
         params = ac.DummyModelParameters()
-        
-        required_keys = ['bins', 'band', 'pre_filter_start', 'pre_filter_stop', 'aggr_correction']
+
+        required_keys = [
+            "bins",
+            "band",
+            "pre_filter_start",
+            "pre_filter_stop",
+            "aggr_correction",
+        ]
         for key in required_keys:
             assert key in params.param
 
     def test_dummy_model_parameters_json_merge(self):
         """Test that JSON parameters properly merge with defaults."""
-        test_params = {'bins': 2048}  # Only override bins
-        
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        test_params = {"bins": 2048}  # Only override bins
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(test_params, f)
             temp_path = f.name
-        
+
         try:
             params = ac.DummyModelParameters(temp_path)
-            
+
             # Should have overridden bins but kept other defaults
-            assert params.param['bins'] == 2048
-            assert 'band' in params.param  # Default should remain
-            assert params.param['pre_filter_start'] == 0  # Default should remain
+            assert params.param["bins"] == 2048
+            assert "band" in params.param  # Default should remain
+            assert params.param["pre_filter_start"] == 0  # Default should remain
         finally:
             Path(temp_path).unlink()
 
@@ -352,9 +381,9 @@ class TestConstantConsistency:
         """Test that MODEL_SUBDIRS keys match model type constants."""
         expected_keys = {
             ac.VR_ARCH_MODELS_KEY,
-            ac.MDX_NET_MODELS_KEY, 
+            ac.MDX_NET_MODELS_KEY,
             ac.DEMUCS_MODELS_KEY,
-            ac.ENSEMBLE_MODELS_KEY
+            ac.ENSEMBLE_MODELS_KEY,
         }
         assert set(ac.MODEL_SUBDIRS.keys()) == expected_keys
 
@@ -363,8 +392,8 @@ class TestConstantConsistency:
         expected_keys = {
             ac.VR_ARCH_MODELS_KEY,
             ac.MDX_NET_MODELS_KEY,
-            ac.DEMUCS_MODELS_KEY, 
-            ac.ENSEMBLE_MODELS_KEY
+            ac.DEMUCS_MODELS_KEY,
+            ac.ENSEMBLE_MODELS_KEY,
         }
         assert set(ac.ONLINE_CATALOG_MAP.keys()) == expected_keys
 
@@ -372,27 +401,39 @@ class TestConstantConsistency:
         """Test consistency between Demucs source lists and mappers."""
         # 4-source list should match 4-source mapper keys
         assert set(ac.DEMUCS_4_SOURCE_LIST) == set(ac.DEMUCS_4_SOURCE_MAPPER.keys())
-        
-        # 2-source list should match 2-source mapper keys  
+
+        # 2-source list should match 2-source mapper keys
         assert set(ac.DEMUCS_2_SOURCE_LIST) == set(ac.DEMUCS_2_SOURCE_MAPPER.keys())
 
     def test_stem_constants_no_duplicates(self):
         """Test that stem constants have no duplicates."""
         all_stems = [
-            ac.VOCAL_STEM, ac.INST_STEM, ac.OTHER_STEM,
-            ac.BASS_STEM, ac.DRUM_STEM, ac.GUITAR_STEM, ac.PIANO_STEM
+            ac.VOCAL_STEM,
+            ac.INST_STEM,
+            ac.OTHER_STEM,
+            ac.BASS_STEM,
+            ac.DRUM_STEM,
+            ac.GUITAR_STEM,
+            ac.PIANO_STEM,
         ]
         assert len(all_stems) == len(set(all_stems))
 
     def test_file_extensions_format(self):
         """Test that file extensions are properly formatted."""
         extensions = [
-            ac.ONNX_EXT, ac.CKPT_EXT, ac.PTH_EXT, ac.YAML_EXT,
-            ac.WAV_EXT, ac.FLAC_EXT, ac.MP3_EXT, ac.JSON_EXT,
-            ac.TH_EXT, ac.GZ_EXT
+            ac.ONNX_EXT,
+            ac.CKPT_EXT,
+            ac.PTH_EXT,
+            ac.YAML_EXT,
+            ac.WAV_EXT,
+            ac.FLAC_EXT,
+            ac.MP3_EXT,
+            ac.JSON_EXT,
+            ac.TH_EXT,
+            ac.GZ_EXT,
         ]
         for ext in extensions:
-            assert ext.startswith('.')
+            assert ext.startswith(".")
             assert len(ext) > 1
 
     def test_url_constants_format(self):
@@ -401,8 +442,8 @@ class TestConstantConsistency:
             ac.DOWNLOAD_CHECKS_URL,
             ac.MODEL_REPO_URL_BASE,
             ac.DEMUCS_URL_BASE,
-            ac.DEMUCS_CONFIG_URL_BASE
+            ac.DEMUCS_CONFIG_URL_BASE,
         ]
         for url in urls:
-            assert url.startswith('http')
-            assert '://' in url 
+            assert url.startswith("http")
+            assert "://" in url

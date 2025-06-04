@@ -1,12 +1,19 @@
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QGroupBox, QSpinBox,
-    QLabel, QHBoxLayout, QDoubleSpinBox, QComboBox
+    QComboBox,
+    QDoubleSpinBox,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QSpinBox,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Signal, Slot
 
 
 class MDXNetSettingsView(QWidget):
     """View for MDX-Net specific settings."""
+
     segment_size_changed = Signal(int)
     overlap_changed = Signal(float)
     match_method_changed = Signal(str)

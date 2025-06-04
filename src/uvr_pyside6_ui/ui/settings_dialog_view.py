@@ -1,10 +1,22 @@
+from PySide6.QtCore import QSize, Signal, Slot
+from PySide6.QtGui import QCloseEvent, QIcon
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QTabWidget, QWidget, QFormLayout,
-    QLineEdit, QCheckBox, QPushButton, QDialogButtonBox,
-    QLabel, QComboBox, QListWidget, QHBoxLayout, QMessageBox, QProgressBar
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtGui import QIcon, QCloseEvent
-from PySide6.QtCore import Signal, Slot, QSize
 
 
 class SettingsDialogView(QDialog):
@@ -37,7 +49,6 @@ class SettingsDialogView(QDialog):
         except Exception as e:
             print(f"Error loading general_icon for settings tab: {e}")
             self.tab_widget.addTab(general_tab, "General")
-
 
         # Paths Tab
         paths_tab = QWidget()
@@ -72,7 +83,7 @@ class SettingsDialogView(QDialog):
             download_icon = QIcon(":/uvr/img/download.png")
             if not download_icon.isNull():
                 self.dc_download_button.setIcon(download_icon)
-                self.dc_download_button.setIconSize(QSize(16,16)) # Adjust as needed
+                self.dc_download_button.setIconSize(QSize(16, 16))  # Adjust as needed
         except Exception as e:
             print(f"Error loading download_icon for button: {e}")
         self.dc_download_button.setEnabled(False)
@@ -82,48 +93,57 @@ class SettingsDialogView(QDialog):
         progress_layout = QVBoxLayout(progress_container)
         progress_layout.setContentsMargins(0, 0, 0, 0)
         progress_layout.setSpacing(2)
-        
+
         # Status label above progress bar
         self.dc_status_label = QLabel("💤 Ready to download")
         self.dc_status_label.setProperty("progressLabel", True)  # For QSS styling
         progress_layout.addWidget(self.dc_status_label)
-        
+
         # Progress bar
         self.dc_progress_bar = QProgressBar()
-        self.dc_progress_bar.setObjectName("downloadProgressBar")  # Set object name for QSS
+        self.dc_progress_bar.setObjectName(
+            "downloadProgressBar"
+        )  # Set object name for QSS
         self.dc_progress_bar.setValue(0)
         self.dc_progress_bar.setTextVisible(False)  # Hide text inside progress bar
         self.dc_progress_bar.setRange(0, 100)
         progress_layout.addWidget(self.dc_progress_bar)
-        
+
         dc_main_layout.addWidget(progress_container)
         try:
             dc_tab_icon = QIcon(":/uvr/img/download.png")
-            self.tab_widget.addTab(self.download_center_tab, dc_tab_icon, "Download Center")
+            self.tab_widget.addTab(
+                self.download_center_tab, dc_tab_icon, "Download Center"
+            )
         except Exception as e:
             print(f"Error loading dc_tab_icon for settings tab: {e}")
             self.tab_widget.addTab(self.download_center_tab, "Download Center")
 
-        self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.button_box = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+        )
         self.button_box.accepted.connect(self.accept)
         self.button_box.rejected.connect(self.reject)
-        
-        self.dialog_status_label = QLabel(" ") # General status label for the dialog
+
+        self.dialog_status_label = QLabel(" ")  # General status label for the dialog
         main_layout.addWidget(self.dialog_status_label)
         main_layout.addWidget(self.button_box)
-        
+
         self.setLayout(main_layout)
-        
-        self.dc_downloadable_models_list.itemSelectionChanged.connect(self._on_dc_list_selection_changed)
+
+        self.dc_downloadable_models_list.itemSelectionChanged.connect(
+            self._on_dc_list_selection_changed
+        )
         # Initial state for download button
         self._on_dc_list_selection_changed()
-
 
     def _on_dc_list_selection_changed(self):
         """Handles selection changes in the downloadable models list."""
         has_selection = bool(self.dc_downloadable_models_list.selectedItems())
-        self.dc_download_button.setEnabled(has_selection and not self._is_download_in_progress)
-        
+        self.dc_download_button.setEnabled(
+            has_selection and not self._is_download_in_progress
+        )
+
         # Reset status and progress if selection changes or is cleared, and not downloading
         if not self._is_download_in_progress:
             self.dc_status_label.setText("💤 Ready to download")
@@ -142,24 +162,32 @@ class SettingsDialogView(QDialog):
         self.button_box.button(QDialogButtonBox.Cancel).setEnabled(not in_progress)
         # Disable other tabs too?
         for i in range(self.tab_widget.count()):
-            if i != self.tab_widget.currentIndex() and self.tab_widget.tabText(
-                    i) == "Download Center":  # only disable other tabs if DC is active
+            if (
+                i != self.tab_widget.currentIndex()
+                and self.tab_widget.tabText(i) == "Download Center"
+            ):  # only disable other tabs if DC is active
                 continue
             self.tab_widget.setTabEnabled(i, not in_progress)
 
     def closeEvent(self, event: QCloseEvent):
         """Override close event to prevent closing during download."""
         if self._is_download_in_progress:
-            QMessageBox.warning(self, "Download in Progress",
-                                "A model download is currently in progress. Please wait for it to complete.")
+            QMessageBox.warning(
+                self,
+                "Download in Progress",
+                "A model download is currently in progress. Please wait for it to complete.",
+            )
             event.ignore()  # Prevent dialog from closing
         else:
             super().closeEvent(event)  # Allow normal close
 
     def accept(self):
         if self._is_download_in_progress:
-            QMessageBox.warning(self, "Download in Progress",
-                                "Cannot save settings while a download is in progress.")
+            QMessageBox.warning(
+                self,
+                "Download in Progress",
+                "Cannot save settings while a download is in progress.",
+            )
             return
         # Debug print removed
         self.settings_saved.emit(self.get_settings())
@@ -167,8 +195,11 @@ class SettingsDialogView(QDialog):
 
     def reject(self):
         if self._is_download_in_progress:
-            QMessageBox.warning(self, "Download in Progress",
-                                "Cannot cancel dialog while a download is in progress. Please wait.")
+            QMessageBox.warning(
+                self,
+                "Download in Progress",
+                "Cannot cancel dialog while a download is in progress. Please wait.",
+            )
             return
         # Debug print removed
         super().reject()
@@ -217,6 +248,6 @@ class SettingsDialogView(QDialog):
             # Let's make it simple: it just sets the text. Presenter can clear if needed.
             # If timeout is used, we'd need a QTimer here.
             # For now, let's assume the presenter wants a persistent message until next action.
-            pass 
+            pass
             # If you want timeout:
             # QTimer.singleShot(timeout, lambda: self.dialog_status_label.setText(" "))

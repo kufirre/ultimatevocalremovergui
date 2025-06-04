@@ -1,30 +1,38 @@
+from PySide6.QtCore import Slot  # Added QSize
+from PySide6.QtGui import QAction  # Added QIcon
 from PySide6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QStatusBar, QLabel, QMessageBox,
-    QApplication, QScrollArea, QPushButton, QHBoxLayout, QFrame  # Added QScrollArea, QPushButton, QHBoxLayout, QFrame
+    QApplication,  # Added QScrollArea, QPushButton, QHBoxLayout, QFrame
+    QFrame,
+    QHBoxLayout,
+    QMainWindow,
+    QMessageBox,
+    QScrollArea,
+    QStatusBar,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtGui import QAction, QIcon  # Added QIcon
-from PySide6.QtCore import QSize, Slot  # Added QSize
+
+from ..core import app_constants as ac
+from ..core.uvr_core_adapter import UVRCoreAdapter
+from .demucs_settings_presenter import DemucsSettingsPresenter
+from .demucs_settings_view import DemucsSettingsView
+from .ensemble_settings_presenter import EnsembleSettingsPresenter
+from .ensemble_settings_view import EnsembleSettingsView
+from .execution_control_presenter import ExecutionControlPresenter
+from .execution_control_view import ExecutionControlView
+from .file_io_presenter import FileIOPresenter
 
 # ... (all other view/presenter imports as in response #37) ...
 from .file_io_view import FileIOView
-from .file_io_presenter import FileIOPresenter
-from .processing_settings_view import ProcessingSettingsView
-from .processing_settings_presenter import ProcessingSettingsPresenter
-from .model_selection_view import ModelSelectionView
-from .model_selection_presenter import ModelSelectionPresenter
-from .vr_arch_settings_view import VRArchSettingsView
-from .vr_arch_settings_presenter import VRArchSettingsPresenter
-from .mdx_net_settings_view import MDXNetSettingsView
 from .mdx_net_settings_presenter import MDXNetSettingsPresenter
-from .demucs_settings_view import DemucsSettingsView
-from .demucs_settings_presenter import DemucsSettingsPresenter
-from .ensemble_settings_view import EnsembleSettingsView
-from .ensemble_settings_presenter import EnsembleSettingsPresenter
-from .execution_control_view import ExecutionControlView
-from .execution_control_presenter import ExecutionControlPresenter
+from .mdx_net_settings_view import MDXNetSettingsView
+from .model_selection_presenter import ModelSelectionPresenter
+from .model_selection_view import ModelSelectionView
+from .processing_settings_presenter import ProcessingSettingsPresenter
+from .processing_settings_view import ProcessingSettingsView
 from .settings_dialog_presenter import SettingsDialogPresenter
-from ..core.uvr_core_adapter import UVRCoreAdapter
-from ..core import app_constants as ac
+from .vr_arch_settings_presenter import VRArchSettingsPresenter
+from .vr_arch_settings_view import VRArchSettingsView
 
 
 class MainWindowView(QMainWindow):
@@ -32,7 +40,9 @@ class MainWindowView(QMainWindow):
         super().__init__(parent)
 
         self.setWindowTitle(ac.APP_TITLE)
-        self.setGeometry(100, 100, 680, 720)  # Adjusted default size inspired by UVR.py WIDTH
+        self.setGeometry(
+            100, 100, 680, 720
+        )  # Adjusted default size inspired by UVR.py WIDTH
 
         # --- Main Content Container for ScrollArea ---
         self.main_content_container = QWidget()
@@ -47,7 +57,9 @@ class MainWindowView(QMainWindow):
 
         self.presenters = {}
         self.adapter = UVRCoreAdapter(self)
-        self.settings_dialog_presenter = SettingsDialogPresenter(adapter=self.adapter, parent_qt_object=self)
+        self.settings_dialog_presenter = SettingsDialogPresenter(
+            adapter=self.adapter, parent_qt_object=self
+        )
 
         # --- Top Bar for Settings Button (Optional, or add to existing area) ---
         # For now, let's add it to the main layout for simplicity.
@@ -57,22 +69,35 @@ class MainWindowView(QMainWindow):
         # ... (File I/O, Specific Settings Panels, Model Selection, Processing Settings as in response #37) ...
         # File I/O
         self.file_io_view = FileIOView()
-        self.presenters[ac.FILE_IO_PRESENTER_KEY] = FileIOPresenter(view=self.file_io_view)
+        self.presenters[ac.FILE_IO_PRESENTER_KEY] = FileIOPresenter(
+            view=self.file_io_view
+        )
         self.main_layout.addWidget(self.file_io_view)
         # Specific Settings Panels
         self.vr_arch_view = VRArchSettingsView()
-        self.presenters[ac.VR_ARCH_PRESENTER_KEY] = VRArchSettingsPresenter(view=self.vr_arch_view)
+        self.presenters[ac.VR_ARCH_PRESENTER_KEY] = VRArchSettingsPresenter(
+            view=self.vr_arch_view
+        )
         self.mdx_net_view = MDXNetSettingsView()
-        self.presenters[ac.MDX_NET_PRESENTER_KEY] = MDXNetSettingsPresenter(view=self.mdx_net_view)
+        self.presenters[ac.MDX_NET_PRESENTER_KEY] = MDXNetSettingsPresenter(
+            view=self.mdx_net_view
+        )
         self.demucs_view = DemucsSettingsView()
-        self.presenters[ac.DEMUCS_PRESENTER_KEY] = DemucsSettingsPresenter(view=self.demucs_view)
+        self.presenters[ac.DEMUCS_PRESENTER_KEY] = DemucsSettingsPresenter(
+            view=self.demucs_view
+        )
         self.ensemble_view = EnsembleSettingsView()
-        self.presenters[ac.ENSEMBLE_PRESENTER_KEY] = EnsembleSettingsPresenter(view=self.ensemble_view, adapter=self.adapter)
+        self.presenters[ac.ENSEMBLE_PRESENTER_KEY] = EnsembleSettingsPresenter(
+            view=self.ensemble_view, adapter=self.adapter
+        )
         # Model Selection
         self.model_selection_view = ModelSelectionView()
-        self.presenters[ac.MODEL_SELECTION_PRESENTER_KEY] = ModelSelectionPresenter(view=self.model_selection_view,
-                                                                     adapter=self.adapter)
-        self.presenters[ac.MODEL_SELECTION_PRESENTER_KEY].request_show_download_center.connect(self._open_download_center_tab)
+        self.presenters[ac.MODEL_SELECTION_PRESENTER_KEY] = ModelSelectionPresenter(
+            view=self.model_selection_view, adapter=self.adapter
+        )
+        self.presenters[
+            ac.MODEL_SELECTION_PRESENTER_KEY
+        ].request_show_download_center.connect(self._open_download_center_tab)
         # self.adapter.download_finished.connect(self.presenters[ac.MODEL_SELECTION_PRESENTER_KEY]._on_model_downloaded_elsewhere) # Removed, ModelSelectionPresenter now uses model_download_completed
         self.model_selection_view.add_settings_panel("VR Arch", self.vr_arch_view)
         self.model_selection_view.add_settings_panel("MDX-Net", self.mdx_net_view)
@@ -81,7 +106,9 @@ class MainWindowView(QMainWindow):
         self.main_layout.addWidget(self.model_selection_view)
         # Processing Settings (now includes new checkboxes)
         self.processing_settings_view = ProcessingSettingsView()
-        self.presenters[ac.PROCESSING_SETTINGS_PRESENTER_KEY] = ProcessingSettingsPresenter(view=self.processing_settings_view)
+        self.presenters[ac.PROCESSING_SETTINGS_PRESENTER_KEY] = (
+            ProcessingSettingsPresenter(view=self.processing_settings_view)
+        )
         self.main_layout.addWidget(self.processing_settings_view)
 
         # --- Execution Control and Settings Button Row ---
@@ -90,7 +117,7 @@ class MainWindowView(QMainWindow):
         self.presenters[ac.EXECUTION_PRESENTER_KEY] = ExecutionControlPresenter(
             view=self.execution_control_view,
             main_window_presenters=self.presenters,
-            adapter=self.adapter
+            adapter=self.adapter,
         )
         bottom_controls_layout.addWidget(self.execution_control_view, 1)
         # Settings button is now removed. Access settings via Edit > Preferences menu.
@@ -117,7 +144,9 @@ class MainWindowView(QMainWindow):
         if self.model_selection_view.method_combo.count() > 0:
             initial_method = self.model_selection_view.method_combo.currentText()
             if initial_method:
-                self.presenters[ac.MODEL_SELECTION_PRESENTER_KEY].handle_method_change(initial_method)
+                self.presenters[ac.MODEL_SELECTION_PRESENTER_KEY].handle_method_change(
+                    initial_method
+                )
         else:
             self.presenters[ac.MODEL_SELECTION_PRESENTER_KEY].handle_method_change("")
 
@@ -136,7 +165,9 @@ class MainWindowView(QMainWindow):
         edit_menu = menu_bar.addMenu(ac.MENU_EDIT)
         prefs_action = QAction(ac.ACTION_PREFERENCES, self)
         prefs_action.setShortcut(ac.SHORTCUT_PREFERENCES)
-        prefs_action.triggered.connect(lambda: self.settings_dialog_presenter.show_dialog(default_model_type=None))
+        prefs_action.triggered.connect(
+            lambda: self.settings_dialog_presenter.show_dialog(default_model_type=None)
+        )
         edit_menu.addAction(prefs_action)
         help_menu = menu_bar.addMenu(ac.MENU_HELP)
         about_action = QAction(ac.ACTION_ABOUT, self)
@@ -145,11 +176,15 @@ class MainWindowView(QMainWindow):
 
     @Slot(str)
     def _open_download_center_tab(self, originating_method: str):
-        self.settings_dialog_presenter.show_dialog(exec_dialog=False, default_model_type=originating_method)
-        if self.settings_dialog_presenter.view: self.settings_dialog_presenter.view.tab_widget.setCurrentIndex(2)
+        self.settings_dialog_presenter.show_dialog(
+            exec_dialog=False, default_model_type=originating_method
+        )
+        if self.settings_dialog_presenter.view:
+            self.settings_dialog_presenter.view.tab_widget.setCurrentIndex(2)
 
     def _quit_application(self):
-        app = QApplication.instance(); app.quit() if app else None
+        app = QApplication.instance()
+        app.quit() if app else None
 
     def _show_about_dialog(self):
         QMessageBox.about(self, ac.ABOUT_TITLE, ac.ABOUT_MESSAGE)

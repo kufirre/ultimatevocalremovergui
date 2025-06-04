@@ -1,10 +1,17 @@
+from typing import Dict, List
+
+from PySide6.QtCore import Signal, Slot
+from PySide6.QtGui import QIcon, QStandardItem, QStandardItemModel  # Import QIcon
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QGroupBox, QComboBox,
-    QLabel, QHBoxLayout, QStackedWidget
+    QComboBox,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QStackedWidget,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Signal, Slot, Qt
-from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon # Import QIcon
-from typing import List, Dict
+
 from ..core import app_constants as ac
 
 
@@ -35,7 +42,9 @@ class ModelSelectionView(QWidget):
         model_label = QLabel("Model:")
         self.model_combo = QComboBox()
         self.model_combo.setModel(self.model_combo_model)
-        self.model_combo.activated[int].connect(self._handle_model_combo_activated_by_user)
+        self.model_combo.activated[int].connect(
+            self._handle_model_combo_activated_by_user
+        )
         model_select_layout.addWidget(model_label)
         model_select_layout.addWidget(self.model_combo, 1)
         model_layout.addLayout(model_select_layout)
@@ -68,7 +77,8 @@ class ModelSelectionView(QWidget):
         self.method_combo.clear()
         if methods:
             self.method_combo.addItems(methods)
-            if self.method_combo.count() > 0: self.method_combo.setCurrentIndex(0)
+            if self.method_combo.count() > 0:
+                self.method_combo.setCurrentIndex(0)
         self.method_combo.blockSignals(False)
 
     @Slot(list)
@@ -86,8 +96,9 @@ class ModelSelectionView(QWidget):
         else:
             has_actual_models = bool(models)
             if has_actual_models:
-                for model_name in models: self.model_combo_model.appendRow(QStandardItem(model_name))
-            
+                for model_name in models:
+                    self.model_combo_model.appendRow(QStandardItem(model_name))
+
             download_item = QStandardItem(ac.DOWNLOAD_MORE_MODELS_TEXT)
             try:
                 dl_icon = QIcon(":/uvr/img/download.png")
@@ -118,7 +129,7 @@ class ModelSelectionView(QWidget):
         self.model_combo.blockSignals(True)
         idx = -1
         for i in range(self.model_combo_model.rowCount()):
-            if self.model_combo_model.item(i).text() == model_text_to_select: 
+            if self.model_combo_model.item(i).text() == model_text_to_select:
                 idx = i
                 break
         if idx != -1:
@@ -127,9 +138,13 @@ class ModelSelectionView(QWidget):
             pass
         elif self.model_combo_model.rowCount() > 0:
             first_item = self.model_combo_model.item(0)
-            if first_item and first_item.text() != ac.DOWNLOAD_MORE_MODELS_TEXT:
-                self.model_combo.setCurrentIndex(0)
-            elif self.model_combo_model.rowCount() == 1 and first_item and first_item.text() == ac.DOWNLOAD_MORE_MODELS_TEXT:
+            if (
+                first_item
+                and first_item.text() != ac.DOWNLOAD_MORE_MODELS_TEXT
+                or self.model_combo_model.rowCount() == 1
+                and first_item
+                and first_item.text() == ac.DOWNLOAD_MORE_MODELS_TEXT
+            ):
                 self.model_combo.setCurrentIndex(0)
         self.model_combo.blockSignals(False)
 

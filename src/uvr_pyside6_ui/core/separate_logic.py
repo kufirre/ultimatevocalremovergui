@@ -983,7 +983,7 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
                         outputs[target_primary_stem_cap] = primary_stem_data
                     
                     # Create secondary stem if needed
-                    if not md.is_primary_stem_only and md.secondary_stem != ac.NO_STEM:
+                    if not md.is_primary_stem_only and not md.secondary_stem.startswith("No "):
                         if md.is_demucs_combine_stems:
                             # Combine all non-primary stems
                             combined_stem = np.zeros_like(primary_stem_data)

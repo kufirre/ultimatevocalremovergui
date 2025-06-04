@@ -1,0 +1,82 @@
+# Pre-commit configuration for UVR PySide6 project
+# Install with: pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # Black code formatting
+  - repo: https://github.com/psf/black
+    rev: 23.12.1
+    hooks:
+      - id: black
+        args: [--line-length=88, --target-version=py38]
+        language_version: python3
+
+  # Import sorting with isort
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: [--profile=black, --line-length=88]
+
+  # Ruff linting (replaces flake8, pycodestyle, etc.)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.1.8
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+
+  # MyPy type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.8.0
+    hooks:
+      - id: mypy
+        args: [--ignore-missing-imports, --show-error-codes]
+        additional_dependencies: [types-requests, types-PyYAML]
+        exclude: ^(tests/|demucs/|lib_v5/)
+
+  # Basic pre-commit hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      # File format checks
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: check-xml
+      
+      # Security and syntax checks  
+      - id: check-ast  # Check Python AST
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1000]  # Max 1MB files
+      - id: detect-private-key
+      
+      # Code quality
+      - id: debug-statements  # Check for pdb imports
+      - id: name-tests-test   # Ensure test files are named correctly
+        args: [--pytest-test-first]
+
+  # Security checks with bandit
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.5
+    hooks:
+      - id: bandit
+        args: [-r, -ll]  # Recursive, low-low confidence
+        exclude: ^tests/
+
+  # Pytest (run a subset of fast tests)
+  - repo: local
+    hooks:
+      - id: pytest-quick
+        name: Quick test suite
+        entry: python -m pytest tests/unit/core/test_app_constants.py -v --tb=short
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+# Configuration
+default_stages: [pre-commit]
+fail_fast: false  # Run all hooks even if some fail
+minimum_pre_commit_version: '3.0.0' 

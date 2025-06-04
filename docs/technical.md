@@ -119,12 +119,16 @@ pip install -e ".[gpu]"
 ## Development Guidelines
 
 ### Code Quality
-- Type hints throughout codebase
-- Comprehensive error handling with user-friendly messages
-- Consistent logging for debugging and monitoring
-- Modular architecture for easy testing and maintenance
+
+The project maintains high code quality through:
+
+- **Type Hints**: Full typing throughout the codebase
+- **Comprehensive error handling** with user-friendly messages
+- **Consistent logging** for debugging and monitoring
+- **Modular architecture** for easy testing and maintenance
 
 ### Testing Standards
+
 - Unit tests for all core functionality
 - Integration tests for end-to-end workflows
 - Mock-based testing to avoid heavy model dependencies
@@ -132,7 +136,88 @@ pip install -e ".[gpu]"
 - Regression tests for all critical bug fixes
 
 ### Configuration
+
 - All model paths and settings configurable
 - Persistent user preferences
 - Environment-specific settings support
-- Comprehensive logging configuration 
+- Comprehensive logging configuration
+
+## Code Quality Standards
+
+### Automated Tools
+
+The project uses a comprehensive suite of automated tools to maintain code quality:
+
+#### Formatting Tools
+- **Black**: Python code formatter with 88-character line length
+- **isort**: Import statement organizer (configured for Black compatibility)
+
+#### Linting Tools  
+- **Ruff**: Fast Python linter replacing flake8, pycodestyle, and others
+- **MyPy**: Static type checker for type safety
+- **Bandit**: Security vulnerability scanner
+- **Flake8**: Additional style and quality checks
+
+#### Quality Scripts
+
+```bash
+# Individual tools
+./scripts/format.sh      # Format code with Black + isort
+./scripts/lint.sh        # Run all linting and quality checks
+./scripts/check-all.sh   # Complete quality pipeline
+
+# Pre-commit integration
+pre-commit install       # Set up automatic pre-commit hooks
+pre-commit run --all-files  # Run all hooks manually
+```
+
+### Quality Standards
+
+#### Code Style
+- **Line Length**: 88 characters maximum (Black standard)
+- **Import Organization**: Sorted and grouped by isort
+- **Type Hints**: Required for all public functions and methods
+- **Docstrings**: Google-style docstrings for all public APIs
+
+#### Security
+- **No hardcoded secrets**: All sensitive data via environment variables
+- **Input validation**: All user inputs validated and sanitized
+- **Subprocess safety**: Proper handling of shell commands
+- **Dependency scanning**: Regular updates and security checks
+
+#### Performance
+- **Memory efficiency**: Proper cleanup of large audio arrays
+- **Threading safety**: Thread-safe operations in worker classes
+- **Resource management**: Context managers for file operations
+- **Caching**: Intelligent caching of model metadata and downloads
+
+### Pre-commit Hooks
+
+The project includes comprehensive pre-commit hooks that run automatically:
+
+1. **Code Formatting**: Black and isort
+2. **Linting**: Ruff with automatic fixes
+3. **Type Checking**: MyPy for static analysis
+4. **Security**: Bandit security scanning
+5. **File Quality**: Trailing whitespace, end-of-file, YAML/JSON validation
+6. **Quick Tests**: Fast subset of tests to catch obvious issues
+
+### Tool Configuration
+
+All tools are configured via `pyproject.toml`:
+
+- **Black**: Line length, target versions, exclusion patterns
+- **Ruff**: Rule selection, per-file ignores, target Python version
+- **MyPy**: Strict settings with library-specific overrides
+- **isort**: Black-compatible profile with project-specific settings
+- **Bandit**: Security rules with reasonable exceptions for this project
+
+### Quality Metrics
+
+The project maintains these quality standards:
+
+- **Test Coverage**: Minimum 15% (currently 33%)
+- **Linting**: Zero critical issues from Ruff
+- **Type Coverage**: Progressive improvement with MyPy
+- **Security**: Zero high-confidence Bandit issues
+- **Formatting**: 100% Black compliance 

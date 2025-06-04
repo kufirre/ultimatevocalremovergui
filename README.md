@@ -167,7 +167,53 @@ python -m pytest tests/ -m "integration" -v
 ./run_tests.sh
 ```
 
+## Code Quality
 
+This project maintains high code quality through automated formatting, linting, and type checking.
+
+### Available Scripts
+
+```bash
+# Format code (black + isort)
+./scripts/format.sh
+
+# Run linting and quality checks  
+./scripts/lint.sh
+
+# Run all quality checks (format + lint + tests)
+./scripts/check-all.sh
+```
+
+### Code Standards
+
+- **Formatting**: Black with 88-character line length
+- **Import Sorting**: isort configured for Black compatibility
+- **Linting**: Ruff for fast Python linting
+- **Type Checking**: MyPy for static type analysis
+- **Security**: Bandit for security vulnerability scanning
+- **Pre-commit Hooks**: Automated quality checks before commits
+
+### Setting Up Pre-commit Hooks
+
+```bash
+# Install pre-commit hooks (runs checks before each commit)
+pre-commit install
+
+# Run pre-commit on all files manually
+pre-commit run --all-files
+
+# Update pre-commit hook versions
+pre-commit autoupdate
+```
+
+### Quality Check Details
+
+- **Black**: Formats Python code to ensure consistent style
+- **isort**: Organizes and sorts import statements
+- **Ruff**: Fast linter that replaces flake8, pycodestyle, and more
+- **MyPy**: Static type checker to catch type-related bugs
+- **Bandit**: Scans for common security issues
+- **Pytest**: Runs the comprehensive test suite with coverage
 
 ## Development
 
@@ -190,6 +236,15 @@ python -m pytest tests/ -m "integration" -v
    ./run_tests.sh
    ```
 
+4. **Set up code quality tools**:
+   ```bash
+   # Install pre-commit hooks
+   pre-commit install
+   
+   # Run initial quality checks
+   ./scripts/check-all.sh
+   ```
+
 ### Project Structure
 
 ```
@@ -199,33 +254,45 @@ ultimatevocalremovergui/
 │   ├── gui/                  # PySide6 UI components  
 │   └── main.py              # Application entry point
 ├── tests/                    # Comprehensive test suite
+├── scripts/                  # Quality assurance scripts
+│   ├── format.sh            # Code formatting
+│   ├── lint.sh              # Linting and quality checks
+│   └── check-all.sh         # Complete quality pipeline
 ├── models/                   # Downloaded AI models
 ├── docs/                     # Documentation
 ├── demucs/                   # Demucs model code
 ├── lib_v5/                   # Legacy VR model code
 ├── pyproject.toml           # Project configuration
-└── pytest.ini              # Test configuration
+├── pytest.ini              # Test configuration
+└── .pre-commit-config.yaml  # Pre-commit hooks
 ```
 
 ### Code Quality
 
 The project maintains high code quality through:
 
-- **Type Hints**: Full typing throughout the codebase
-- **Linting**: Black formatting and Ruff linting
+- **Automated Formatting**: Black + isort for consistent code style
+- **Comprehensive Linting**: Ruff + MyPy + Bandit for quality and security
 - **Testing**: 335+ tests with pytest and pytest-qt
-- **Coverage**: HTML coverage reports for monitoring
+- **Coverage**: HTML coverage reports for monitoring test effectiveness
+- **Pre-commit Hooks**: Automated quality checks prevent bad commits
 - **Documentation**: Comprehensive docstrings and comments
+
+### Development Workflow
+
+1. **Make your changes** with appropriate tests
+2. **Run quality checks**: `./scripts/check-all.sh`
+3. **Fix any issues** identified by the quality tools
+4. **Commit your changes** (pre-commit hooks will run automatically)
+5. **Push to your branch** and open a Pull Request
 
 ### Contributing
 
 1. **Fork the repository** on GitHub
 2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
-3. **Make your changes** with appropriate tests
-4. **Run the test suite**: `./run_tests.sh`
-5. **Commit your changes**: `git commit -m 'Add amazing feature'`
-6. **Push to your branch**: `git push origin feature/amazing-feature`
-7. **Open a Pull Request** with a clear description
+3. **Follow the development workflow above**
+4. **Ensure all quality checks pass**: `./scripts/check-all.sh`
+5. **Open a Pull Request** with a clear description
 
 ### Bug Reports
 

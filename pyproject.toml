@@ -106,11 +106,18 @@ dev = [
     "hypothesis>=6.90.0",
     "factory-boy>=3.3.0",
     
-    # Code Quality
+    # Code Quality & Formatting
     "black>=23.0.0",
+    "isort>=5.12.0",
     "ruff>=0.1.0",
     "mypy>=1.5.0",
+    "bandit>=1.7.0",
+    "flake8>=6.0.0",
     "pre-commit>=3.0.0",
+    
+    # Type checking support
+    "types-requests>=2.31.0",
+    "types-PyYAML>=6.0.0",
     
     # Documentation
     "sphinx>=6.0.0",
@@ -330,3 +337,34 @@ module = [
     "lib_v5.*",
 ]
 ignore_missing_imports = true
+
+# ==========================================
+# isort (Import Sorter) Configuration  
+# ==========================================
+# Settings for 'isort' to organize imports.
+[tool.isort]
+profile = "black" # Compatible with black formatter.
+line_length = 88 # Match black's line length.
+multi_line_output = 3 # Vertical hanging indent.
+include_trailing_comma = true # Add trailing comma to imports.
+force_grid_wrap = 0 # Don't force imports into grid format.
+use_parentheses = true # Use parentheses for multi-line imports.
+ensure_newline_before_comments = true # Add newline before comments.
+known_first_party = ["uvr_pyside6_ui"] # Your project's modules.
+known_third_party = ["torch", "librosa", "PySide6", "pytest"] # Common third-party libs.
+src_paths = ["src", "tests"] # Source directories.
+skip_glob = ["demucs/*", "lib_v5/*"] # Skip legacy directories.
+
+# ==========================================
+# Bandit (Security Linter) Configuration
+# ==========================================
+# Settings for 'bandit' security checks.
+[tool.bandit]
+exclude_dirs = ["tests", "demucs", "lib_v5", ".venv", "venv", "env"]
+skips = [
+    "B101", # assert_used - allows assert statements
+    "B601", # paramiko_calls - if using paramiko
+    "B602", # subprocess_popen_with_shell_equals_true
+    "B603", # subprocess_without_shell_equals_true  
+    "B607", # start_process_with_partial_path
+]

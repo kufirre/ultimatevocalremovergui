@@ -19,7 +19,7 @@ if [[ -z "${VIRTUAL_ENV}" ]]; then
     echo "⚠️  Warning: Not in a virtual environment. Make sure you have the dev dependencies installed."
 fi
 
-# Run Ruff for fast linting
+# Run Ruff for fast linting (only src/ and tests/)
 echo "⚡ Running ruff linter..."
 if ! python -m ruff check src/ tests/ --output-format=concise; then
     echo "⚠️  Ruff found issues"
@@ -36,7 +36,7 @@ fi
 #     echo "✅ MyPy type checking passed"
 # fi
 
-# Run Bandit for security
+# Run Bandit for security (only src/)
 echo "🔒 Running bandit security check..."
 if ! python -m bandit -r src/ -f json -o bandit-report.json -i; then
     echo "⚠️  Bandit found potential security issues"
@@ -47,7 +47,7 @@ else
     echo "✅ Bandit security check passed"
 fi
 
-# Run additional style checks with flake8
+# Run additional style checks with flake8 (only src/ and tests/)
 echo "📋 Running additional style checks..."
 if ! python -m flake8 src/ tests/ --max-line-length=88 --extend-ignore=E203,W503,E501,E402,E712,F841,F811; then
     echo "⚠️  Flake8 found style issues"
@@ -77,12 +77,22 @@ fi
 # Summary
 echo ""
 echo "📊 Linting Summary:"
-echo "==================="
+echo "=================="
+
 if [ $ERROR_COUNT -eq 0 ]; then
-    echo "✅ All checks passed!"
+    echo "✅ ALL LINTING CHECKS PASSED!"
+    echo ""
+    echo "🎉 Code quality standards met:"
+    echo "   - Ruff linting: PASSED"
+    echo "   - Security scan: PASSED" 
+    echo "   - Style checks: PASSED"
     exit 0
 else
-    echo "❌ Found $ERROR_COUNT critical issue(s)"
-    echo "🔧 Please fix the issues above before committing"
+    echo "❌ SOME LINTING ISSUES FOUND"
+    echo ""
+    echo "Issues found: $ERROR_COUNT"
+    echo ""
+    echo "🔧 Please review and fix the issues above."
+    echo "💡 Many issues can be auto-fixed with: ruff check src/ tests/ --fix"
     exit 1
 fi 

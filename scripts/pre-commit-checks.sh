@@ -33,7 +33,7 @@ else
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
 fi
 
-# Check 2: Fast linting (MANDATORY)
+# Check 2: Fast linting (MANDATORY) - only src/ and tests/
 echo ""
 echo "🔍 Running fast linting checks..."
 if python -m ruff check src/ tests/ --output-format=concise; then
@@ -44,7 +44,7 @@ else
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
 fi
 
-# Check 3: Import organization (MANDATORY)
+# Check 3: Import organization (MANDATORY) - only src/ and tests/
 echo ""
 echo "📦 Checking import organization..."
 if python -m ruff check src/ tests/ --select I --output-format=concise; then
@@ -55,7 +55,7 @@ else
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
 fi
 
-# Check 4: Code formatting (WARNING ONLY)
+# Check 4: Code formatting (WARNING ONLY) - only src/ and tests/
 echo ""
 echo "🎨 Checking code formatting..."
 if python -m black --check src/ tests/ --line-length=88 --quiet; then

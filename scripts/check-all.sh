@@ -76,7 +76,7 @@ else
     track_failure "Tests"
 fi
 
-# Step 6: Coverage report
+# Step 6: Coverage report (only for src/)
 echo ""
 echo "📊 Step 6: Generating coverage report..."
 if python -m pytest --cov=uvr_pyside6_ui --cov-report=html:htmlcov --cov-report=xml --cov-report=term-missing tests/ --tb=short; then
@@ -102,6 +102,11 @@ if [ $TOTAL_ERRORS -eq 0 ]; then
     echo "✅ Coverage report: GENERATED"
     echo ""
     echo "🚀 Your code is ready for commit and deployment!"
+    echo ""
+    echo "📋 Focus areas (src/ and tests/ only):"
+    echo "   - All legacy files (UVR.py, separate.py) excluded from checks"
+    echo "   - Modern PySide6 codebase maintains high quality standards"
+    echo "   - Critical functionality protected against regressions"
     exit 0
 else
     echo "❌ SOME QUALITY CHECKS FAILED"
@@ -117,5 +122,7 @@ else
     echo "   - ./scripts/lint.sh    (check linting)"
     echo "   - ./run_tests.sh       (run tests only)"
     echo "   - pytest -m critical   (run critical tests only)"
+    echo ""
+    echo "📋 Note: Quality checks focus on src/ and tests/ directories only"
     exit 1
 fi 

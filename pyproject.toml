@@ -261,6 +261,8 @@ extend-exclude = '''
   | dist
   | demucs
   | lib_v5
+  | UVR\.py
+  | separate\.py
 )/
 '''
 
@@ -298,6 +300,8 @@ ignore = [
 "tests/*" = ["F841", "F811", "S101"]  # Allow unused variables and assert in tests
 "src/uvr_pyside6_ui/resources_rc.py" = ["ALL"]  # Auto-generated file
 "src/uvr_pyside6_ui/core/separate_logic.py" = ["N8", "UP0"]  # Scientific computing naming conventions
+"UVR.py" = ["ALL"]  # Legacy file - exclude from all checks
+"separate.py" = ["ALL"]  # Legacy file - exclude from all checks
 
 # ==========================================
 # MyPy (Static Type Checker) Configuration
@@ -337,6 +341,11 @@ module = [
 ]
 ignore_missing_imports = true
 
+# Exclude legacy files from type checking
+[[tool.mypy.overrides]]
+module = ["UVR", "separate"]
+ignore_errors = true
+
 # ==========================================
 # isort (Import Sorter) Configuration  
 # ==========================================
@@ -352,7 +361,7 @@ ensure_newline_before_comments = true # Add newline before comments.
 known_first_party = ["uvr_pyside6_ui"] # Your project's modules.
 known_third_party = ["torch", "librosa", "PySide6", "pytest"] # Common third-party libs.
 src_paths = ["src", "tests"] # Source directories.
-skip_glob = ["demucs/*", "lib_v5/*"] # Skip legacy directories.
+skip_glob = ["demucs/*", "lib_v5/*", "UVR.py", "separate.py"] # Skip legacy directories and files.
 
 # ==========================================
 # Bandit (Security Linter) Configuration
@@ -360,6 +369,7 @@ skip_glob = ["demucs/*", "lib_v5/*"] # Skip legacy directories.
 # Settings for 'bandit' security checks.
 [tool.bandit]
 exclude_dirs = ["tests", "demucs", "lib_v5", ".venv", "venv", "env"]
+exclude = ["UVR.py", "separate.py"]  # Exclude legacy files
 skips = [
     "B101", # assert_used - allows assert statements
     "B601", # paramiko_calls - if using paramiko

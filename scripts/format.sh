@@ -11,11 +11,11 @@ if [[ -z "${VIRTUAL_ENV}" ]]; then
     echo "⚠️  Warning: Not in a virtual environment. Make sure you have the dev dependencies installed."
 fi
 
-# Format Python code with black
+# Format Python code with black (only src/ and tests/)
 echo "📝 Running black formatter..."
 python -m black src/ tests/ --line-length=88
 
-# Sort and organize imports with ruff (replacing isort to avoid conflicts)
+# Sort and organize imports with ruff (only src/ and tests/)
 echo "📋 Fixing imports with ruff..."
 python -m ruff check src/ tests/ --fix --select I
 
@@ -29,7 +29,7 @@ if [ -f "conftest.py" ]; then
     python -m black conftest.py --line-length=88
 fi
 
-echo "✅ Code formatting completed!"
+echo "✅ Code formatting completed successfully!"
 echo "📊 Summary:"
 echo "   - Black: Python code formatted to 88 character line length"
 echo "   - Ruff: Imports sorted and organized"

@@ -181,6 +181,14 @@ class ModelData:
         if self.DENOISER_MODEL_PATH and not Path(self.DENOISER_MODEL_PATH).exists(): self.DENOISER_MODEL_PATH = None
         if self.DEVERBER_MODEL_PATH and not Path(self.DEVERBER_MODEL_PATH).exists(): self.DEVERBER_MODEL_PATH = None
         if self.denoise_option != ac.DENOISE_NONE: self.is_denoise_model = True
+        
+        # Determine Demucs version based on model name (always run, regardless of file existence)
+        if self.process_method == ac.DEMUCS_ARCH_TYPE and self.model_name:
+            self.demucs_version = ac.DEMUCS_V4  # Default
+            for ver_const, ver_str_list in ac.DEMUCS_VERSION_STRING_MAP.items():
+                if any(s in self.model_name.lower() for s in ver_str_list):
+                    self.demucs_version = ver_const
+                    break
 
     @classmethod
     def from_settings_dict(cls, settings: Dict[str, Any], 
@@ -698,12 +706,7 @@ class ModelData:
                 except Exception as e: print(f"Warning: Could not load hyper_parameters from MDX CKPT {self.model_name}: {e}")
             elif not self.is_secondary_model: print(f"Warning: MDX model params JSON not found for ONNX model {self.model_name}")
         elif self.process_method == ac.DEMUCS_ARCH_TYPE:
-            # Determine Demucs version based on model name
-            self.demucs_version = ac.DEMUCS_V4 # Default
-            for ver_const, ver_str_list in ac.DEMUCS_VERSION_STRING_MAP.items():
-                if any(s in self.model_name.lower() for s in ver_str_list):
-                    self.demucs_version = ver_const
-                    break
+            # Note: Demucs version detection now happens in __post_init__ to ensure it always runs
             
             # Determine source list, map, and count based on model name and version
             if ac.DEMUCS_UVR_MODEL_TAG in self.model_name:

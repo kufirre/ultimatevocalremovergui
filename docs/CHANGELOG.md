@@ -14,6 +14,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Advanced QRC resource management
 - Automated V3/V4 model directory management
 - Professional development workflow with Makefile shortcuts
+- **Visual Architecture Documentation**: Complete UML diagrams with PNG/SVG generation
+- **Architecture Diagrams**: 6 comprehensive UML diagrams showing system structure
+- **Diagram Generation Tools**: Automated script and HTML generator for creating diagrams
+- **Enhanced README**: Visual architecture section with embedded diagram images
 
 ### Changed
 - Enhanced test coverage from 33% to 57%

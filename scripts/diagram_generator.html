@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UVR PySide6 Diagram Generator</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .diagram {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 20px;
+            margin: 20px 0;
+            background: white;
+            text-align: center;
+        }
+        button {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #005a9e;
+        }
+        .download-btn {
+            background: #28a745;
+        }
+        .download-btn:hover {
+            background: #1e7e34;
+        }
+        select {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            margin: 5px;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        h2 {
+            color: #555;
+            border-bottom: 2px solid #007acc;
+            padding-bottom: 5px;
+        }
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .info {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 UVR PySide6 Diagram Generator</h1>
+        
+        <div class="info">
+            <strong>📋 Instructions:</strong>
+            <ol>
+                <li>Select a diagram from the dropdown</li>
+                <li>Click "Generate Diagram" to render it</li>
+                <li>Right-click on the diagram and "Save image as..." to download</li>
+                <li>Use browser zoom for different sizes</li>
+            </ol>
+        </div>
+
+        <div class="controls">
+            <select id="diagramSelect">
+                <option value="">Select a diagram...</option>
+                <option value="system">System Architecture</option>
+                <option value="mvp">MVP Pattern Implementation</option>
+                <option value="pipeline">Processing Pipeline</option>
+                <option value="models">Model Management System</option>
+                <option value="audio">Audio Processing Components</option>
+                <option value="signals">Signal/Slot Communication</option>
+            </select>
+            <button onclick="generateDiagram()">Generate Diagram</button>
+            <button onclick="downloadSVG()" class="download-btn">Download SVG</button>
+        </div>
+
+        <div id="diagram-container" class="diagram" style="display: none;">
+            <h2 id="diagram-title"></h2>
+            <div id="diagram"></div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Mermaid
+        mermaid.initialize({ 
+            startOnLoad: false,
+            theme: 'default',
+            themeVariables: {
+                fontFamily: 'Arial, sans-serif',
+                fontSize: '14px'
+            }
+        });
+
+        // Diagram definitions
+        const diagrams = {
+            system: {
+                title: "System Architecture",
+                code: `graph TB
+    subgraph "Application Layer"
+        A[main.py]
+        A --> B[MainWindowView]
+    end
+    
+    subgraph "UI Layer (MVP Pattern)"
+        B --> C[Model Selection View/Presenter]
+        B --> D[File I/O View/Presenter]
+        B --> E[Processing Settings View/Presenter]
+        B --> F[Execution Control View/Presenter]
+        B --> G[Settings Dialog View/Presenter]
+        
+        subgraph "Method-Specific UI"
+            H[VR Arch Settings]
+            I[MDX-Net Settings]
+            J[Demucs Settings]
+            K[Ensemble Settings]
+        end
+        
+        C --> H
+        C --> I
+        C --> J
+        C --> K
+    end
+    
+    subgraph "Core Business Logic"
+        L[UVRCoreAdapter]
+        M[ModelData]
+        N[SeparateLogic]
+        O[ProcessingWorker]
+        P[ModelDownloader]
+        Q[DownloadWorker]
+    end
+    
+    subgraph "External Dependencies"
+        R[Qt Framework]
+        S[Audio Processing Libraries]
+        T[ML Models]
+        U[File System]
+    end
+    
+    B --> L
+    F --> L
+    G --> L
+    L --> M
+    L --> N
+    L --> O
+    L --> P
+    P --> Q
+    
+    L --> U
+    N --> S
+    O --> S
+    O --> T
+    
+    style A fill:#e1f5fe
+    style L fill:#f3e5f5
+    style N fill:#fff3e0
+    style O fill:#fff3e0`
+            },
+            mvp: {
+                title: "MVP Pattern Implementation",
+                code: `classDiagram
+    class MainWindowView {
+        -presenters: dict
+        -adapter: UVRCoreAdapter
+        +show_status_message()
+        +_create_menu_bar()
+    }
+    
+    class ModelSelectionView {
+        -method_combo: QComboBox
+        -model_combo: QComboBox
+        +get_selected_method()
+        +get_selected_model()
+    }
+    
+    class ModelSelectionPresenter {
+        -view: ModelSelectionView
+        -adapter: UVRCoreAdapter
+        +handle_method_change()
+        +handle_model_change()
+    }
+    
+    class UVRCoreAdapter {
+        +progress_updated: Signal
+        +processing_finished: Signal
+        +get_available_methods()
+        +start_processing()
+    }
+    
+    MainWindowView "1" -- "1..*" ModelSelectionPresenter
+    ModelSelectionPresenter "1" -- "1" ModelSelectionView
+    ModelSelectionPresenter "1" -- "1" UVRCoreAdapter`
+            },
+            pipeline: {
+                title: "Processing Pipeline",
+                code: `sequenceDiagram
+    participant UI as MainWindowView
+    participant EP as ExecutionControlPresenter
+    participant CA as UVRCoreAdapter
+    participant PT as ProcessingThread
+    participant SL as SeparateLogic
+    
+    UI->>EP: User clicks Start
+    EP->>CA: start_processing(settings_dict)
+    CA->>PT: Create ProcessingThread
+    PT->>SL: Initialize separation logic
+    
+    loop For each audio chunk
+        SL->>SL: Separate audio
+        SL->>PT: Progress update
+        PT->>CA: progress_updated signal
+        CA->>EP: progress_updated signal
+        EP->>UI: Update progress bar
+    end
+    
+    SL-->>PT: Processing complete
+    PT->>CA: processing_finished signal
+    EP->>UI: Reset UI state`
+            },
+            models: {
+                title: "Model Management System",
+                code: `classDiagram
+    class UVRCoreAdapter {
+        -download_manager: DownloadManager
+        +get_available_models()
+        +download_model()
+    }
+    
+    class ModelDownloader {
+        +fetch_online_model_catalog()
+        +is_cache_valid()
+    }
+    
+    class DownloadManager {
+        +download_progress: Signal
+        +download_finished: Signal
+        +download_model()
+    }
+    
+    class ModelData {
+        -model_name: str
+        -selected_process_method: str
+        +get_model_path()
+        +validate_model()
+    }
+    
+    UVRCoreAdapter "1" -- "1" DownloadManager
+    UVRCoreAdapter "1" -- "*" ModelData
+    UVRCoreAdapter --> ModelDownloader : uses`
+            },
+            audio: {
+                title: "Audio Processing Components",
+                code: `graph LR
+    subgraph "Audio Input"
+        A[Audio File]
+        B[File Validation]
+        C[Format Conversion]
+    end
+    
+    subgraph "Separation Logic"
+        D[VR Architecture]
+        E[MDX-Net]
+        F[Demucs]
+        G[Ensemble Processing]
+    end
+    
+    subgraph "Output Generation"
+        H[Stem Combination]
+        I[Format Export]
+        J[File Writing]
+    end
+    
+    A --> B --> C
+    C --> D
+    C --> E
+    C --> F
+    D --> G
+    E --> G
+    F --> G
+    G --> H --> I --> J
+    
+    style D fill:#ffeb3b
+    style E fill:#ffeb3b
+    style F fill:#ffeb3b
+    style G fill:#4caf50`
+            },
+            signals: {
+                title: "Signal/Slot Communication",
+                code: `graph TD
+    subgraph "UI Events"
+        A[User Actions]
+        B[Menu Selections]
+        C[Button Clicks]
+    end
+    
+    subgraph "Core Adapter Signals"
+        D[progress_updated]
+        E[processing_finished]
+        F[download_progress]
+    end
+    
+    subgraph "UI Updates"
+        G[Progress Bar]
+        H[Status Messages]
+        I[Model Lists]
+    end
+    
+    A --> D
+    B --> E
+    C --> F
+    D --> G
+    E --> H
+    F --> I
+    
+    style D fill:#e3f2fd
+    style E fill:#e3f2fd
+    style F fill:#e3f2fd`
+            }
+        };
+
+        function generateDiagram() {
+            const select = document.getElementById('diagramSelect');
+            const selectedDiagram = select.value;
+            
+            if (!selectedDiagram) {
+                alert('Please select a diagram first!');
+                return;
+            }
+
+            const diagram = diagrams[selectedDiagram];
+            const container = document.getElementById('diagram-container');
+            const title = document.getElementById('diagram-title');
+            const diagramDiv = document.getElementById('diagram');
+            
+            title.textContent = diagram.title;
+            diagramDiv.innerHTML = '';
+            
+            // Generate unique ID for this diagram
+            const diagramId = 'mermaid-' + Date.now();
+            
+            mermaid.render(diagramId, diagram.code)
+                .then(result => {
+                    diagramDiv.innerHTML = result.svg;
+                    container.style.display = 'block';
+                })
+                .catch(err => {
+                    console.error('Error rendering diagram:', err);
+                    diagramDiv.innerHTML = '<p style="color: red;">Error rendering diagram. Check console for details.</p>';
+                    container.style.display = 'block';
+                });
+        }
+
+        function downloadSVG() {
+            const diagramDiv = document.getElementById('diagram');
+            const svg = diagramDiv.querySelector('svg');
+            
+            if (!svg) {
+                alert('Generate a diagram first!');
+                return;
+            }
+
+            const svgData = new XMLSerializer().serializeToString(svg);
+            const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+            const svgUrl = URL.createObjectURL(svgBlob);
+            
+            const select = document.getElementById('diagramSelect');
+            const fileName = `uvr_${select.value}_diagram.svg`;
+            
+            const downloadLink = document.createElement('a');
+            downloadLink.href = svgUrl;
+            downloadLink.download = fileName;
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+        }
+
+        // Allow Enter key to generate diagram
+        document.getElementById('diagramSelect').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                generateDiagram();
+            }
+        });
+    </script>
+</body>
+</html> 

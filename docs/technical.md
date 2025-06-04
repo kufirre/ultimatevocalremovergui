@@ -2,6 +2,46 @@
 
 ## Architecture Overview
 
+### 🎯 System Architecture Diagrams
+
+This section provides visual representations of the system architecture to complement the technical descriptions below.
+
+#### Overall System Architecture
+![System Architecture](images/diagrams/01_system_architecture.png)
+
+The application follows a **layered architecture** with clear separation between the application layer, UI layer (MVP pattern), core business logic, and external dependencies.
+
+#### MVP Pattern Implementation  
+![MVP Pattern](images/diagrams/02_mvp_pattern.png)
+
+The UI layer implements the **Model-View-Presenter (MVP)** pattern for maintainable, testable code with clean separation of concerns.
+
+#### Core Processing Pipeline
+![Processing Pipeline](images/diagrams/03_processing_pipeline.png)
+
+Audio processing follows a **robust, threaded pipeline** from user interaction through settings validation, thread creation, model loading, audio processing, and result handling.
+
+#### Model Management System
+![Model Management](images/diagrams/04_model_management.png)
+
+Sophisticated **model lifecycle management** with dynamic loading, smart caching, download management, version handling, and resource optimization.
+
+#### Audio Processing Components
+![Audio Processing](images/diagrams/05_audio_processing.png)  
+
+**Multi-architecture audio separation** pipeline supporting VR Architecture, MDX-Net, Demucs, and Ensemble modes with optimized inference.
+
+#### Signal/Slot Communication
+![Signal-Slot Communication](images/diagrams/06_signal_slot.png)
+
+**Event-driven architecture** using Qt's signal/slot mechanism for loose coupling, type safety, thread safety, and extensibility.
+
+> 📋 **For detailed UML documentation**: See [Architecture Diagrams](architecture_diagrams.md)
+> 
+> 🎨 **To generate/modify diagrams**: See [Diagram Generation Guide](diagram_generation_guide.md)
+> 
+> 🌐 **Online diagram editor**: Use [Mermaid Live Editor](https://mermaid.live/) with diagram code from architecture_diagrams.md
+
 ### Core Components
 - **PySide6 GUI**: Modern Qt-based user interface with professional resource management
 - **PyTorch Backend**: Deep learning framework for model inference with GPU acceleration

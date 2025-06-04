@@ -26,6 +26,15 @@ A **professional, modern rewrite** of the Ultimate Vocal Remover GUI using **PyS
 - 🧪 **Enterprise Quality**: 341+ tests with 57% coverage and automated quality assurance
 - 🛡️ **Regression Protection**: Critical functionality tests prevent breaking changes
 
+### 🔍 Quick Architecture Tour
+
+Want to understand how this application works? Start here:
+
+1. **📊 View Architecture**: Scroll down to the [🏗️ Architecture](#🏗️-architecture) section for visual system overview
+2. **🎮 Interactive Diagrams**: Open `scripts/diagram_generator.html` in your browser for interactive exploration
+3. **📋 Detailed Documentation**: Check out `docs/architecture_diagrams.md` for complete UML specifications
+4. **🔧 Technical Deep Dive**: See `docs/technical.md` for implementation details
+
 ### 🎶 Supported Separation Types
 
 - **Vocal Isolation**: Remove or isolate vocals from music tracks
@@ -428,6 +437,164 @@ make pre-commit
 # Complete quality assurance
 make check-all
 ```
+
+## 🏗️ Architecture
+
+This application follows modern software engineering principles with a clean, modular architecture designed for maintainability, testability, and extensibility.
+
+### 🎯 System Overview
+
+![System Architecture](docs/images/diagrams/01_system_architecture.png)
+
+The UVR PySide6 application is built with a **layered architecture** that separates concerns and enables maintainable, scalable code:
+
+- 🖥️ **Application Layer**: Entry points and main application bootstrap
+- 🎨 **UI Layer**: PySide6-based interface using MVP (Model-View-Presenter) pattern
+- 🧠 **Core Business Logic**: Audio processing, model management, and orchestration
+- 🔧 **External Dependencies**: Qt Framework, ML libraries, and system resources
+
+### 🎭 MVP Pattern Implementation
+
+![MVP Pattern](docs/images/diagrams/02_mvp_pattern.png)
+
+The UI follows the **Model-View-Presenter (MVP)** pattern for clean separation of concerns:
+
+- **Views**: PySide6 widgets handling UI rendering and user input
+- **Presenters**: Business logic coordinators managing data flow between views and core
+- **Core Adapter**: Central hub connecting UI layer to business logic
+
+**Benefits**:
+- ✅ **Testability**: Presenters can be unit tested without GUI components
+- ✅ **Maintainability**: Clear separation between UI and business logic
+- ✅ **Flexibility**: Easy to modify UI without affecting core functionality
+- ✅ **Reusability**: Core logic can be reused across different UIs
+
+### 🔄 Processing Pipeline
+
+![Processing Pipeline](docs/images/diagrams/03_processing_pipeline.png)
+
+The audio processing follows a **robust, threaded pipeline**:
+
+1. **User Interaction**: UI captures user settings and file selections
+2. **Settings Validation**: Presenters validate and prepare processing parameters
+3. **Thread Creation**: Core adapter creates isolated processing threads
+4. **Model Loading**: Dynamic model loading with validation and caching
+5. **Audio Processing**: ML inference with progress reporting
+6. **Result Handling**: Output generation and UI state management
+
+**Key Features**:
+- 🧵 **Non-blocking UI**: Processing runs in separate threads
+- 📊 **Real-time Progress**: Granular progress updates with cancellation support  
+- 🛡️ **Error Handling**: Comprehensive error recovery and user feedback
+- 🚀 **Performance**: Optimized memory usage and GPU acceleration
+
+### 🤖 Model Management System
+
+![Model Management](docs/images/diagrams/04_model_management.png)
+
+Sophisticated model lifecycle management:
+
+- **Dynamic Loading**: Models loaded on-demand with automatic dependency resolution
+- **Smart Caching**: Intelligent caching with validation and invalidation
+- **Download Management**: Robust download system with progress tracking and resumption
+- **Version Handling**: Automatic detection and organization of model versions
+- **Resource Optimization**: Memory-efficient loading and cleanup
+
+### 🎵 Audio Processing Components
+
+![Audio Processing](docs/images/diagrams/05_audio_processing.png)
+
+Multi-architecture audio separation pipeline:
+
+- **Input Validation**: Format detection, conversion, and quality validation
+- **Separation Logic**: Support for VR Architecture, MDX-Net, Demucs, and Ensemble modes
+- **Model Processing**: Optimized inference with GPU acceleration and memory management
+- **Output Generation**: High-quality stem generation with configurable formats
+
+### 🔗 Signal/Slot Communication
+
+![Signal-Slot Communication](docs/images/diagrams/06_signal_slot.png)
+
+Event-driven architecture using Qt's signal/slot mechanism:
+
+- **Loose Coupling**: Components communicate through signals without direct dependencies
+- **Type Safety**: Compile-time type checking for signal/slot connections
+- **Thread Safety**: Safe communication between UI and worker threads
+- **Extensibility**: Easy to add new events and handlers
+
+### 📊 Code Organization
+
+```
+src/uvr_pyside6_ui/
+├── main.py                    # Application entry point
+├── gui/                       # UI components
+│   ├── views/                 # PySide6 view components
+│   └── presenters/            # MVP presenter layer
+├── core/                      # Business logic
+│   ├── separate_logic.py      # Audio separation algorithms
+│   ├── model_data.py          # Model management
+│   └── processing/            # Processing pipeline
+├── lib_v5/                    # Legacy compatibility layer
+└── resources/                 # UI resources (QRC)
+```
+
+### 🧪 Testing Architecture
+
+The application includes comprehensive testing at multiple levels:
+
+- **Unit Tests**: Individual component testing with mocking
+- **Integration Tests**: Component interaction and data flow testing
+- **Critical Path Tests**: Essential functionality regression prevention
+- **UI Tests**: Automated UI interaction testing
+- **Performance Tests**: Memory usage and processing speed validation
+
+### 🔒 Error Handling Strategy
+
+**Defensive Programming Approach**:
+- ✅ **Input Validation**: All user inputs validated at entry points
+- ✅ **Resource Management**: Automatic cleanup with context managers
+- ✅ **Graceful Degradation**: Fallback options when components fail
+- ✅ **User Communication**: Clear error messages with actionable solutions
+- ✅ **Logging**: Comprehensive logging for debugging and monitoring
+
+### 🚀 Performance Optimizations
+
+**Memory Management**:
+- Smart model caching with LRU eviction
+- Chunked processing for large audio files
+- Automatic garbage collection optimization
+- Memory-mapped file I/O for large datasets
+
+**GPU Acceleration**:
+- CUDA support for Nvidia GPUs with automatic device selection
+- MPS support for Apple Silicon with fallback detection
+- Memory pool management for efficient GPU memory usage
+- Asynchronous GPU operations with CPU overlap
+
+**I/O Optimization**:
+- Asynchronous file operations
+- Parallel model downloading
+- Efficient audio format conversion
+- Smart caching with filesystem monitoring
+
+### 🔮 Future Architecture Improvements
+
+**Planned Enhancements**:
+- 🔌 **Plugin System**: Extensible architecture for third-party models
+- 🌐 **Cloud Integration**: Optional cloud-based processing for limited hardware
+- 📱 **Mobile Support**: Qt for Python mobile deployment
+- 🤖 **AI Assistant**: Intelligent model recommendation system
+- 📊 **Analytics**: Optional usage analytics and performance monitoring
+
+### 📚 Architecture Documentation
+
+For detailed architecture information, see:
+- 📋 **[Architecture Diagrams](docs/architecture_diagrams.md)**: Complete UML documentation
+- 🔧 **[Technical Documentation](docs/technical.md)**: Implementation details
+- 🛣️ **[Development Roadmap](docs/development_roadmap.md)**: Future architecture plans
+- 🎨 **[Diagram Generation Guide](docs/diagram_generation_guide.md)**: How to generate/modify diagrams
+
+> 🌐 **Interactive Diagrams**: Open `scripts/diagram_generator.html` in your browser for an interactive diagram viewer with real-time rendering and download capabilities.
 
 ## 🚀 Performance Optimization
 

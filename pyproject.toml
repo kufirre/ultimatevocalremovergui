@@ -4,7 +4,7 @@
 # Specifies how the project should be built.
 # 'setuptools' is a common choice.
 [build-system]
-requires = ["setuptools>=61.0"]  # Minimum version of setuptools needed.
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta" # The function setuptools uses to build.
 
 # ==========================================
@@ -12,20 +12,21 @@ build-backend = "setuptools.build_meta" # The function setuptools uses to build.
 # ==========================================
 # Defines essential information about your project.
 [project]
-name = "uvr_pyside6_ui" # The name used when installing/publishing (e.g., via pip).
+name = "uvr-pyside6-ui"
 version = "0.1.0"
-description = "A PySide6 UI rewrite for Ultimate Vocal Remover - advanced audio source separation."
+description = "Advanced audio source separation with PySide6 GUI - Professional rewrite of Ultimate Vocal Remover"
 readme = "README.md"
 requires-python = ">=3.8"
 authors = [
     {name = "Kufirre Ebong", email = "kuffykeys@gmail.com"}
 ]
 license = {text = "MIT"}
-keywords = ["audio", "vocal", "remover", "separation", "pyside6", "gui", "music"]
+keywords = ["audio", "vocal", "remover", "separation", "pyside6", "gui", "music", "ml", "ai"]
 classifiers = [
     # Standard trove classifiers to categorize the project.
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
@@ -36,39 +37,48 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Multimedia :: Sound/Audio :: Analysis",
     "Topic :: Multimedia :: Sound/Audio :: Editors",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Environment :: X11 Applications :: Qt",
 ]
 
 # ==========================================
-# Dependencies
+# Core Dependencies
 # ==========================================
 # Lists the libraries your project needs to run.
 dependencies = [
+    # UI Framework
     "PySide6>=6.4.0,<7.0.0", # The core UI framework.
-    # Audio processing dependencies (common for UVR)
+    
+    # Machine Learning & Audio Processing
     "torch>=1.13.0",        # ML framework.
     "torchaudio>=0.13.0",   # Torch audio utilities.
+    "pytorch-lightning>=1.8.0",
     "numpy>=1.21.0",        # Numerical Python.
     "librosa>=0.9.0",       # Audio analysis.
     "soundfile>=0.10.0",    # Reading/writing audio files.
     "scipy>=1.7.0",         # Scientific computing.
-    "natsort",
-    "requests",
-    "omegaconf",
-    "pytorch_lightning",
-    "diffq",
-    # UI and utility dependencies
-    "Pillow>=8.0.0",        # Image handling (often needed for icons/assets).
-    "requests>=2.25.0",     # For potential downloads (models, updates).
+    
+    # Model Processing
+    "onnxruntime>=1.13.0",
+    "onnx>=1.12.0",
+    "onnx2pytorch>=0.4.0",
+    "diffq>=0.2.0",
+    "julius>=0.2.7",
+    
+    # Configuration & Data
+    "omegaconf>=2.2.0",
     "pyyaml>=6.0",          # For YAML parsing (MDX-C configs).
     "ml-collections>=0.1.1", # For ConfigDict (MDX-C configs).
-    # Core model processing dependencies
-    "six",                  # From lib_v5 requirements
-    "julius",               # For Demucs resampling
-    "onnxruntime",          # For ONNX model inference
-    "onnx",                 # For ONNX model handling
-    "onnx2pytorch",         # For ONNX to PyTorch conversion (if needed by some models)
+    
+    # Audio Format Support
     "pydub>=0.25.0",        # For MP3/FLAC export
-    # We will add more UVR core dependencies here as we identify them
+    "mutagen>=1.45.0",
+    
+    # Utilities
+    "requests>=2.25.0",
+    "natsort>=8.0.0",
+    "six>=1.16.0",
+    "Pillow>=8.0.0",        # Image handling (often needed for icons/assets).
 ]
 
 # ==========================================
@@ -78,22 +88,44 @@ dependencies = [
 # Users can install these like: pip install uvr-pyside6-ui[dev,gpu]
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.0",
-    "pytest-qt>=4.0",
-    "pytest-mock>=3.0",
-    "black>=22.0",  # Code formatter.
-    "ruff>=0.1.0",  # Fast linter/formatter.
-    "mypy>=1.0",    # Static type checker.
+    # Testing Framework
+    "pytest>=7.4.0",
+    "pytest-qt>=4.4.0",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.12.0",
+    "pytest-xvfb>=3.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-timeout>=2.1.0",
+    
+    # Coverage & Reporting
+    "coverage>=7.3.0",
+    
+    # Test Utilities
+    "responses>=0.24.0",
+    "freezegun>=1.2.0",
+    "hypothesis>=6.90.0",
+    "factory-boy>=3.3.0",
+    
+    # Code Quality
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.5.0",
+    "pre-commit>=3.0.0",
+    
+    # Documentation
+    "sphinx>=6.0.0",
+    "sphinx-rtd-theme>=1.3.0",
 ]
 gpu = [
     # Optional GPU acceleration dependencies.
-    "torch[cuda]",      # Installs PyTorch with CUDA support.
-    "onnxruntime-gpu",  # GPU support for ONNX models (if used).
+    "torch[cuda]>=1.13.0",      # Installs PyTorch with CUDA support.
+    "onnxruntime-gpu>=1.13.0",  # GPU support for ONNX models (if used).
 ]
 audio-extra = [
     # Additional audio format support (pydub moved to main)
-    "mutagen>=1.45.0",
     "ffmpeg-python>=0.2.0", # Requires ffmpeg to be installed on the system.
+    "resampy>=0.4.0",
+    "audioread>=3.0.0",
 ]
 
 # ==========================================
@@ -134,6 +166,7 @@ packages = ["uvr_pyside6_ui", "demucs", "lib_v5"]
 # ==========================================
 # Settings for the 'pytest' testing framework.
 [tool.pytest.ini_options]
+minversion = "7.0"
 pythonpath = ["src"] # Helps pytest find your source code for imports.
 testpaths = ["tests"] # Specifies where to look for test files.
 addopts = [
@@ -141,12 +174,59 @@ addopts = [
     "--strict-markers", # Ensures all @pytest.mark decorators are registered.
     "--strict-config",  # Prevents issues with pytest configuration.
     "--verbose",        # Provides more detailed test output.
+    "--tb=short",
+    "--cov=uvr_pyside6_ui",
+    "--cov-report=term-missing",
+    "--cov-report=html:htmlcov",
+    "--cov-report=xml",
+    "--cov-fail-under=70",
 ]
 markers = [
     # Defines custom markers for categorizing tests.
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "integration: marks tests as integration tests",
-    "gui: marks tests that require GUI interaction",
+    "unit: Unit tests for individual components",
+    "integration: Integration tests across components", 
+    "gui: GUI/UI interaction tests",
+    "ensemble: Ensemble processing tests",
+    "audio: Audio processing and manipulation tests",
+    "edge_case: Edge cases and error conditions",
+    "slow: Tests that take more than 5 seconds",
+    "mock_audio: Tests using mocked audio data",
+    "model: Model-related functionality tests",
+    "worker: Worker thread and processing tests",
+    "adapter: Core adapter interface tests",
+    "download: Model download and management tests",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+# ==========================================
+# Coverage Configuration
+# ==========================================
+[tool.coverage.run]
+source = ["src/uvr_pyside6_ui"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/migrations/*",
+    "*/venv/*",
+    "*/env/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
 ]
 
 # ==========================================
@@ -155,7 +235,7 @@ markers = [
 # Settings for the 'black' code formatter.
 [tool.black]
 line-length = 88 # Max line length (common default).
-target-version = ['py38'] # Ensures formatting is compatible with Python 3.8+.
+target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
 include = '\.pyi?$' # File types to format.
 extend-exclude = '''
 /(
@@ -164,10 +244,15 @@ extend-exclude = '''
   | \.git
   | \.hg
   | \.mypy_cache
+  | \.nox
   | \.tox
   | \.venv
+  | _build
+  | buck-out
   | build
   | dist
+  | demucs
+  | lib_v5
 )/
 '''
 
@@ -186,17 +271,27 @@ select = [
     "B",  # flake8-bugbear (potential bugs)
     "C4", # flake8-comprehensions (unnecessary comprehensions)
     "UP", # pyupgrade (suggests modern Python syntax)
+    "N",  # pep8-naming
+    "S",  # flake8-bandit
+    "T20", # flake8-print
+    "SIM", # flake8-simplify
 ]
 ignore = [
     "E501", # line too long, handled by black.
     "B008", # do not perform function calls in argument defaults (can be debatable).
+    "S101", # use of assert
+    "T201", # print statements (allowed in this project)
+    "S603", # subprocess without shell=True
+    "S607", # subprocess with shell=True
 ]
 
 [tool.ruff.per-file-ignores]
 # Ignore 'unused import' errors (F401) in __init__.py files, as they often import for re-exporting.
 "__init__.py" = ["F401"]
 # Ignore specific rules within test files if needed.
-"tests/**/*" = ["B011"] # Example: Ignore 'assert False'.
+"tests/**/*" = ["S101", "B011", "N", "SIM"]
+"demucs/**/*" = ["ALL"]
+"lib_v5/**/*" = ["ALL"]
 
 # ==========================================
 # MyPy (Static Type Checker) Configuration
@@ -206,16 +301,17 @@ ignore = [
 python_version = "3.8"
 warn_return_any = true # Warns if a function returns 'Any' when it shouldn't.
 warn_unused_configs = true # Warns about unused mypy config sections.
-disallow_untyped_defs = true # Requires functions to have type annotations.
-disallow_incomplete_defs = true # Requires all parts of a function signature to be typed.
+disallow_untyped_defs = false  # Relaxed for this project
+disallow_incomplete_defs = false
 check_untyped_defs = true # Checks functions even if they don't have annotations.
-disallow_untyped_decorators = true # Requires decorators to be typed.
+disallow_untyped_decorators = false
 no_implicit_optional = true # Requires 'Optional[T]' instead of just 'T' if 'None' is possible.
 warn_redundant_casts = true # Warns if you cast a variable to its own type.
 warn_unused_ignores = true # Warns about unnecessary '# type: ignore' comments.
 warn_no_return = true # Warns if a function is missing a return statement when expected.
 warn_unreachable = true # Warns about code that will never be executed.
 strict_equality = true # Ensures type-safe comparisons.
+show_error_codes = true
 
 [[tool.mypy.overrides]]
 # Ignores missing type information for certain libraries that may not have full stubs.
@@ -224,5 +320,13 @@ module = [
     "soundfile.*",
     "torch.*",
     "torchaudio.*",
+    "onnx.*",
+    "onnxruntime.*",
+    "julius.*",
+    "diffq.*",
+    "omegaconf.*",
+    "ml_collections.*",
+    "demucs.*",
+    "lib_v5.*",
 ]
 ignore_missing_imports = true

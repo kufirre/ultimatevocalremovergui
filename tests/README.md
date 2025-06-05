@@ -58,6 +58,7 @@ Tests are organized using pytest markers:
 - `@pytest.mark.edge_case` - Edge cases and error conditions
 - `@pytest.mark.slow` - Tests that take more than 5 seconds
 - `@pytest.mark.mock_audio` - Tests using mocked audio instead of real files
+- `@pytest.mark.vip` - VIP download functionality and premium feature tests
 
 ## 🛠️ Testing Tools
 
@@ -144,6 +145,41 @@ def test_ensemble_combination(create_mock_ensemble_models):
     # Test ensemble processing
     result = ensemble.process(input_audio)
     assert result is not None
+```
+
+### VIP Download Testing
+
+```python
+@pytest.mark.vip
+@pytest.mark.unit
+def test_vip_functionality():
+    """Test VIP download and authentication."""
+    from uvr_pyside6_ui.ui.settings_dialog_presenter import vip_downloads, NO_CODE
+    
+    # Test invalid VIP codes
+    assert vip_downloads("invalid_code") == NO_CODE
+    assert vip_downloads("") == NO_CODE
+    assert vip_downloads(None) == NO_CODE
+    
+    # Test security validation
+    malicious_inputs = ["../../../etc/passwd", "'; DROP TABLE models;", ""]
+    for bad_input in malicious_inputs:
+        assert vip_downloads(bad_input) == NO_CODE
+
+@pytest.mark.vip
+@pytest.mark.skipif(not CRYPTO_AVAILABLE, reason="Cryptography library not available")
+def test_vip_cryptographic_security():
+    """Test VIP cryptographic security measures."""
+    from uvr_pyside6_ui.ui.settings_dialog_presenter import VIP_REPO
+    import base64
+    
+    # Verify encrypted data structure
+    assert isinstance(VIP_REPO, tuple)
+    assert len(VIP_REPO) == 2
+    
+    # Verify base64 encoding
+    decoded = base64.b64decode(VIP_REPO[1])
+    assert len(decoded) > 0
 ```
 
 ## 🎯 Test Coverage
@@ -233,6 +269,9 @@ pre-commit install
 
 # Edge case tests
 ./run_tests.sh --edge-cases
+
+# VIP download functionality tests
+./run_tests.sh --category vip
 
 # Fast tests only
 ./run_tests.sh --fast

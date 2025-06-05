@@ -21,7 +21,8 @@ A **professional, modern rewrite** of the Ultimate Vocal Remover GUI using **PyS
 - 🖥️ **Modern Interface**: Professional PySide6/Qt GUI with custom styling and resource management
 - ⚡ **GPU Acceleration**: CUDA support for Nvidia GPUs and MPS for Apple Silicon
 - 🧵 **Threaded Processing**: Non-blocking UI with real-time progress feedback
-- 📦 **Smart Model Management**: Automatic model downloading, organization, and V3/V4 handling
+- 📦 **Smart Model Management**: Automatic model downloading, organization, V3/V4 handling, and VIP premium model access
+- 🔒 **VIP Premium Models**: Access to exclusive high-quality models with code-based authentication
 - 🔧 **Highly Configurable**: Extensive settings for fine-tuning separation quality
 - 🧪 **Enterprise Quality**: 341+ tests with 57% coverage and automated quality assurance
 - 🛡️ **Regression Protection**: Critical functionality tests prevent breaking changes
@@ -282,6 +283,43 @@ models/
 - **Demucs Models**: Automatically organized by version
   - V1/V2: Main Demucs directory
   - V3/V4: `v3_v4_repo/` subdirectory (automatically detected)
+
+#### 🔒 VIP Premium Models
+
+The application supports exclusive **VIP premium models** with enhanced separation quality and advanced features.
+
+**How VIP Access Works**:
+1. **Secure Authentication**: VIP models use cryptographic verification with access codes
+2. **Enhanced Catalog**: VIP users get access to additional premium models not available publicly
+3. **Automatic Integration**: VIP models seamlessly integrate with the standard interface
+4. **Backward Compatibility**: Standard functionality remains unchanged for non-VIP users
+
+**VIP Model Types**:
+- **🔒 VIP VR Premium**: Ultra-high-quality vocal removal models
+- **🔒 VIP MDX Premium**: Advanced separation models with superior algorithms  
+- **🔒 VIP MDX23C**: Next-generation MDX23C models with cutting-edge architecture
+- **🔒 VIP Demucs**: Enhanced multi-stem separation models
+
+**Accessing VIP Models**:
+1. Open the **Download Center** in the application
+2. Click the **"Get VIP Access"** button
+3. Enter your VIP access code when prompted
+4. VIP models will be automatically added to your catalog
+5. Download and use VIP models just like standard models
+
+**VIP Features**:
+- ✨ **Premium Quality**: Access to the highest-quality separation models available
+- 🔒 **Secure Access**: Cryptographically protected model access with tamper-resistant verification
+- 🎯 **Specialized Models**: Task-specific models optimized for particular use cases
+- 🔄 **Automatic Updates**: VIP catalog automatically refreshes with new premium models
+- 💎 **Exclusive Content**: Early access to experimental and cutting-edge models
+- 🛡️ **Quality Guarantee**: VIP models undergo extensive testing and quality assurance
+
+**Technical Details**:
+- VIP verification uses AES encryption with PBKDF2 key derivation
+- Model authenticity verified through cryptographic signatures
+- No personal information collected during VIP verification
+- VIP access stored locally and persists across application restarts
 
 ### ⚙️ Configuration Options
 
@@ -662,215 +700,4 @@ export QT_QPA_PLATFORM=xcb
 ```
 
 **"Module not found" errors**:
-```bash
-# Verify installation
-pip list | grep uvr
-
-# Reinstall if needed
-pip uninstall uvr-pyside6-ui
-pip install -e ".[dev]"
 ```
-
-#### Model Loading Issues
-
-**"Model failed to load"**:
-1. **Check internet connection** for automatic downloads
-2. **Verify disk space** (5GB+ recommended)
-3. **Clear model cache**: Delete `models/` directory and restart
-4. **Check model directory permissions**
-
-**"CUDA out of memory"**:
-```bash
-# Reduce segment size in settings
-# Close other GPU-intensive applications
-# Switch to CPU processing if necessary
-export UVR_NO_GPU=1
-```
-
-#### Audio Processing Issues
-
-**"File format not supported"**:
-```bash
-# Install FFmpeg for additional codec support
-# Windows: Download from https://ffmpeg.org/
-# macOS: brew install ffmpeg
-# Linux: sudo apt install ffmpeg
-```
-
-**"Processing failed"**:
-1. **Check input file integrity**: Try with a different audio file
-2. **Verify output directory permissions**
-3. **Monitor system resources**: Ensure sufficient RAM/VRAM
-4. **Check logs**: Enable debug logging with `UVR_DEBUG=1`
-
-#### Quality Issues
-
-**Poor separation quality**:
-- Try different models for your content type
-- Increase segment size for better quality (if VRAM allows)
-- Use ensemble mode with multiple models
-- Ensure input audio is high quality (no heavy compression)
-
-**Processing very slow**:
-- Enable GPU acceleration if available
-- Reduce overlap setting for faster processing
-- Use smaller segment sizes for memory-constrained systems
-- Process shorter clips for testing
-
-### Debug Mode
-
-Enable comprehensive logging for troubleshooting:
-
-```bash
-# Enable debug logging
-export UVR_DEBUG=1
-
-# Run with debug output
-uvr-gui 2>&1 | tee uvr-debug.log
-
-# Check logs for issues
-cat uvr-debug.log
-```
-
-### Getting Help
-
-If you encounter issues:
-
-1. **Check the logs**: Enable debug mode and check for error messages
-2. **Search existing issues**: [GitHub Issues](https://github.com/kufirre/ultimatevocalremovergui/issues)
-3. **Create a bug report**: Include OS, Python version, and full error messages
-4. **Community support**: Original UVR community for general audio separation help
-
-## 🤝 Development
-
-### Setting Up Development Environment
-
-```bash
-# Clone and install
-git clone https://github.com/kufirre/ultimatevocalremovergui.git
-cd ultimatevocalremovergui
-
-# Install in development mode
-pip install -e ".[dev]"
-
-# Set up pre-commit hooks
-pre-commit install
-
-# Verify setup
-make test-critical
-```
-
-### Development Workflow
-
-1. **Create feature branch**: `git checkout -b feature/amazing-feature`
-2. **Make your changes** with appropriate tests
-3. **Run quality checks**: `make check-all`
-4. **Fix any issues** identified by quality tools
-5. **Commit changes**: Pre-commit hooks run automatically
-6. **Push and open PR**: Include clear description of changes
-
-### Project Structure
-
-```
-ultimatevocalremovergui/
-├── src/uvr_pyside6_ui/      # Main application package
-│   ├── core/                # Core processing logic
-│   │   ├── app_constants.py # Configuration constants
-│   │   ├── model_data.py    # Model configuration management
-│   │   ├── separate_logic.py # Core separation algorithms
-│   │   ├── processing_worker.py # Threaded processing
-│   │   └── uvr_core_adapter.py # Main coordinator
-│   ├── ui/                  # PySide6 UI components
-│   │   ├── main_window_view.py # Main application window
-│   │   └── ...              # Other UI components
-│   ├── main.py             # Application entry point
-│   └── resources_rc.py     # Compiled Qt resources
-├── tests/                   # Comprehensive test suite
-│   ├── unit/core/          # Core functionality tests
-│   └── conftest.py         # Test configuration
-├── scripts/                 # Quality assurance scripts
-│   ├── format.sh           # Code formatting
-│   ├── lint.sh             # Linting and quality
-│   ├── check-all.sh        # Complete quality pipeline
-│   └── pre-commit-checks.sh # Pre-commit verification
-├── docs/                    # Documentation
-├── models/                  # Downloaded AI models
-├── demucs/                  # Demucs model code
-├── lib_v5/                  # Legacy VR model code
-├── gui_data/                # UI assets and resources
-├── pyproject.toml          # Project configuration
-├── pytest.ini             # Test configuration
-├── Makefile               # Development shortcuts
-└── .pre-commit-config.yaml # Pre-commit hooks
-```
-
-### Contributing Guidelines
-
-#### Code Standards
-- **Type hints** required for all public functions
-- **Docstrings** required for all public APIs (Google style)
-- **Tests** required for all new functionality
-- **Quality checks** must pass before merging
-
-#### Pull Request Process
-1. Ensure all quality checks pass (`make check-all`)
-2. Add tests for new functionality
-3. Update documentation if needed
-4. Include clear commit messages
-5. Link to relevant issues
-
-## 📄 License
-
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
-
-### Third-Party Components
-
-- **Original UVR**: Based on [Ultimate Vocal Remover GUI](https://github.com/Anjok07/ultimatevocalremovergui) by Anjok07
-- **PySide6**: Qt for Python interface framework
-- **PyTorch**: Deep learning framework for model inference
-- **Model Architectures**: VR (tsurumeso), MDX-Net (Kuielab), Demucs (Facebook Research)
-
-## 🙏 Credits
-
-### Core Development Team
-- **[Kufirre Ebong](https://github.com/kufirre)** - PySide6 rewrite, modernization, and quality assurance
-- **[Anjok07](https://github.com/anjok07)** - Original UVR development and model training
-- **[aufr33](https://github.com/aufr33)** - Original UVR core development
-
-### AI Model Contributors
-- **[ZFTurbo](https://github.com/ZFTurbo)** - MDX23C model training and optimization
-- **[tsurumeso](https://github.com/tsurumeso)** - VR Architecture development
-- **[Kuielab & Woosung Choi](https://github.com/kuielab)** - MDX-Net architecture
-- **[Facebook Research](https://github.com/facebookresearch/demucs)** - Demucs model family
-
-### Design & Community
-- **[Bas Curtiz](https://www.youtube.com/user/bascurtiz)** - Official UVR branding and design
-- **[DilanBoskan](https://github.com/DilanBoskan)** - Early project contributions
-- **The UVR Community** - Continuous testing, feedback, and support
-
-## 🔮 What's Next
-
-### Planned Features
-- **Real-time processing**: Live audio separation capabilities
-- **Batch processing**: Process multiple files efficiently
-- **Plugin architecture**: Support for custom separation models
-- **Advanced UI**: Spectrogram visualization and editing tools
-- **Cloud processing**: Optional cloud-based model inference
-
-### Current Status
-- ✅ **Stable Core**: Robust separation engine with comprehensive testing
-- ✅ **Quality Assurance**: Enterprise-grade code quality and testing
-- ✅ **Modern UI**: Professional PySide6 interface with resource management
-- ✅ **Regression Protection**: Automated prevention of breaking changes
-- 🚧 **Performance**: Ongoing optimization for speed and memory usage
-- 🚧 **Features**: Additional models and processing options
-
----
-
-## 📞 Support
-
-- **Issues**: [GitHub Issues](https://github.com/kufirre/ultimatevocalremovergui/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/kufirre/ultimatevocalremovergui/discussions)
-- **Original UVR**: [Community Forums](https://github.com/Anjok07/ultimatevocalremovergui)
-
-**Built with ❤️ for the audio separation community**

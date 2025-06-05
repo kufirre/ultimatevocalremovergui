@@ -133,7 +133,7 @@ def write_audio_logic(
     # Check if stem_source is empty or too small
     if stem_source.size == 0 or (stem_source.ndim > 1 and stem_source.shape[1] == 0):
         logger.debug(
-            f"DEBUG: {stem_name} is empty (shape {stem_source.shape}). Generating silent output of original length."
+            f"{stem_name} is empty (shape {stem_source.shape}). Generating silent output of original length."
         )
 
         # Get the original audio file to determine the length for silent output
@@ -168,10 +168,10 @@ def write_audio_logic(
 
     # Check for NaN/Inf values
     if np.isnan(np.sum(stem_source)):
-        logger.debug(f"DEBUG: {stem_name} contains NaN values. Fixing...")
+        logger.debug(f"{stem_name} contains NaN values. Fixing...")
         stem_source = np.nan_to_num(stem_source, nan=0.0)
     if np.isinf(np.sum(stem_source)):
-        logger.debug(f"DEBUG: {stem_name} contains Inf values. Fixing...")
+        logger.debug(f"{stem_name} contains Inf values. Fixing...")
         stem_source = np.nan_to_num(stem_source, posinf=1.0, neginf=-1.0)
 
     if model_data.is_normalization and spec_utils:
@@ -188,12 +188,12 @@ def write_audio_logic(
     subtype = subtype_map.get(model_data.wav_type_set, "PCM_16")
 
     # Debugging prints
-    logger.debug(f"DEBUG: Attempting to write audio to: {stem_path}")
-    logger.debug(f"DEBUG: Samplerate: {samplerate}")
-    logger.debug(f"DEBUG: model_data.wav_type_set: {model_data.wav_type_set}")
-    logger.debug(f"DEBUG: Determined subtype for sf.write: {subtype}")
-    logger.debug(f"DEBUG: stem_source.dtype: {stem_source.dtype}")
-    logger.debug(f"DEBUG: stem_source.shape: {stem_source.shape}")
+    logger.debug(f"Attempting to write audio to: {stem_path}")
+    logger.debug(f"Samplerate: {samplerate}")
+    logger.debug(f"model_data.wav_type_set: {model_data.wav_type_set}")
+    logger.debug(f"Determined subtype for sf.write: {subtype}")
+    logger.debug(f"stem_source.dtype: {stem_source.dtype}")
+    logger.debug(f"stem_source.shape: {stem_source.shape}")
 
     try:
         sf.write(str(stem_path), stem_source, samplerate, subtype=subtype)
@@ -982,16 +982,16 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
         md = self.md
 
         # Debug the input audio shape
-        logger.debug(f"DEBUG: Input audio shape: {mix_processed_norm_np.shape}")
-        logger.debug(f"DEBUG: Input audio dtype: {mix_processed_norm_np.dtype}")
+        logger.debug(f"Input audio shape: {mix_processed_norm_np.shape}")
+        logger.debug(f"Input audio dtype: {mix_processed_norm_np.dtype}")
         logger.debug(
-            f"DEBUG: Input audio min/max: {np.min(mix_processed_norm_np):.6f}/{np.max(mix_processed_norm_np):.6f}"
+            f"Input audio min/max: {np.min(mix_processed_norm_np):.6f}/{np.max(mix_processed_norm_np):.6f}"
         )
         logger.debug(
-            f"DEBUG: Input audio contains NaN: {np.isnan(mix_processed_norm_np).any()}"
+            f"Input audio contains NaN: {np.isnan(mix_processed_norm_np).any()}"
         )
         logger.debug(
-            f"DEBUG: Input audio contains Inf: {np.isinf(mix_processed_norm_np).any()}"
+            f"Input audio contains Inf: {np.isinf(mix_processed_norm_np).any()}"
         )
 
         # Ensure the audio is in the correct format (channels, samples)
@@ -1021,13 +1021,13 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
         # Normalize
         ref_mean = mix_tensor.mean()
         ref_std = mix_tensor.std()
-        logger.debug(f"DEBUG: Mix tensor mean: {ref_mean}, std: {ref_std}")
+        logger.debug(f"Mix tensor mean: {ref_mean}, std: {ref_std}")
         if ref_std == 0:
             logger.warning("Warning: Standard deviation is zero. Using 1.0 instead.")
             ref_std = 1.0
         mix_tensor = (mix_tensor - ref_mean) / ref_std
         logger.debug(
-            f"DEBUG: Normalized mix tensor min/max: {mix_tensor.min().item():.6f}/{mix_tensor.max().item():.6f}"
+            f"Normalized mix tensor min/max: {mix_tensor.min().item():.6f}/{mix_tensor.max().item():.6f}"
         )
 
         processed_sources_tensor = None
@@ -1077,10 +1077,10 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
                     # Call apply_model with proper progress callback
                     try:
                         logger.info(
-                            f"DEBUG: Calling demucs_apply_model with shifts={md.shifts}, split_mode={md.is_split_mode}, overlap={md.overlap}"
+                            f"Calling demucs_apply_model with shifts={md.shifts}, split_mode={md.is_split_mode}, overlap={md.overlap}"
                         )
                         logger.info(
-                            f"DEBUG: Model instance type: {type(self.model_run_instance).__name__}"
+                            f"Model instance type: {type(self.model_run_instance).__name__}"
                         )
                         if self.model_run_instance is None:
                             logger.critical(
@@ -1088,20 +1088,20 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
                             )
                             processed_sources_tensor = None
                         else:
-                            logger.info("DEBUG: About to call demucs_apply_model with:")
+                            logger.info("About to call demucs_apply_model with:")
                             logger.info(
-                                f"DEBUG:   - model: {type(self.model_run_instance).__name__}"
+                                f"  - model: {type(self.model_run_instance).__name__}"
                             )
                             logger.info(
-                                f"DEBUG:   - mix_tensor_input shape: {mix_tensor_input.shape}"
+                                f"  - mix_tensor_input shape: {mix_tensor_input.shape}"
                             )
-                            logger.info(f"DEBUG:   - shifts: {md.shifts}")
-                            logger.info(f"DEBUG:   - split_mode: {md.is_split_mode}")
-                            logger.info(f"DEBUG:   - overlap: {md.overlap}")
+                            logger.info(f"  - shifts: {md.shifts}")
+                            logger.info(f"  - split_mode: {md.is_split_mode}")
+                            logger.info(f"  - overlap: {md.overlap}")
                             logger.info(
-                                f"DEBUG:   - static_shifts: {1 if md.shifts == 0 else md.shifts}"
+                                f"  - static_shifts: {1 if md.shifts == 0 else md.shifts}"
                             )
-                            logger.info(f"DEBUG:   - device: {self.device}")
+                            logger.info(f"  - device: {self.device}")
 
                             processed_sources_tensor = demucs_apply_model(
                                 self.model_run_instance,
@@ -1114,10 +1114,10 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
                                 device=self.device,
                             )
 
-                        logger.info("DEBUG: demucs_apply_model completed successfully")
+                        logger.info("demucs_apply_model completed successfully")
                         if processed_sources_tensor is not None:
                             logger.info(
-                                f"DEBUG: processed_sources_tensor shape after apply_model: {processed_sources_tensor.shape}"
+                                f"processed_sources_tensor shape after apply_model: {processed_sources_tensor.shape}"
                             )
                             # Ensure it's [sources, channels, samples] or [batch, sources, channels, samples]
                             if not (
@@ -1130,7 +1130,7 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
                                 processed_sources_tensor = None  # Mark as failed
                         else:
                             logger.error(
-                                "DEBUG: processed_sources_tensor is None after apply_model call."
+                                "processed_sources_tensor is None after apply_model call."
                             )
                             logger.error("ERROR: demucs_apply_model returned None.")
                             # No need to create fallback here, the outer logic will handle it if all_stems_output is None
@@ -1475,7 +1475,7 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
 
         # Use md.demucs_source_map for indexing, as it's derived correctly in ModelData
         if md.demucs_stems == ac.ALL_STEMS:
-            logger.debug("DEBUG: Processing ALL_STEMS - will output all 4 stems")
+            logger.debug("Processing ALL_STEMS - will output all 4 stems")
             for stem_name, stem_idx in md.demucs_source_map.items():
                 if stem_idx < all_stems_output.shape[0]:  # Ensure index is valid
                     stem_data = all_stems_output[stem_idx].T
@@ -1497,7 +1497,7 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
                     outputs[ac.INST_STEM] = instrumental_data
         else:
             # Single stem processing
-            logger.debug(f"DEBUG: Processing single stem: {md.demucs_stems}")
+            logger.debug(f"Processing single stem: {md.demucs_stems}")
             target_primary_stem_cap = md.demucs_stems
             if target_primary_stem_cap in md.demucs_source_map:
                 stem_idx = md.demucs_source_map[target_primary_stem_cap]
@@ -1755,9 +1755,7 @@ class SeperateVRLogic(SeparatorAttributesLogic):
             if not self.md.is_secondary_stem_only
             else self.md.secondary_stem
         )
-        print(
-            f"DEBUG: {stem_name} spec shape before _spec_to_wav_vr_logic: {spec.shape}"
-        )
+        print(f"{stem_name} spec shape before _spec_to_wav_vr_logic: {spec.shape}")
 
         # Check for NaN/Inf values in the spectrogram
         if np.isnan(np.sum(spec)):
@@ -1819,7 +1817,7 @@ class SeperateVRLogic(SeparatorAttributesLogic):
 
         # Debug info about the output waveform
         print(
-            f"DEBUG: {stem_name} shape after _spec_to_wav_vr_logic: {result.shape if result is not None else 'None'}"
+            f"{stem_name} shape after _spec_to_wav_vr_logic: {result.shape if result is not None else 'None'}"
         )
 
         # Check if result is empty or None
@@ -1829,7 +1827,7 @@ class SeperateVRLogic(SeparatorAttributesLogic):
 
         if result.size == 0 or result.shape[1] == 0:
             print(
-                f"DEBUG: {stem_name} is empty (shape {result.shape}) BEFORE resampling. Creating non-empty output."
+                f"{stem_name} is empty (shape {result.shape}) BEFORE resampling. Creating non-empty output."
             )
             print(
                 f"Warning: Conversion produced empty output for {stem_name}. Creating non-empty output."

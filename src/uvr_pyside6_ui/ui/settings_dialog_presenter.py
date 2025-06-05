@@ -2,7 +2,6 @@
 
 import base64
 import json
-import logging
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QStandardPaths, QTimer, Slot
@@ -10,12 +9,18 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QGroupBox,
     QMessageBox,
-    QPushButton,
-    QTextEdit,
     QWidget,
 )
 
-# Cryptographic imports for VIP verification
+from uvr_pyside6_ui.core import app_constants as ac
+from uvr_pyside6_ui.core.logger_utils import get_logger
+from uvr_pyside6_ui.core.uvr_core_adapter import UVRCoreAdapter
+
+from .settings_dialog_view import SettingsDialogView
+
+logger = get_logger(__name__)
+
+# VIP functionality imports
 try:
     from cryptography.fernet import Fernet
     from cryptography.hazmat.primitives import hashes
@@ -26,18 +31,12 @@ except ImportError:
     logger.warning("Cryptography library not available - VIP verification disabled")
     CRYPTO_AVAILABLE = False
 
-from ..core import app_constants as ac
-from ..core.uvr_core_adapter import UVRCoreAdapter
-from .settings_dialog_view import SettingsDialogView
-
 # VIP Constants - matching original UVR.py
 VIP_REPO = (
     b"\xf3\xc2W\x19\x1foI)\xc2\xa9\xcc\xb67(Z\xf5",
     b"gAAAAABjQAIQ-NpNMMxMedpKHHb7ze_nqB05hw0YhbOy3pFzuzDrfqumn8_qvraxEoUpZC5ZXC0gGvfDxFMqyq9VWbYKlA67SUFI_wZB6QoVyGI581vs7kaGfUqlXHIdDS6tQ_U-BfjbEAK9EU_74-R2zXjz8Xzekw==",
 )
 NO_CODE = "incorrect_code"
-
-logger = logging.getLogger(__name__)
 
 
 def vip_downloads(password, link_type=VIP_REPO):
@@ -437,7 +436,6 @@ class SettingsDialogPresenter(QObject):
             QDoubleSpinBox,
             QFormLayout,
             QHBoxLayout,
-            QLabel,
             QPushButton,
             QSpinBox,
             QVBoxLayout,
@@ -498,7 +496,6 @@ class SettingsDialogPresenter(QObject):
             QDialog,
             QFormLayout,
             QHBoxLayout,
-            QLabel,
             QPushButton,
             QSpinBox,
             QVBoxLayout,
@@ -555,12 +552,10 @@ class SettingsDialogPresenter(QObject):
     def _show_demucs_advanced_settings(self):
         """Show Demucs advanced settings dialog."""
         from PySide6.QtWidgets import (
-            QCheckBox,
             QComboBox,
             QDialog,
             QFormLayout,
             QHBoxLayout,
-            QLabel,
             QPushButton,
             QSpinBox,
             QVBoxLayout,
@@ -730,7 +725,7 @@ This application uses AI models to separate audio sources from mixed recordings.
 
 Key Features:
 - VR Architecture: Advanced vocal removal using deep learning
-- MDX-Net: High-quality source separation 
+- MDX-Net: High-quality source separation
 - Demucs: Multi-stem separation (vocals, drums, bass, other)
 - Ensemble Mode: Combine multiple models for better results
 
@@ -997,7 +992,6 @@ For more information, visit the project documentation."""
             QHBoxLayout,
             QLabel,
             QLineEdit,
-            QMessageBox,
             QPushButton,
             QTextEdit,
             QVBoxLayout,

@@ -219,25 +219,23 @@ class RealProcessingWorker(QObject):
                 return
 
             self._write_to_console(
-                f"DEBUG: is_ensemble_mode = {self.model_data.is_ensemble_mode}", ""
+                f"is_ensemble_mode = {self.model_data.is_ensemble_mode}", ""
             )
             self._write_to_console(
-                f"DEBUG: is_ensemble_member = {self.model_data.is_ensemble_member}", ""
+                f"is_ensemble_member = {self.model_data.is_ensemble_member}", ""
             )
             self._write_to_console(
-                f"DEBUG: process_method = {self.model_data.process_method}", ""
+                f"process_method = {self.model_data.process_method}", ""
             )
             self._write_to_console(
-                f"DEBUG: model_basename = {self.model_data.model_basename}", ""
+                f"model_basename = {self.model_data.model_basename}", ""
             )
 
             if (
                 self.model_data.is_ensemble_mode
                 and not self.model_data.is_ensemble_member
             ):
-                self._write_to_console(
-                    "DEBUG: ====== CALLING _process_ensemble ======", ""
-                )
+                self._write_to_console("====== CALLING _process_ensemble ======", "")
                 self._process_ensemble(current_input_audio)
             else:
                 main_process_data = self._create_process_data(
@@ -567,31 +565,31 @@ class RealProcessingWorker(QObject):
         self._execute_separation_pipeline(ac.MDX_ARCH_TYPE, process_data)
 
     def _process_demucs(self, process_data: Dict[str, Any]):
-        print("DEBUG: Starting Demucs processing")
-        print(f"DEBUG: Model path: {self.model_data.model_path}")
-        print(f"DEBUG: Model basename: {self.model_data.model_basename}")
-        print(f"DEBUG: Demucs version: {self.model_data.demucs_version}")
-        print(f"DEBUG: Demucs stems: {self.model_data.demucs_stems}")
-        print(f"DEBUG: Demucs source list: {self.model_data.demucs_source_list}")
+        print("Starting Demucs processing")
+        print(f"Model path: {self.model_data.model_path}")
+        print(f"Model basename: {self.model_data.model_basename}")
+        print(f"Demucs version: {self.model_data.demucs_version}")
+        print(f"Demucs stems: {self.model_data.demucs_stems}")
+        print(f"Demucs source list: {self.model_data.demucs_source_list}")
 
         # Check if model file exists
         if self.model_data.model_path:
             model_path = Path(self.model_data.model_path)
             if model_path.exists():
-                print(f"DEBUG: Model file exists: {model_path}")
-                print(f"DEBUG: Model file size: {model_path.stat().st_size} bytes")
+                print(f"Model file exists: {model_path}")
+                print(f"Model file size: {model_path.stat().st_size} bytes")
             else:
-                print(f"DEBUG: Model file does not exist: {model_path}")
+                print(f"Model file does not exist: {model_path}")
 
             # Check parent directory
             model_dir = model_path.parent
             if model_dir.exists():
-                print(f"DEBUG: Model directory exists: {model_dir}")
-                print("DEBUG: Files in model directory:")
+                print(f"Model directory exists: {model_dir}")
+                print("Files in model directory:")
                 for file in model_dir.iterdir():
                     print(f"  - {file.name}")
             else:
-                print(f"DEBUG: Model directory does not exist: {model_dir}")
+                print(f"Model directory does not exist: {model_dir}")
 
         self._execute_separation_pipeline(ac.DEMUCS_ARCH_TYPE, process_data)
 
@@ -633,7 +631,7 @@ class RealProcessingWorker(QObject):
         return aligned_specs
 
     def _process_ensemble(self, initial_input_audio: np.ndarray):
-        self._write_to_console("DEBUG: ====== ENTERING _process_ensemble ======", "")
+        self._write_to_console("====== ENTERING _process_ensemble ======", "")
         if not self.model_data or not self.model_data.ensemble_models:
             self.processing_finished.emit(
                 False, "Ensemble not configured or no models in ensemble."
@@ -644,7 +642,7 @@ class RealProcessingWorker(QObject):
             10, f"Starting Ensemble: {self.model_data.model_basename}..."
         )
         self._write_to_console(
-            f"DEBUG: Starting ensemble with {len(self.model_data.ensemble_models)} models",
+            f"Starting ensemble with {len(self.model_data.ensemble_models)} models",
             "",
         )
 
@@ -687,7 +685,7 @@ class RealProcessingWorker(QObject):
             member_results = member_separator.seperate()
             if member_results and self._is_running:
                 self._write_to_console(
-                    f"DEBUG: Model {member_model_data.model_basename} produced stems: {list(member_results.keys())}",
+                    f"Model {member_model_data.model_basename} produced stems: {list(member_results.keys())}",
                     "",
                 )
 
@@ -695,14 +693,14 @@ class RealProcessingWorker(QObject):
                 for stem_name, stem_audio in member_results.items():
                     if stem_audio is not None and stem_audio.size > 0:
                         self._write_to_console(
-                            f"DEBUG: {stem_name} shape: {stem_audio.shape}", ""
+                            f"{stem_name} shape: {stem_audio.shape}", ""
                         )
                         if stem_name not in all_outputs:
                             all_outputs[stem_name] = []
                         all_outputs[stem_name].append(stem_audio)
                     else:
                         self._write_to_console(
-                            f"DEBUG: {stem_name} is None or empty, skipping", ""
+                            f"{stem_name} is None or empty, skipping", ""
                         )
             elif self._is_running:
                 self._write_to_console(
@@ -725,18 +723,16 @@ class RealProcessingWorker(QObject):
         # Available stems from models
         available_stems = list(all_outputs.keys())
         self._write_to_console(
-            f"DEBUG: Available stems from all models: {available_stems}", ""
+            f"Available stems from all models: {available_stems}", ""
         )
         self._write_to_console(
-            f"DEBUG: Ensemble primary stem: {self.model_data.ensemble_primary_stem}", ""
+            f"Ensemble primary stem: {self.model_data.ensemble_primary_stem}", ""
         )
         self._write_to_console(
-            f"DEBUG: Ensemble secondary stem: {self.model_data.ensemble_secondary_stem}",
+            f"Ensemble secondary stem: {self.model_data.ensemble_secondary_stem}",
             "",
         )
-        self._write_to_console(
-            f"DEBUG: Ensemble type: {self.model_data.ensemble_type}", ""
-        )
+        self._write_to_console(f"Ensemble type: {self.model_data.ensemble_type}", "")
 
         # Process each available stem
         for stem_name in available_stems:
@@ -746,13 +742,13 @@ class RealProcessingWorker(QObject):
             stem_outputs = all_outputs[stem_name]
             if len(stem_outputs) < 2:
                 self._write_to_console(
-                    f"DEBUG: Only {len(stem_outputs)} outputs for {stem_name}, skipping ensemble",
+                    f"Only {len(stem_outputs)} outputs for {stem_name}, skipping ensemble",
                     "",
                 )
                 continue
 
             self._write_to_console(
-                f"DEBUG: Processing stem: {stem_name} with {len(stem_outputs)} outputs",
+                f"Processing stem: {stem_name} with {len(stem_outputs)} outputs",
                 "",
             )
 
@@ -763,7 +759,7 @@ class RealProcessingWorker(QObject):
 
             if ensembled_audio is not None and ensembled_audio.size > 0:
                 self._write_to_console(
-                    f"DEBUG: Ensembled {stem_name} shape: {ensembled_audio.shape}", ""
+                    f"Ensembled {stem_name} shape: {ensembled_audio.shape}", ""
                 )
 
                 # Save the ensembled result
@@ -805,7 +801,7 @@ class RealProcessingWorker(QObject):
                 )
             else:
                 self._write_to_console(
-                    f"DEBUG: Failed to ensemble {stem_name}: empty result", ""
+                    f"Failed to ensemble {stem_name}: empty result", ""
                 )
 
         if self._is_running:
@@ -820,12 +816,12 @@ class RealProcessingWorker(QObject):
             return None
 
         self._write_to_console(
-            f"DEBUG: Combining {len(outputs)} outputs with algorithm: {algorithm}", ""
+            f"Combining {len(outputs)} outputs with algorithm: {algorithm}", ""
         )
 
         # Log shapes before combining
         for i, output in enumerate(outputs):
-            self._write_to_console(f"DEBUG: Output {i} shape: {output.shape}", "")
+            self._write_to_console(f"Output {i} shape: {output.shape}", "")
 
         try:
             if algorithm == ac.AVERAGE_ENSEMBLE:
@@ -836,11 +832,11 @@ class RealProcessingWorker(QObject):
                 return self._spectral_ensemble(outputs, is_max=False)
             else:
                 self._write_to_console(
-                    f"DEBUG: Unknown ensemble algorithm: {algorithm}, using average", ""
+                    f"Unknown ensemble algorithm: {algorithm}, using average", ""
                 )
                 return self._average_ensemble(outputs)
         except Exception as e:
-            self._write_to_console(f"DEBUG: Error during ensemble combination: {e}", "")
+            self._write_to_console(f"Error during ensemble combination: {e}", "")
             return None
 
     def _average_ensemble(self, outputs: List[np.ndarray]) -> np.ndarray:
@@ -852,9 +848,7 @@ class RealProcessingWorker(QObject):
         min_length = min(
             output.shape[-1] for output in outputs
         )  # Use last dimension (time)
-        self._write_to_console(
-            f"DEBUG: Aligning outputs to min length: {min_length}", ""
-        )
+        self._write_to_console(f"Aligning outputs to min length: {min_length}", "")
 
         # Align all outputs to the same length
         aligned_outputs = []
@@ -871,7 +865,7 @@ class RealProcessingWorker(QObject):
         stacked = np.stack(aligned_outputs, axis=0)
         averaged = np.mean(stacked, axis=0)
 
-        self._write_to_console(f"DEBUG: Averaged result shape: {averaged.shape}", "")
+        self._write_to_console(f"Averaged result shape: {averaged.shape}", "")
         return averaged
 
     def _spectral_ensemble(
@@ -903,7 +897,7 @@ class RealProcessingWorker(QObject):
             aligned_spectrograms = self._align_spectrograms(spectrograms)
             if not aligned_spectrograms:
                 self._write_to_console(
-                    "DEBUG: Failed to align spectrograms for spectral ensemble", ""
+                    "Failed to align spectrograms for spectral ensemble", ""
                 )
                 return None
 
@@ -931,12 +925,12 @@ class RealProcessingWorker(QObject):
                 result_audio = result_audio.T  # Transpose back if needed
 
             self._write_to_console(
-                f"DEBUG: Spectral ensemble result shape: {result_audio.shape}", ""
+                f"Spectral ensemble result shape: {result_audio.shape}", ""
             )
             return result_audio
 
         except Exception as e:
-            self._write_to_console(f"DEBUG: Error in spectral ensemble: {e}", "")
+            self._write_to_console(f"Error in spectral ensemble: {e}", "")
             return None
 
     def _create_process_data_for_chained_model(

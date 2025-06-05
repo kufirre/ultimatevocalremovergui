@@ -14,7 +14,6 @@ from unittest.mock import Mock, patch
 import numpy as np
 import pytest
 from PySide6.QtWidgets import QApplication
-from pytestqt.qtbot import QtBot
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -29,14 +28,9 @@ def qapp():
     app = QApplication.instance()
     if app is None:
         app = QApplication([])
+        app.setApplicationName("UVR-Test")
     yield app
-    app.quit()
-
-
-@pytest.fixture
-def qtbot(qapp):
-    """Provide qtbot for testing Qt widgets."""
-    return QtBot(qapp)
+    # Don't quit here - let pytest-qt handle it
 
 
 @pytest.fixture

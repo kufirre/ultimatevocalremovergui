@@ -364,6 +364,16 @@ class UVRCoreAdapter(QObject):
             num_files = len(download_target_info)
             files_processed = 0
 
+            # Check if this is a v3/v4 model set that should go to v3_v4_repo
+            is_v3_v4_model_set = (
+                any(tag in model_display_name for tag in [ac.DEMUCS_V3, ac.DEMUCS_V4])
+                or any(
+                    file_name.endswith(".yaml")
+                    for file_name in download_target_info.keys()
+                )
+                or any(url.endswith(".yaml") for url in download_target_info.values())
+            )
+
             for file_name_in_dict, url_or_path_in_dict in download_target_info.items():
                 files_processed += 1
                 current_file_display_name = f"{model_display_name} ({file_name_in_dict} {files_processed}/{num_files})"
@@ -374,9 +384,15 @@ class UVRCoreAdapter(QObject):
                     is_config=file_name_in_dict.endswith(".yaml"),
                 )
 
+                # Pass the original model display name to preserve v3/v4 context
+                # This ensures all files from a v3/v4 model set go to the right directory
+                model_name_for_download = (
+                    model_display_name if is_v3_v4_model_set else file_name_in_dict
+                )
+
                 # Start download for this file
                 self.download_manager.start_download(
-                    model_name=file_name_in_dict,
+                    model_name=model_name_for_download,
                     download_url=actual_download_url,
                     model_type=model_type_ui_name,
                     config_url=None,  # Each part is handled as a main download
@@ -588,13 +604,32 @@ class UVRCoreAdapter(QObject):
             display_name, was_mapped = self._get_display_name_from_mapper(
                 identifier, name_mapper
             )
-            if was_mapped:  # Only add if it was successfully mapped to a display name
+            if was_mapped:  # Add if it was successfully mapped to a display name
                 final_display_names.append(display_name)
-            # Optionally, log identifiers that were not mapped if debugging is needed:
-            # else:
-            #     print(f"Debug: Identifier '{identifier}' for method '{method_name}' was not mapped and will not be shown in UI.")
+            elif (
+                not name_mapper
+            ):  # If no mapper exists (like for VR models), add the identifier directly
+                # Strip file extensions for cleaner display
+                clean_name = self._strip_model_extension(identifier)
+                final_display_names.append(clean_name)
+            else:  # Mapper exists but model wasn't found - add the identifier anyway
+                # This ensures newly downloaded models show up even if not in mapper
+                # Strip file extensions for cleaner display
+                clean_name = self._strip_model_extension(identifier)
+                final_display_names.append(clean_name)
 
         return natsort.natsorted(list(set(final_display_names)))
+
+    def _strip_model_extension(self, model_name: str) -> str:
+        """Remove common model file extensions for cleaner display."""
+        # Common model extensions
+        extensions_to_strip = [".pth", ".onnx", ".ckpt", ".pt", ".bin", ".pkl"]
+
+        for ext in extensions_to_strip:
+            if model_name.lower().endswith(ext.lower()):
+                return model_name[: -len(ext)]
+
+        return model_name
 
     def start_processing(self, settings_dict: dict):
         # Debug print removed

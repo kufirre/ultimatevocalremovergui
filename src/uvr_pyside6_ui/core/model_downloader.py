@@ -75,10 +75,15 @@ def download_model_file(
     # Handle Demucs models specially - check if this should go in v3_v4_repo
     if model_type == ac.DEMUCS_MODELS_KEY:
         # Check if this is a v3/v4 model that should go in the v3_v4_repo directory
-        # This checks for v3/v4 in model name OR .yaml extension in the file
-        should_use_v3_v4_repo = any(
-            tag in model_name.lower() for tag in [ac.DEMUCS_V3, ac.DEMUCS_V4]
-        ) or local_model_filename.endswith(".yaml")
+        # This checks for:
+        # 1. v3/v4 in model name
+        # 2. .yaml extension in the main file
+        # 3. .yaml extension in the config file (if provided)
+        should_use_v3_v4_repo = (
+            any(tag in model_name.lower() for tag in [ac.DEMUCS_V3, ac.DEMUCS_V4])
+            or local_model_filename.endswith(".yaml")
+            or (config_url and Path(config_url).name.endswith(".yaml"))
+        )
 
         if should_use_v3_v4_repo:
             # Create the v3_v4_repo directory if it doesn't exist

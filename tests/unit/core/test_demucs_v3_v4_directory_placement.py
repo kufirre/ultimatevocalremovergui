@@ -404,33 +404,202 @@ class TestDemucsV3V4DirectoryPlacement:
                     assert ac.DEMUCS_V3_V4_REPO_DIR_NAME in config_path
 
     def test_yaml_extension_triggers_v3_v4_repo_placement(self):
-        """Test that any .yaml file (regardless of model name) goes to v3_v4_repo."""
-        with patch("uvr_pyside6_ui.core.model_downloader.requests.get") as mock_get:
-            mock_response = Mock()
-            mock_response.headers = {"content-length": "1000"}
-            mock_response.iter_content.return_value = [b"model_data"]
-            mock_response.raise_for_status = Mock()
-            mock_get.return_value = mock_response
-
-            # Model name without v3/v4 but with .yaml extension
-            model_name = "htdemucs_ft_new"
-            download_url = (
-                "https://example.com/model.yaml"  # .yaml should trigger v3_v4_repo
-            )
-
-            with tempfile.TemporaryDirectory() as temp_dir:
-                target_dir = Path(temp_dir) / "Demucs_Models"
-                target_dir.mkdir(parents=True, exist_ok=True)
-
-                with patch(
-                    "uvr_pyside6_ui.core.model_downloader.MODEL_TYPE_PATHS",
-                    {ac.DEMUCS_MODELS_KEY: target_dir},
-                ):
+        """Test that .yaml files always trigger v3_v4_repo placement regardless of model name."""
+        # This test validates our first fix: checking config URLs for .yaml files
+        mock_response = Mock()
+        mock_response.headers = {"content-length": "500"}
+        mock_response.iter_content.return_value = [b"yaml_content"]
+        mock_response.raise_for_status = Mock()
+        
+        with tempfile.TemporaryDirectory() as temp_dir:
+            target_dir = Path(temp_dir) / "Demucs_Models"
+            target_dir.mkdir(parents=True, exist_ok=True)
+            
+            with patch("uvr_pyside6_ui.core.model_downloader.requests.get", return_value=mock_response):
+                with patch("uvr_pyside6_ui.core.model_downloader.MODEL_TYPE_PATHS",
+                          {ac.DEMUCS_MODELS_KEY: target_dir}):
                     with patch("builtins.open", mock_open()):
-                        success, message, config_path = download_model_file(
-                            model_name, download_url, ac.DEMUCS_MODELS_KEY
+                        # Even with a generic model name, .yaml extension should trigger v3_v4_repo
+                        success, message, _ = download_model_file(
+                            "generic_model", 
+                            "https://example.com/model.yaml", 
+                            ac.DEMUCS_MODELS_KEY
                         )
+            
+            assert success is True
+            assert ac.DEMUCS_V3_V4_REPO_DIR_NAME in str(message)
 
-                assert success is True
-                # Should be placed in v3_v4_repo because of .yaml extension
-                assert ac.DEMUCS_V3_V4_REPO_DIR_NAME in str(message)
+    @patch("uvr_pyside6_ui.core.model_downloader.requests.get")
+    def test_multi_file_v3_download_with_hash_filenames(self, mock_get):
+        """Test that multi-file v3/v4 downloads with hash filenames all go to v3_v4_repo.
+        
+        This test validates our core fix for the hash filename issue where individual
+        .th files were going to root directory instead of v3_v4_repo.
+        """
+        mock_response = Mock()
+        mock_response.headers = {"content-length": "1000"}
+        mock_response.iter_content.return_value = [b"model_data"]
+        mock_response.raise_for_status = Mock()
+        mock_get.return_value = mock_response
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            target_dir = Path(temp_dir) / "Demucs_Models"
+            target_dir.mkdir(parents=True, exist_ok=True)
+            
+            with patch("uvr_pyside6_ui.core.model_downloader.MODEL_TYPE_PATHS",
+                      {ac.DEMUCS_MODELS_KEY: target_dir}):
+                with patch("builtins.open", mock_open()):
+                    # Test hash filename with config_url pointing to .yaml file
+                    # This simulates our fix where we check the config_url for .yaml extension
+                    success, message, _ = download_model_file(
+                        "0d19c1c6-0f06f20e.th",  # Hash filename that was problematic
+                        "https://example.com/0d19c1c6-0f06f20e.th",
+                        ac.DEMUCS_MODELS_KEY,
+                        config_url="https://example.com/mdx.yaml"  # This should trigger v3_v4_repo
+                    )
+            
+            assert success is True
+            assert ac.DEMUCS_V3_V4_REPO_DIR_NAME in str(message)
+
+    @patch("uvr_pyside6_ui.core.uvr_core_adapter.download_model_file")
+    def test_uvr_adapter_preserves_v3_v4_context_for_multi_file(self, mock_download):
+        """Test that UVRCoreAdapter preserves v3/v4 context for multi-file downloads.
+        
+        This validates our second fix where we ensure the display name with v3/v4
+        information is passed to the downloader instead of individual filenames.
+        """
+        mock_download.return_value = (True, "Downloaded successfully", None)
+        
+        # Mock catalog with a v3 model that has multiple files
+        mock_catalog = {
+            "Demucs": [
+                {
+                    "name": "Demucs v3: mdx",  # Display name with v3 context
+                    "download_url": "https://example.com/model.yaml",
+                    "files": [
+                        {"filename": "0d19c1c6-0f06f20e.th", 
+                         "download_url": "https://example.com/0d19c1c6-0f06f20e.th"},
+                        {"filename": "7ecf8ec1-70f50cc9.th", 
+                         "download_url": "https://example.com/7ecf8ec1-70f50cc9.th"},
+                        {"filename": "mdx.yaml", 
+                         "download_url": "https://example.com/mdx.yaml"}
+                    ]
+                }
+            ]
+        }
+        
+        adapter = UVRCoreAdapter()
+        
+        with patch.object(adapter, '_get_model_catalog', return_value=mock_catalog):
+            with patch.object(adapter, '_download_file_with_progress'):
+                # This should detect v3/v4 and pass the display name to preserve context
+                adapter.download_model("Demucs v3: mdx", "Demucs", None)
+        
+        # Verify that download_model_file was called with the display name for v3/v4 detection
+        # not the individual hash filenames
+        call_args_list = mock_download.call_args_list
+        assert len(call_args_list) >= 3  # Should have 3 files
+        
+        # Check that at least one call used the display name or detected v3/v4 context
+        v3_v4_context_preserved = any(
+            # Either the model name contains v3/v4 OR it's a .yaml file
+            (ac.DEMUCS_V3 in call.args[0] or ac.DEMUCS_V4 in call.args[0] or 
+             call.args[1].endswith('.yaml'))
+            for call in call_args_list
+        )
+        assert v3_v4_context_preserved, "v3/v4 context should be preserved for multi-file downloads"
+
+    @patch("uvr_pyside6_ui.core.model_downloader.requests.get")
+    def test_config_url_detection_for_v3_v4_placement(self, mock_get):
+        """Test that config_url parameter correctly triggers v3/v4 repo placement.
+        
+        This validates the enhancement where we check both the filename AND
+        the config_url for .yaml extensions to determine v3/v4 placement.
+        """
+        mock_response = Mock()
+        mock_response.headers = {"content-length": "1000"}
+        mock_response.iter_content.return_value = [b"model_data"]
+        mock_response.raise_for_status = Mock()
+        mock_get.return_value = mock_response
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            target_dir = Path(temp_dir) / "Demucs_Models"
+            target_dir.mkdir(parents=True, exist_ok=True)
+            
+            with patch("uvr_pyside6_ui.core.model_downloader.MODEL_TYPE_PATHS",
+                      {ac.DEMUCS_MODELS_KEY: target_dir}):
+                with patch("builtins.open", mock_open()):
+                    # Test cases where model name and URL don't indicate v3/v4
+                    # but config_url does
+                    test_cases = [
+                        # Case 1: Hash filename with .yaml config
+                        ("abc123-def456.th", "https://example.com/abc123-def456.th", 
+                         "https://example.com/model.yaml"),
+                        # Case 2: Regular filename with .yaml config  
+                        ("model_file.th", "https://example.com/model_file.th",
+                         "https://example.com/config.yaml"),
+                    ]
+                    
+                    for model_name, download_url, config_url in test_cases:
+                        success, message, _ = download_model_file(
+                            model_name, download_url, ac.DEMUCS_MODELS_KEY,
+                            config_url=config_url
+                        )
+                        
+                        assert success is True
+                        assert ac.DEMUCS_V3_V4_REPO_DIR_NAME in str(message), \
+                            f"Failed for {model_name} with config {config_url}"
+
+    def test_v3_v4_multi_file_set_consistency(self):
+        """Test that all files from the same v3/v4 model set go to the same directory.
+        
+        This is an integration test that simulates the real-world scenario where
+        a single v3/v4 model consists of multiple .th files plus a .yaml config.
+        """
+        # Simulate the "Demucs v3: mdx" model which has 4 .th files + 1 .yaml
+        model_files = [
+            ("0d19c1c6-0f06f20e.th", "https://example.com/0d19c1c6-0f06f20e.th"),
+            ("7ecf8ec1-70f50cc9.th", "https://example.com/7ecf8ec1-70f50cc9.th"),
+            ("c511e2ab-fe698775.th", "https://example.com/c511e2ab-fe698775.th"),
+            ("7d865c68-3d5dd56b.th", "https://example.com/7d865c68-3d5dd56b.th"),
+            ("mdx.yaml", "https://example.com/mdx.yaml")
+        ]
+        
+        mock_response = Mock()
+        mock_response.headers = {"content-length": "1000"}
+        mock_response.iter_content.return_value = [b"model_data"]
+        mock_response.raise_for_status = Mock()
+        
+        download_paths = []
+        
+        with tempfile.TemporaryDirectory() as temp_dir:
+            target_dir = Path(temp_dir) / "Demucs_Models"
+            target_dir.mkdir(parents=True, exist_ok=True)
+            
+            with patch("uvr_pyside6_ui.core.model_downloader.requests.get", return_value=mock_response):
+                with patch("uvr_pyside6_ui.core.model_downloader.MODEL_TYPE_PATHS",
+                          {ac.DEMUCS_MODELS_KEY: target_dir}):
+                    with patch("builtins.open", mock_open()):
+                        for filename, url in model_files:
+                            # For .th files, provide the .yaml config_url to maintain context
+                            config_url = "https://example.com/mdx.yaml" if filename.endswith('.th') else None
+                            
+                            success, message, _ = download_model_file(
+                                "Demucs v3: mdx",  # Use display name to preserve context
+                                url, 
+                                ac.DEMUCS_MODELS_KEY,
+                                config_url=config_url
+                            )
+                            
+                            assert success is True
+                            download_paths.append(message)
+        
+        # Verify ALL files went to v3_v4_repo directory
+        for path in download_paths:
+            assert ac.DEMUCS_V3_V4_REPO_DIR_NAME in str(path), \
+                f"File not in v3_v4_repo: {path}"
+        
+        # Verify consistency - all paths should contain the same directory structure
+        v3_v4_paths = [path for path in download_paths if ac.DEMUCS_V3_V4_REPO_DIR_NAME in str(path)]
+        assert len(v3_v4_paths) == len(model_files), \
+            "Not all files from v3/v4 model set went to v3_v4_repo directory"

@@ -784,14 +784,75 @@ class SeperateMDXCLogic(SeparatorAttributesLogic):
                     current_source_output = processed_batch[source_idx_in_batch]
                     start_frame = cnt * hop_size
                     end_frame = start_frame + chunk_size_mdxc
+
+                    # Fix for tensor size mismatch - ensure we don't exceed tensor bounds
+                    actual_end_frame = min(
+                        end_frame, estimated_sources_tensor.shape[-1]
+                    )
+                    actual_chunk_size = actual_end_frame - start_frame
+
+                    if actual_chunk_size <= 0:
+                        logger.warning(
+                            f"Skipping chunk with invalid size: {actual_chunk_size}"
+                        )
+                        cnt += 1
+                        continue
+
                     if num_target_instruments > 1:
+                        # Ensure output chunk matches expected size
+                        if current_source_output.shape[-1] > actual_chunk_size:
+                            current_source_output = current_source_output[
+                                ..., :actual_chunk_size
+                            ]
+                        elif current_source_output.shape[-1] < actual_chunk_size:
+                            # Pad if too small
+                            pad_size = (
+                                actual_chunk_size - current_source_output.shape[-1]
+                            )
+                            current_source_output = torch.cat(
+                                [
+                                    current_source_output,
+                                    torch.zeros(
+                                        *current_source_output.shape[:-1],
+                                        pad_size,
+                                        device=current_source_output.device,
+                                    ),
+                                ],
+                                dim=-1,
+                            )
+
                         estimated_sources_tensor[
-                            ..., start_frame:end_frame
+                            ..., start_frame:actual_end_frame
                         ] += current_source_output
                     else:
+                        # Handle single instrument case
+                        output_to_add = (
+                            current_source_output[0]
+                            if current_source_output.dim() > 2
+                            else current_source_output
+                        )
+
+                        # Ensure output chunk matches expected size
+                        if output_to_add.shape[-1] > actual_chunk_size:
+                            output_to_add = output_to_add[..., :actual_chunk_size]
+                        elif output_to_add.shape[-1] < actual_chunk_size:
+                            # Pad if too small
+                            pad_size = actual_chunk_size - output_to_add.shape[-1]
+                            output_to_add = torch.cat(
+                                [
+                                    output_to_add,
+                                    torch.zeros(
+                                        *output_to_add.shape[:-1],
+                                        pad_size,
+                                        device=output_to_add.device,
+                                    ),
+                                ],
+                                dim=-1,
+                            )
+
                         estimated_sources_tensor[
-                            ..., start_frame:end_frame
-                        ] += current_source_output[0]
+                            ..., start_frame:actual_end_frame
+                        ] += output_to_add
                     cnt += 1
 
         final_sources_tensor = (

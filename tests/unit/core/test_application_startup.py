@@ -147,5 +147,270 @@ class TestCriticalPathIntegration:
             pytest.fail(f"Failed to initialize main window: {e}")
 
 
+@pytest.mark.critical
+def test_qrc_resources_load_successfully():
+    """Test that all critical QRC resources load without errors."""
+    # Test font loading
+    century_gothic_file = QFile(ac.QRC_CENTURY_GOTHIC_PATH)
+    assert (
+        century_gothic_file.exists()
+    ), f"Century Gothic font not found: {ac.QRC_CENTURY_GOTHIC_PATH}"
+
+    montserrat_file = QFile(ac.QRC_MONTSERRAT_PATH)
+    assert (
+        montserrat_file.exists()
+    ), f"Montserrat font not found: {ac.QRC_MONTSERRAT_PATH}"
+
+    # Test stylesheet loading
+    main_stylesheet_file = QFile(ac.QRC_MAIN_STYLESHEET_PATH)
+    assert (
+        main_stylesheet_file.exists()
+    ), f"Main stylesheet not found: {ac.QRC_MAIN_STYLESHEET_PATH}"
+
+    progress_stylesheet_file = QFile(ac.QRC_PROGRESS_STYLESHEET_PATH)
+    assert (
+        progress_stylesheet_file.exists()
+    ), f"Progress stylesheet not found: {ac.QRC_PROGRESS_STYLESHEET_PATH}"
+
+
+@pytest.mark.critical
+def test_core_module_imports():
+    """Test that all core modules can be imported without errors."""
+    try:
+        from uvr_pyside6_ui.core.model_data import ModelData
+        from uvr_pyside6_ui.core.processing_worker import RealProcessingWorker
+        from uvr_pyside6_ui.core.uvr_core_adapter import UVRCoreAdapter
+
+        assert UVRCoreAdapter is not None
+        assert ModelData is not None
+        assert RealProcessingWorker is not None
+    except ImportError as e:
+        pytest.fail(f"Failed to import core modules: {e}")
+
+
+@pytest.mark.critical
+def test_ui_module_imports():
+    """Test that all essential UI modules can be imported."""
+    try:
+        from uvr_pyside6_ui.ui.execution_control_view import ExecutionControlView
+        from uvr_pyside6_ui.ui.main_window_view import MainWindowView
+        from uvr_pyside6_ui.ui.settings_dialog_view import SettingsDialogView
+
+        assert MainWindowView is not None
+        assert ExecutionControlView is not None
+        assert SettingsDialogView is not None
+    except ImportError as e:
+        pytest.fail(f"Failed to import UI modules: {e}")
+
+
+@pytest.mark.critical
+def test_application_can_be_created():
+    """Test that a QApplication instance can be created successfully."""
+    # QApplication instance should already exist from conftest.py
+    app = QApplication.instance()
+    assert app is not None, "QApplication instance not found"
+    # Note: The app name might be "Python" by default if not explicitly set
+    assert app.applicationName() in [
+        "UVR-Test",
+        "Python",
+    ], f"Unexpected application name: {app.applicationName()}"
+
+
+@pytest.mark.critical
+def test_main_window_can_be_instantiated():
+    """Test that the main window can be created without errors."""
+    try:
+        from uvr_pyside6_ui.ui.main_window_view import MainWindowView
+
+        window = MainWindowView()
+        assert window is not None
+        assert window.windowTitle() == ac.APP_TITLE
+        # Test that critical components exist
+        assert hasattr(window, "presenters")
+        assert hasattr(window, "adapter")
+        assert hasattr(window, "settings_dialog_presenter")
+    except Exception as e:
+        pytest.fail(f"Failed to create main window: {e}")
+
+
+@pytest.mark.critical
+def test_progress_bar_functionality():
+    """Test that progress bars work correctly and are visible."""
+    try:
+        from uvr_pyside6_ui.ui.execution_control_view import ExecutionControlView
+
+        view = ExecutionControlView()
+
+        # Show the widget to make it visible
+        view.show()
+
+        # Test progress bar exists and is properly configured
+        assert hasattr(view, "progress_bar")
+        assert view.progress_bar.minimum() == 0
+        assert view.progress_bar.maximum() == 100
+        assert view.progress_bar.value() == 0
+
+        # Test progress updates
+        view.set_progress_value(50)
+        assert view.progress_bar.value() == 50
+        assert view.progress_bar.isVisible()
+
+        # Test progress text updates
+        view.set_progress_text("Processing...")
+        assert view.progress_label.text() == "Processing..."
+
+    except Exception as e:
+        pytest.fail(f"Progress bar functionality test failed: {e}")
+
+
+@pytest.mark.critical
+def test_enhanced_settings_dialog():
+    """Test the enhanced settings dialog functionality."""
+    from uvr_pyside6_ui.core.uvr_core_adapter import UVRCoreAdapter
+    from uvr_pyside6_ui.ui.settings_dialog_presenter import SettingsDialogPresenter
+    from uvr_pyside6_ui.ui.settings_dialog_view import SettingsDialogView
+
+    # Create adapter and presenter
+    adapter = UVRCoreAdapter()
+    presenter = SettingsDialogPresenter(adapter)
+
+    # Show dialog (non-modal for testing)
+    presenter.show_dialog(exec_dialog=False)
+
+    # Verify view was created
+    assert presenter.view is not None
+    assert isinstance(presenter.view, SettingsDialogView)
+
+    # Verify the dialog has 3 tabs with correct names
+    tab_widget = presenter.view.tab_widget
+    assert tab_widget.count() == 3
+
+    expected_tab_names = ["Settings Guide", "Additional Settings", "Download Center"]
+    actual_tab_names = []
+    for i in range(tab_widget.count()):
+        actual_tab_names.append(tab_widget.tabText(i))
+
+    assert actual_tab_names == expected_tab_names
+
+    # Test Settings Guide tab (Tab 0)
+    tab_widget.setCurrentIndex(0)
+    settings_guide_tab = tab_widget.currentWidget()
+
+    # Verify main menu dropdown exists and has correct options
+    main_menu_combo = presenter.view.main_menu_combo
+    assert main_menu_combo is not None
+    expected_options = [
+        "Choose Advanced Menu",
+        "Advanced VR Options",
+        "Advanced MDX-Net Options",
+        "Advanced Demucs Options",
+        "Ensemble Customization Options",
+        "Audio Alignment Tool",
+        "Open Information Guide",
+        "Open Error Log",
+    ]
+    actual_options = [
+        main_menu_combo.itemText(i) for i in range(main_menu_combo.count())
+    ]
+    assert actual_options == expected_options
+
+    # Verify help hints checkbox exists
+    help_hints_checkbox = presenter.view.help_hints_checkbox
+    assert help_hints_checkbox is not None
+    assert hasattr(help_hints_checkbox, "isChecked")
+
+    # Test Additional Settings tab (Tab 1)
+    tab_widget.setCurrentIndex(1)
+    additional_settings_tab = tab_widget.currentWidget()
+
+    # Verify key settings widgets exist
+    assert presenter.view.wav_type_combo is not None
+    assert presenter.view.mp3_bitrate_combo is not None
+    assert presenter.view.test_mode_checkbox is not None
+    assert presenter.view.sample_duration_slider is not None
+
+    # Test Download Center tab (Tab 2)
+    tab_widget.setCurrentIndex(2)
+    download_center_tab = tab_widget.currentWidget()
+
+    # Verify radio buttons exist
+    assert presenter.view.vr_radio is not None
+    assert presenter.view.mdx_radio is not None
+    assert presenter.view.demucs_radio is not None
+
+    # Verify dropdowns exist
+    assert presenter.view.dc_model_vr_combo is not None
+    assert presenter.view.dc_model_mdx_combo is not None
+    assert presenter.view.dc_model_demucs_combo is not None
+
+    # Verify download control buttons exist
+    assert presenter.view.dc_download_btn is not None
+    assert presenter.view.dc_stop_btn is not None
+    assert presenter.view.dc_refresh_btn is not None
+
+    # Verify progress widgets exist
+    assert presenter.view.dc_progress_info_label is not None
+    assert presenter.view.dc_progress_percent_label is not None
+    assert presenter.view.dc_progress_bar is not None
+
+    # Test that VR is selected by default
+    assert presenter.view.vr_radio.isChecked()
+    assert not presenter.view.mdx_radio.isChecked()
+    assert not presenter.view.demucs_radio.isChecked()
+
+    # Test settings load/save functionality
+    test_settings = {
+        "main_menu": "Choose Advanced Menu",
+        "help_hints": True,
+        "wav_type": "PCM_16",
+        "mp3_bitrate": "320",
+        "test_mode": False,
+        "sample_duration": 30,
+    }
+
+    presenter.view.load_settings(test_settings)
+
+    # Verify settings were loaded
+    assert presenter.view.help_hints_checkbox.isChecked() == test_settings["help_hints"]
+    assert presenter.view.wav_type_combo.currentText() == test_settings["wav_type"]
+    assert (
+        presenter.view.mp3_bitrate_combo.currentText() == test_settings["mp3_bitrate"]
+    )
+    assert presenter.view.test_mode_checkbox.isChecked() == test_settings["test_mode"]
+    assert (
+        presenter.view.sample_duration_slider.value()
+        == test_settings["sample_duration"]
+    )
+
+    # Test getting settings back
+    retrieved_settings = presenter.view.get_settings()
+    assert isinstance(retrieved_settings, dict)
+    assert "help_hints" in retrieved_settings
+    assert "wav_type" in retrieved_settings
+    assert "mp3_bitrate" in retrieved_settings
+
+    # Clean up
+    presenter.view.close()
+
+
+@pytest.mark.critical
+def test_resources_rc_import_protection():
+    """Test that the critical resources_rc import is protected and functional."""
+    try:
+        # This import should work without issues and not be removed by linting tools
+        # Test that we can access QRC resources after import
+        from PySide6.QtCore import QFile
+
+        import uvr_pyside6_ui.resources_rc  # noqa: F401
+
+        test_file = QFile(":/uvr/fonts/CenturyGothic.ttf")
+        assert test_file.exists(), "QRC resources not accessible after import"
+
+    except ImportError as e:
+        pytest.fail(f"Critical resources_rc import failed: {e}")
+    except Exception as e:
+        pytest.fail(f"QRC resource access failed after import: {e}")
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

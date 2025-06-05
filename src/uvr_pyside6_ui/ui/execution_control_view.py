@@ -82,6 +82,9 @@ class ExecutionControlView(QWidget):
     def set_progress_value(self, value: int):
         """Updates the progress bar value."""
         self.progress_bar.setValue(value)
+        # Ensure the progress bar is visible when updated
+        if not self.progress_bar.isVisible():
+            self.progress_bar.show()
 
     @Slot(str)
     def set_progress_text(self, text: str):
@@ -109,5 +112,5 @@ class ExecutionControlView(QWidget):
 
     @Slot()
     def clear_logs(self):
-        """Clears the log area."""
+        """Clears all log messages."""
         self.log_text_edit.clear()

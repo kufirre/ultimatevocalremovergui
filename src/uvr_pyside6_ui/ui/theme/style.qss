@@ -1,7 +1,7 @@
 /* Basic Dark Theme QSS Stylesheet for UVR PySide6 App */
 
 QWidget {
-    font-family: "Montserrat", "Century Gothic", sans-serif; /* Prioritize Montserrat, fallback to Century Gothic, then generic sans-serif */
+    font-family: "Montserrat", "Century Gothic", "SF Pro Display", "Segoe UI", "Arial", sans-serif; /* Better font fallbacks */
     color: #e0e0e0; /* Light text for a dark theme */
     background-color: #2c3e50; /* Dark bluish-grey background */
     font-size: 10pt; /* Base font size */
@@ -34,7 +34,17 @@ QPushButton:disabled {
     border-color: #34495e;
 }
 
-QLineEdit, QTextEdit, QPlainTextEdit, QSpinBox, QDoubleSpinBox, QComboBox {
+/* Text widgets use monospace fonts */
+QTextEdit, QPlainTextEdit {
+    font-family: "SF Mono", "Monaco", "Consolas", "Liberation Mono", "DejaVu Sans Mono", monospace;
+    background-color: #1c2833; /* Darker input fields */
+    border: 1px solid #4a637a;
+    padding: 4px;
+    border-radius: 3px;
+    color: #ecf0f1;
+}
+
+QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {
     background-color: #1c2833; /* Darker input fields */
     border: 1px solid #4a637a;
     padding: 4px;

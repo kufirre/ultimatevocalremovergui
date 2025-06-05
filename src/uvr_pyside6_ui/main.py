@@ -1,8 +1,8 @@
 import os
 import sys
 
-from PySide6.QtCore import QFile, QIODevice, QTextStream
-from PySide6.QtGui import QFontDatabase
+from PySide6.QtCore import QFile, QIODevice, Qt, QTextStream
+from PySide6.QtGui import QFont, QFontDatabase
 from PySide6.QtWidgets import QApplication
 
 # Import resources to register them with Qt
@@ -32,13 +32,30 @@ def run():
     app = QApplication(sys.argv)
     app.setStyle(ac.FUSION_STYLE)
 
+    # macOS specific settings to avoid warnings
+    if sys.platform == "darwin":
+        app.setAttribute(Qt.AA_DontUseNativeMenuBar, False)
+        app.setAttribute(Qt.AA_DontUseNativeDialogs, False)
+        # Prevent NSOpenPanel warnings by setting proper file dialog behavior
+        os.environ.setdefault("QT_MAC_WANTS_LAYER", "1")
+
+    # Enable high DPI support
+    app.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+    app.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
+
     # Load fonts from QRC
     try:
         font_id = QFontDatabase.addApplicationFont(ac.QRC_CENTURY_GOTHIC_PATH)
         if font_id != -1:
-            logger.info(
-                f"Successfully loaded font from QRC: {ac.CENTURY_GOTHIC_FONT} (from {ac.QRC_CENTURY_GOTHIC_PATH})"
-            )
+            font_families = QFontDatabase.applicationFontFamilies(font_id)
+            if font_families:
+                logger.info(
+                    f"Successfully loaded font from QRC: {font_families[0]} (from {ac.QRC_CENTURY_GOTHIC_PATH})"
+                )
+            else:
+                logger.warning(
+                    f"No font families found for {ac.QRC_CENTURY_GOTHIC_PATH}"
+                )
         else:
             logger.warning(
                 f"Failed to load font from QRC: {ac.QRC_CENTURY_GOTHIC_PATH}"
@@ -49,9 +66,16 @@ def run():
     try:
         font_id = QFontDatabase.addApplicationFont(ac.QRC_MONTSERRAT_PATH)
         if font_id != -1:
-            logger.info(
-                f"Successfully loaded font from QRC: {ac.MONTSERRAT_FONT} (from {ac.QRC_MONTSERRAT_PATH})"
-            )
+            font_families = QFontDatabase.applicationFontFamilies(font_id)
+            if font_families:
+                logger.info(
+                    f"Successfully loaded font from QRC: {font_families[0]} (from {ac.QRC_MONTSERRAT_PATH})"
+                )
+                # Set a better default font to avoid Courier font warnings
+                default_font = QFont(font_families[0], 10)
+                app.setFont(default_font)
+            else:
+                logger.warning(f"No font families found for {ac.QRC_MONTSERRAT_PATH}")
         else:
             logger.warning(f"Failed to load font from QRC: {ac.QRC_MONTSERRAT_PATH}")
     except Exception as e:

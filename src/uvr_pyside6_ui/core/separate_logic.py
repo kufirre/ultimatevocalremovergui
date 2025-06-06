@@ -1240,11 +1240,12 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
             return None
 
         if (
-            not self.model_data.model_path
-            or not Path(self.model_data.model_path).is_file()
+            not self.md.model_path
+            or not Path(self.md.model_path).is_file()
+            or Path(self.md.model_path).stat().st_size == 0
         ):
             logger.error(
-                f"Error: Demucs model file not found or empty: {self.model_data.model_path}"
+                f"Error: Demucs model file not found or empty: {self.md.model_path}"
             )
             return None
 

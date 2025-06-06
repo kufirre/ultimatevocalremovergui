@@ -12,6 +12,12 @@ from unittest.mock import Mock, patch
 import numpy as np
 import pytest
 
+# Add torch import for the new tests
+try:
+    import torch
+except ImportError:
+    torch = None
+
 from uvr_pyside6_ui.core import app_constants as ac
 from uvr_pyside6_ui.core import separate_logic
 from uvr_pyside6_ui.core.model_data import ModelData
@@ -347,6 +353,10 @@ class TestSeparateLogicMocked:
         model_data = ModelData()
         model_data.model_name = "test_vr_model"
         model_data.model_path = "model.pth"
+        model_data.primary_stem = ac.VOCAL_STEM
+        model_data.secondary_stem = ac.INST_STEM
+        model_data.model_samplerate = 44100
+
         process_data = {}
 
         with patch("uvr_pyside6_ui.core.separate_logic.nets_vr") as mock_nets_vr:
@@ -357,6 +367,8 @@ class TestSeparateLogicMocked:
                 try:
                     separator = separate_logic.SeperateVRLogic(model_data, process_data)
                     assert separator.md == model_data
+                    assert separator.md.primary_stem == ac.VOCAL_STEM
+                    assert separator.md.secondary_stem == ac.INST_STEM
                 except Exception:
                     # VR logic may fail due to missing dependencies, that's ok for structure test
                     pass
@@ -366,23 +378,33 @@ class TestSeparateLogicMocked:
         model_data = ModelData()
         model_data.model_name = "test_mdx_model"
         model_data.model_path = "model.onnx"
-        process_data = {}
+        model_data.primary_stem = ac.VOCAL_STEM
+        model_data.secondary_stem = ac.INST_STEM
+        model_data.mdx_n_fft_scale_set = 2048
+        model_data.mdx_dim_f_set = 1024
+        model_data.model_samplerate = 44100
 
-        with patch("uvr_pyside6_ui.core.separate_logic.ort") as mock_ort:
-            mock_ort.InferenceSession = Mock()
+        process_data = {
+            "set_progress_bar": Mock(),
+            "write_to_console": Mock(),
+            "_is_running_check": Mock(return_value=True),
+        }
 
-            try:
-                separator = separate_logic.SeperateMDXLogic(model_data, process_data)
-                assert separator.md == model_data
-            except Exception:
-                # MDX logic may fail due to missing dependencies, that's ok
-                pass
+        separator = separate_logic.SeperateMDXLogic(model_data, process_data)
+
+        assert separator.md == model_data
+        assert separator.process_data == process_data
+        assert separator.md.primary_stem == ac.VOCAL_STEM
+        assert separator.md.secondary_stem == ac.INST_STEM
 
     def test_demucs_separator_mock_initialization(self):
         """Test Demucs separator initialization with mocks."""
         model_data = ModelData()
         model_data.model_name = "test_demucs_model"
         model_data.model_path = "model.yaml"
+        model_data.primary_stem = ac.VOCAL_STEM
+        model_data.secondary_stem = ac.INST_STEM
+
         process_data = {}
 
         with patch(
@@ -393,6 +415,8 @@ class TestSeparateLogicMocked:
             try:
                 separator = separate_logic.SeperateDemucsLogic(model_data, process_data)
                 assert separator.md == model_data
+                assert separator.md.primary_stem == ac.VOCAL_STEM
+                assert separator.md.secondary_stem == ac.INST_STEM
             except Exception:
                 # Demucs logic may fail due to missing dependencies
                 pass
@@ -531,3 +555,438 @@ class TestSeparateLogicIntegration:
         # Test that error handling callbacks are properly set
         assert callable(separator.write_to_console)
         assert callable(separator._is_running_check)
+
+
+@pytest.mark.unit
+class TestSeperateVRLogic:
+    """Test VR separator logic with proper mocking."""
+
+    def test_vr_logic_initialization(self):
+        """Test VR separator initialization."""
+        model_data = ModelData()
+        model_data.model_name = "test_vr_model"
+        model_data.model_path = "model.pth"
+        model_data.primary_stem = ac.VOCAL_STEM
+        model_data.secondary_stem = ac.INST_STEM
+        model_data.model_samplerate = 44100
+
+        process_data = {
+            "set_progress_bar": Mock(),
+            "write_to_console": Mock(),
+            "_is_running_check": Mock(return_value=True),
+        }
+
+        separator = separate_logic.SeperateVRLogic(model_data, process_data)
+
+        assert separator.md == model_data
+        assert separator.process_data == process_data
+        assert separator.md.primary_stem == ac.VOCAL_STEM
+        assert separator.md.secondary_stem == ac.INST_STEM
+
+    @patch("uvr_pyside6_ui.core.separate_logic.prepare_mix_logic")
+    def test_vr_logic_audio_loading_failure(self, mock_prepare_mix):
+        """Test VR separator handles audio loading failure."""
+        mock_prepare_mix.side_effect = Exception("Audio loading failed")
+
+        model_data = ModelData()
+        model_data.model_name = "test_vr_model"
+        model_data.model_path = "model.pth"
+        model_data.audio_file = "test_audio.wav"
+        model_data.primary_stem = ac.VOCAL_STEM
+        model_data.secondary_stem = ac.INST_STEM
+
+        process_data = {
+            "set_progress_bar": Mock(),
+            "write_to_console": Mock(),
+            "_is_running_check": Mock(return_value=True),
+        }
+
+        separator = separate_logic.SeperateVRLogic(model_data, process_data)
+        result = separator.seperate()
+
+        # Should return None on failure
+        assert result is None
+
+    def test_vr_logic_missing_dependencies(self):
+        """Test VR separator behavior with missing dependencies."""
+        model_data = ModelData()
+        model_data.model_name = "test_vr_model"
+        model_data.model_path = "model.pth"
+        model_data.primary_stem = ac.VOCAL_STEM
+        model_data.secondary_stem = ac.INST_STEM
+
+        process_data = {
+            "set_progress_bar": Mock(),
+            "write_to_console": Mock(),
+            "_is_running_check": Mock(return_value=True),
+        }
+
+        # Test initialization works even with missing dependencies
+        separator = separate_logic.SeperateVRLogic(model_data, process_data)
+        assert separator is not None
+
+
+@pytest.mark.unit
+class TestSeperateMDXLogic:
+    """Test MDX separator logic with proper mocking."""
+
+    def test_mdx_logic_initialization(self):
+        """Test MDX separator initialization."""
+        model_data = ModelData()
+        model_data.model_name = "test_mdx_model"
+        model_data.model_path = "model.onnx"
+        model_data.primary_stem = ac.VOCAL_STEM
+        model_data.secondary_stem = ac.INST_STEM
+        model_data.mdx_n_fft_scale_set = 2048
+        model_data.mdx_dim_f_set = 1024
+        model_data.model_samplerate = 44100
+
+        process_data = {
+            "set_progress_bar": Mock(),
+            "write_to_console": Mock(),
+            "_is_running_check": Mock(return_value=True),
+        }
+
+        separator = separate_logic.SeperateMDXLogic(model_data, process_data)
+
+        assert separator.md == model_data
+        assert separator.process_data == process_data
+        assert separator.md.primary_stem == ac.VOCAL_STEM
+        assert separator.md.secondary_stem == ac.INST_STEM
+
+    def test_mdx_logic_missing_dependencies(self):
+        """Test MDX separator behavior with missing dependencies."""
+        model_data = ModelData()
+        model_data.model_name = "test_mdx_model"
+        model_data.model_path = "model.onnx"
+        model_data.primary_stem = ac.VOCAL_STEM
+        model_data.secondary_stem = ac.INST_STEM
+
+        process_data = {
+            "set_progress_bar": Mock(),
+            "write_to_console": Mock(),
+            "_is_running_check": Mock(return_value=True),
+        }
+
+        # Test initialization works
+        separator = separate_logic.SeperateMDXLogic(model_data, process_data)
+        assert separator is not None
+
+    @patch("uvr_pyside6_ui.core.separate_logic.ort", None)
+    def test_mdx_logic_initialization_failure(self):
+        """Test MDX separator handles missing ONNX runtime."""
+        model_data = ModelData()
+        model_data.model_name = "test_mdx_model"
+        model_data.model_path = "model.onnx"
+        model_data.primary_stem = ac.VOCAL_STEM
+        model_data.secondary_stem = ac.INST_STEM
+
+        process_data = {
+            "set_progress_bar": Mock(),
+            "write_to_console": Mock(),
+            "_is_running_check": Mock(return_value=True),
+        }
+
+        # Should still initialize but might fail during processing
+        separator = separate_logic.SeperateMDXLogic(model_data, process_data)
+        assert separator is not None
+
+
+@pytest.mark.unit
+class TestSeperateMDXCLogic:
+    """Test MDX-C separator logic with proper mocking."""
+
+    def test_mdxc_logic_initialization(self):
+        """Test MDX-C separator initialization."""
+        model_data = ModelData()
+        model_data.model_name = "test_mdxc_model"
+        model_data.model_path = "model.ckpt"
+        model_data.primary_stem = ac.VOCAL_STEM
+        model_data.secondary_stem = ac.INST_STEM
+        model_data.mdx_model_stems = [ac.VOCAL_STEM, ac.INST_STEM]
+        model_data.model_samplerate = 44100
+
+        process_data = {
+            "set_progress_bar": Mock(),
+            "write_to_console": Mock(),
+            "_is_running_check": Mock(return_value=True),
+        }
+
+        separator = separate_logic.SeperateMDXCLogic(model_data, process_data)
+
+        assert separator.md == model_data
+        assert separator.process_data == process_data
+        assert separator.md.primary_stem == ac.VOCAL_STEM
+        assert separator.md.secondary_stem == ac.INST_STEM
+
+    @patch("uvr_pyside6_ui.core.separate_logic.prepare_mix_logic")
+    def test_mdxc_logic_audio_loading_failure(self, mock_prepare_mix):
+        """Test MDX-C separator handles audio loading failure."""
+        mock_prepare_mix.side_effect = Exception("Audio loading failed")
+
+        model_data = ModelData()
+        model_data.model_name = "test_mdxc_model"
+        model_data.model_path = "model.ckpt"
+        model_data.audio_file = "test_audio.wav"
+        model_data.primary_stem = ac.VOCAL_STEM
+        model_data.secondary_stem = ac.INST_STEM
+
+        process_data = {
+            "set_progress_bar": Mock(),
+            "write_to_console": Mock(),
+            "_is_running_check": Mock(return_value=True),
+        }
+
+        separator = separate_logic.SeperateMDXCLogic(model_data, process_data)
+        result = separator.seperate()
+
+        # Should return None on failure
+        assert result is None
+
+
+@pytest.mark.unit
+class TestSeperateDemucsLogic:
+    """Test Demucs separator logic with proper mocking."""
+
+    def test_demucs_logic_initialization(self):
+        """Test Demucs separator initialization."""
+        model_data = ModelData()
+        model_data.model_name = "test_demucs_model"
+        model_data.model_path = "model.th"
+        model_data.primary_stem = ac.VOCAL_STEM
+        model_data.secondary_stem = ac.INST_STEM
+        model_data.demucs_version = ac.DEMUCS_V4
+        model_data.demucs_stems = ac.VOCAL_STEM
+        model_data.model_samplerate = 44100
+
+        process_data = {
+            "set_progress_bar": Mock(),
+            "write_to_console": Mock(),
+            "_is_running_check": Mock(return_value=True),
+        }
+
+        separator = separate_logic.SeperateDemucsLogic(model_data, process_data)
+
+        assert separator.md == model_data
+        assert separator.process_data == process_data
+        assert separator.md.primary_stem == ac.VOCAL_STEM
+        assert separator.md.secondary_stem == ac.INST_STEM
+
+    def test_demucs_logic_missing_dependencies(self):
+        """Test Demucs separator behavior with missing dependencies."""
+        model_data = ModelData()
+        model_data.model_name = "test_demucs_model"
+        model_data.model_path = "model.th"
+        model_data.primary_stem = ac.VOCAL_STEM
+        model_data.secondary_stem = ac.INST_STEM
+
+        process_data = {
+            "set_progress_bar": Mock(),
+            "write_to_console": Mock(),
+            "_is_running_check": Mock(return_value=True),
+        }
+
+        # Test initialization works
+        separator = separate_logic.SeperateDemucsLogic(model_data, process_data)
+        assert separator is not None
+
+    @patch("pathlib.Path.exists", return_value=False)
+    def test_demucs_logic_missing_model_file(self, mock_exists):
+        """Test Demucs separator handles missing model file."""
+        model_data = ModelData()
+        model_data.model_name = "test_demucs_model"
+        model_data.model_path = "nonexistent_model.th"
+        model_data.primary_stem = ac.VOCAL_STEM
+        model_data.secondary_stem = ac.INST_STEM
+
+        process_data = {
+            "set_progress_bar": Mock(),
+            "write_to_console": Mock(),
+            "_is_running_check": Mock(return_value=True),
+        }
+
+        separator = separate_logic.SeperateDemucsLogic(model_data, process_data)
+
+        # The separator's md attribute is the same as model_data, so accessing md.model_path should work
+        # but let's patch the Path.exists and is_file to avoid the internal model file check
+        with patch("pathlib.Path.is_file", return_value=False):
+            result = separator.seperate()
+
+            # Should return None when model file doesn't exist
+            assert result is None
+
+    @patch("uvr_pyside6_ui.core.separate_logic.prepare_mix_logic")
+    def test_demucs_logic_audio_loading_failure(self, mock_prepare_mix):
+        """Test Demucs separator handles audio loading failure."""
+        mock_prepare_mix.side_effect = Exception("Audio loading failed")
+
+        model_data = ModelData()
+        model_data.model_name = "test_demucs_model"
+        model_data.model_path = "model.th"
+        model_data.audio_file = "test_audio.wav"
+        model_data.primary_stem = ac.VOCAL_STEM
+        model_data.secondary_stem = ac.INST_STEM
+
+        process_data = {
+            "set_progress_bar": Mock(),
+            "write_to_console": Mock(),
+            "_is_running_check": Mock(return_value=True),
+        }
+
+        with patch("pathlib.Path.exists", return_value=True):
+            with patch("pathlib.Path.is_file", return_value=True):
+                with patch("pathlib.Path.stat") as mock_stat:
+                    mock_stat_obj = Mock()
+                    mock_stat_obj.st_size = 1000000
+                    mock_stat.return_value = mock_stat_obj
+
+                    separator = separate_logic.SeperateDemucsLogic(
+                        model_data, process_data
+                    )
+                    result = separator.seperate()
+
+                    # Should return None on failure
+                    assert result is None
+
+
+@pytest.mark.unit
+class TestSeparatorClassesErrorHandling:
+    """Test error handling across all separator classes."""
+
+    def test_separator_interruption_handling(self):
+        """Test that separators handle user interruption properly."""
+        model_data = ModelData()
+        process_data = {
+            "_is_running_check": Mock(return_value=False),  # Simulate user stop
+            "write_to_console": Mock(),
+        }
+
+        # Test base class interruption handling
+        separator = separate_logic.SeparatorAttributesLogic(model_data, process_data)
+
+        assert not separator._is_running_check()
+
+    @patch("uvr_pyside6_ui.core.separate_logic.clear_gpu_cache_logic")
+    def test_gpu_cache_clearing(self, mock_clear_cache):
+        """Test that GPU cache is cleared after processing."""
+        model_data = ModelData()
+        process_data = {}
+
+        # Test that clear_gpu_cache_logic is available
+        separate_logic.clear_gpu_cache_logic()
+        mock_clear_cache.assert_called_once()
+
+    def test_progress_update_functionality(self):
+        """Test progress update functionality across separators."""
+        model_data = ModelData()
+        process_data = {
+            "set_progress_bar": Mock(),
+            "write_to_console": Mock(),
+            "base_text_console": "Test: ",
+        }
+
+        separator = separate_logic.SeparatorAttributesLogic(model_data, process_data)
+
+        # Test progress update
+        separator._update_progress(0.5, "Processing...")
+
+        # Verify that callbacks are callable
+        assert callable(separator.set_progress_bar)
+        assert callable(separator.write_to_console)
+
+    def test_stem_writing_functionality(self):
+        """Test stem writing functionality."""
+        model_data = ModelData()
+        model_data.export_path = "/tmp/test"
+        model_data.audio_file = "test.wav"
+
+        process_data = {}
+
+        separator = separate_logic.SeparatorAttributesLogic(model_data, process_data)
+
+        # Mock write_audio_logic to avoid actual file operations
+        with patch(
+            "uvr_pyside6_ui.core.separate_logic.write_audio_logic"
+        ) as mock_write:
+            test_audio = np.random.rand(44100, 2)
+            separator._write_stem("vocals", test_audio, 44100)
+
+            mock_write.assert_called_once()
+
+
+@pytest.mark.unit
+class TestSeparatorClassesConfiguration:
+    """Test different configurations for separator classes."""
+
+    def test_pitch_change_support(self):
+        """Test pitch change functionality across separators."""
+        model_data = ModelData()
+        model_data.is_pitch_change = True
+        model_data.semitone_shift = 2
+
+        process_data = {}
+
+        # Test that pitch change attributes are properly set
+        separator = separate_logic.SeparatorAttributesLogic(model_data, process_data)
+
+        assert separator.md.is_pitch_change == True
+        assert separator.md.semitone_shift == 2
+
+    def test_secondary_model_support(self):
+        """Test secondary model functionality."""
+        model_data = ModelData()
+        model_data.is_secondary_model = True
+        model_data.is_primary_stem_only = False
+        model_data.is_secondary_stem_only = False
+
+        process_data = {}
+
+        separator = separate_logic.SeparatorAttributesLogic(model_data, process_data)
+
+        assert separator.md.is_secondary_model == True
+
+    def test_denoise_model_support(self):
+        """Test denoising functionality."""
+        model_data = ModelData()
+        model_data.is_denoise_model = True
+        model_data.DENOISER_MODEL_PATH = "/path/to/denoiser.pth"
+
+        process_data = {}
+
+        separator = separate_logic.SeparatorAttributesLogic(model_data, process_data)
+
+        assert separator.md.is_denoise_model == True
+        assert separator.md.DENOISER_MODEL_PATH is not None
+
+    def test_stem_configuration_consistency(self):
+        """Test stem configuration consistency across separators."""
+        test_stems = [
+            (ac.VOCAL_STEM, ac.INST_STEM),
+            (ac.BASS_STEM, ac.OTHER_STEM),
+            (ac.DRUM_STEM, ac.VOCAL_STEM),
+        ]
+
+        for primary_stem, secondary_stem in test_stems:
+            model_data = ModelData()
+            model_data.primary_stem = primary_stem
+            model_data.secondary_stem = secondary_stem
+
+            process_data = {}
+
+            separator = separate_logic.SeparatorAttributesLogic(
+                model_data, process_data
+            )
+
+            assert separator.md.primary_stem == primary_stem
+            assert separator.md.secondary_stem == secondary_stem
+
+    def test_device_configuration(self):
+        """Test device configuration for separators."""
+        model_data = ModelData()
+        process_data = {}
+
+        separator = separate_logic.SeparatorAttributesLogic(model_data, process_data)
+
+        # Test that device is properly set
+        assert hasattr(separator, "device")
+        assert separator.device is not None

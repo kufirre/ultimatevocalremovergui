@@ -13,33 +13,34 @@ from PySide6.QtCore import QObject, QThread, Signal
 from . import app_constants as ac
 from .logger_utils import get_logger
 from .model_data import ModelData
+from .separate_demucs_logic import SeperateDemucsLogic
+from .separate_logic_base import (
+    clear_gpu_cache_logic,
+    prepare_mix_logic,
+    write_audio_logic,
+)
+from .separate_mdx_logic import SeperateMDXLogic
+from .separate_mdxc_logic import SeperateMDXCLogic
+from .separate_vr_logic import SeperateVRLogic
 
 logger = get_logger(__name__)
 
 try:
     from lib_v5 import spec_utils
-
-    from .separate_logic import (
-        SeperateDemucsLogic,
-        SeperateMDXCLogic,
-        SeperateMDXLogic,
-        SeperateVRLogic,
-        clear_gpu_cache_logic,
-        prepare_mix_logic,
-        write_audio_logic,
-    )
 except ImportError as e:
-    logger.warning(
-        f"Warning: Could not import separation logic modules or spec_utils: {e}"
-    )
-    SeperateVRLogic, SeperateMDXLogic, SeperateMDXCLogic, SeperateDemucsLogic = (
-        None,
-        None,
-        None,
-        None,
-    )
-    clear_gpu_cache_logic, prepare_mix_logic, write_audio_logic = None, None, None
+    logger.warning(f"Warning: Could not import spec_utils: {e}")
     spec_utils = None
+
+# Check if the separation logic modules are available
+if not all([SeperateVRLogic, SeperateMDXLogic, SeperateMDXCLogic, SeperateDemucsLogic]):
+    logger.warning("Warning: Some separation logic modules not available.")
+
+# Import logic functions from base module
+try:
+    from .separate_logic_base import prepare_mix_logic, write_audio_logic
+except ImportError as e:
+    logger.warning(f"Warning: Could not import logic functions: {e}")
+    prepare_mix_logic, write_audio_logic = None, None
 
 
 class RealProcessingWorker(QObject):

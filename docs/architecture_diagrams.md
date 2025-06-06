@@ -34,7 +34,11 @@ graph TB
     subgraph "Core Business Logic"
         L[UVRCoreAdapter]
         M[ModelData]
-        N[SeparateLogic]
+        N1[SeparateLogicBase]
+        N2[SeparateVRLogic]
+        N3[SeparateMDXLogic]
+        N4[SeparateMDXCLogic]
+        N5[SeparateDemucsLogic]
         O[ProcessingWorker]
         P[ModelDownloader]
         Q[DownloadWorker]
@@ -51,19 +55,31 @@ graph TB
     F --> L
     G --> L
     L --> M
-    L --> N
+    L --> N1
+    L --> N2
+    L --> N3
+    L --> N4
+    L --> N5
     L --> O
     L --> P
     P --> Q
     
     L --> U
-    N --> S
+    N1 --> S
+    N2 --> S
+    N3 --> S
+    N4 --> S
+    N5 --> S
     O --> S
     O --> T
     
     style A fill:#e1f5fe
     style L fill:#f3e5f5
-    style N fill:#fff3e0
+    style N1 fill:#fff3e0
+    style N2 fill:#fff3e0
+    style N3 fill:#fff3e0
+    style N4 fill:#fff3e0
+    style N5 fill:#fff3e0
     style O fill:#fff3e0
 ```
 
@@ -148,7 +164,7 @@ sequenceDiagram
     participant EP as ExecutionControlPresenter
     participant CA as UVRCoreAdapter
     participant PT as ProcessingThread
-    participant SL as SeparateLogic
+    participant SL as SeparationLogicModule
     participant MD as ModelData
     
     UI->>EP: User clicks Start
@@ -305,23 +321,25 @@ graph LR
         C[Format Conversion]
     end
     
-    subgraph "Separation Logic"
-        D[VR Architecture]
-        E[MDX-Net]
-        F[Demucs]
-        G[Ensemble Processing]
+    subgraph "Separation Logic Modules"
+        D[VR Logic Module]
+        E[MDX Logic Module]
+        F[MDX-C Logic Module]
+        G[Demucs Logic Module]
+        H[Base Logic Utils]
+        I[Ensemble Processing]
     end
     
     subgraph "Model Processing"
-        H[Model Loading]
-        I[Inference Engine]
-        J[Post-processing]
+        J[Model Loading]
+        K[Inference Engine]
+        L[Post-processing]
     end
     
     subgraph "Output Generation"
-        K[Stem Combination]
-        L[Format Export]
-        M[File Writing]
+        M[Stem Combination]
+        N[Format Export]
+        O[File Writing]
     end
     
     A --> B
@@ -330,26 +348,28 @@ graph LR
     C --> E
     C --> F
     
-    D --> H
-    E --> H
-    F --> H
+    D --> J
+    E --> J
+    F --> J
     
-    H --> I
-    I --> J
     J --> K
-    
-    D --> G
-    E --> G
-    F --> G
-    G --> K
-    
     K --> L
     L --> M
+    
+    D --> I
+    E --> I
+    F --> I
+    I --> M
+    
+    M --> N
+    N --> O
     
     style D fill:#ffeb3b
     style E fill:#ffeb3b
     style F fill:#ffeb3b
-    style G fill:#4caf50
+    style G fill:#ffeb3b
+    style H fill:#ffeb3b
+    style I fill:#4caf50
 ```
 
 ## 7. Signal/Slot Communication Pattern
@@ -449,7 +469,12 @@ graph TD
 | `UVRCoreAdapter` | Central business logic coordinator |
 | `ProcessingWorker` | Audio processing in separate thread |
 | `ModelData` | Model configuration and validation |
-| `SeparateLogic` | Core audio separation algorithms |
+| **Separation Logic Modules** | **Modular audio separation implementations** |
+| `SeparateLogicBase` | Common utilities and base separator class |
+| `SeparateVRLogic` | VR architecture audio separation |
+| `SeparateMDXLogic` | MDX-Net ONNX model processing |
+| `SeparateMDXCLogic` | MDX-C checkpoint model processing |
+| `SeparateDemucsLogic` | Demucs v1/v2/v3/v4 processing |
 | `DownloadManager` | Model download functionality |
 | `Settings Views/Presenters` | Method-specific configuration UI |
 

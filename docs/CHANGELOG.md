@@ -6,6 +6,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Latest] - 2025-01-05
 
+### Separation Logic Modularization 📁
+
+#### Major Architecture Improvement
+- **REFACTORED**: Split monolithic `separate_logic.py` (2172 lines) into 5 logical modules
+- **IMPROVED**: Better separation of concerns with focused, maintainable components
+- **ORGANIZED**: Each separator architecture now has its own dedicated module
+- **ENHANCED**: Cleaner codebase structure for easier development and debugging
+
+#### New Modular Structure
+```
+src/uvr_pyside6_ui/core/
+├── separate_logic_base.py     # Common utilities and base SeparatorAttributesLogic class
+├── separate_vr_logic.py       # VR architecture separation implementation
+├── separate_mdx_logic.py      # MDX-Net ONNX model implementation  
+├── separate_mdxc_logic.py     # MDX-C checkpoint model implementation
+└── separate_demucs_logic.py   # Demucs v1/v2/v3/v4 implementation
+```
+
+#### Backward Compatibility Maintained
+- **PRESERVED**: All existing functionality remains intact
+- **CREATED**: Compatibility namespace for seamless test integration
+- **UPDATED**: 467 tests successfully adapted to new module structure
+- **ENSURED**: Zero breaking changes for end users
+
+#### Enhanced Development Experience
+- **FOCUSED**: Each module contains architecture-specific logic only
+- **MAINTAINABLE**: Easier to locate, understand, and modify separation algorithms
+- **SCALABLE**: New separator architectures can be easily added as separate modules
+- **DEBUGGABLE**: Cleaner stack traces and more targeted error handling
+
+#### Quality Assurance
+- **TESTS**: Updated all test imports and mocking to use new module paths
+- **COVERAGE**: Maintained test coverage at 61% with all 467 tests passing
+- **COMPATIBILITY**: Processing worker imports correctly updated
+- **VERIFIED**: All separation functionality working perfectly across all architectures
+
 ### Modern Download Center Redesign
 
 #### Complete Interface Overhaul

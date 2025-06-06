@@ -103,7 +103,7 @@ class TestRealProcessingWorker:
                             Mock(),
                         ):
                             with patch(
-                                "uvr_pyside6_ui.core.processing_worker.prepare_mix_logic",
+                                "uvr_pyside6_ui.core.separate_logic_base.prepare_mix_logic",
                                 Mock(),
                             ):
                                 with patch(
@@ -150,7 +150,7 @@ class TestRealProcessingWorker:
                             Mock(),
                         ):
                             with patch(
-                                "uvr_pyside6_ui.core.processing_worker.prepare_mix_logic",
+                                "uvr_pyside6_ui.core.separate_logic_base.prepare_mix_logic",
                                 Mock(),
                             ):
                                 with patch(

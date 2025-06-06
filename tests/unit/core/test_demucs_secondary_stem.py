@@ -16,7 +16,7 @@ import numpy as np
 import pytest
 
 from uvr_pyside6_ui.core import app_constants as ac
-from uvr_pyside6_ui.core.separate_logic import SeperateDemucsLogic
+from uvr_pyside6_ui.core.separate_demucs_logic import SeperateDemucsLogic
 
 
 @pytest.mark.unit

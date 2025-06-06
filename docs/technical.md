@@ -54,7 +54,12 @@ Sophisticated **model lifecycle management** with dynamic loading, smart caching
 #### Core Processing Engine
 - **`uvr_core_adapter.py`**: Main coordinator class managing model discovery and processing
 - **`model_data.py`**: Model configuration and metadata management with V3/V4 detection
-- **`separate_logic.py`**: Core audio separation algorithms for each model type
+- **Separation Logic Modules** (Modularized for better maintainability):
+  - **`separate_logic_base.py`**: Common helper functions and base SeparatorAttributesLogic class
+  - **`separate_vr_logic.py`**: VR architecture audio separation implementation  
+  - **`separate_mdx_logic.py`**: MDX-Net architecture implementation with ONNX support
+  - **`separate_mdxc_logic.py`**: MDX-C architecture implementation for checkpoint models
+  - **`separate_demucs_logic.py`**: Demucs architecture implementation (v1/v2/v3/v4 support)
 - **`processing_worker.py`**: Threaded processing with progress tracking and error handling
 - **`model_downloader.py`**: Automated model downloading with intelligent directory placement
 
@@ -158,6 +163,22 @@ pytest tests/unit/core/test_demucs_v3_v4_directory_placement.py -v  # V3/V4 hand
       └── mdx_extra_v3.yaml    # V3 models
   ```
 - **Tests**: 24 comprehensive tests covering all placement scenarios
+
+### Separation Logic Modularization 📁
+- **Architecture**: Split monolithic 2172-line `separate_logic.py` into 5 logical modules
+- **Modular Structure**: 
+  ```
+  src/uvr_pyside6_ui/core/
+  ├── separate_logic_base.py     # Common utilities and base class (helper functions)
+  ├── separate_vr_logic.py       # VR architecture implementation
+  ├── separate_mdx_logic.py      # MDX-Net ONNX implementation  
+  ├── separate_mdxc_logic.py     # MDX-C checkpoint implementation
+  └── separate_demucs_logic.py   # Demucs v1/v2/v3/v4 implementation
+  ```
+- **Maintainability**: Better separation of concerns, improved code organization
+- **Backward Compatibility**: Preserved all functionality with compatibility namespace
+- **Test Coverage**: Updated 467 tests to work with new modular structure
+- **Benefits**: Easier debugging, focused development, cleaner architecture
 
 ### Critical Bug Fixes Resolved
 

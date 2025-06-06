@@ -498,12 +498,12 @@ class ModelData:
                     instance._load_ensemble_config(settings)
                 else:
                     logger.error(
-                        f"Error: Ensemble configuration file not found: {instance.model_path}"
+                        f"Ensemble configuration file not found: {instance.model_path}"
                     )
                     instance.model_status = False
             else:
                 logger.error(
-                    "Error: No ensemble configuration provided (neither live models nor saved ensemble)"
+                    "No ensemble configuration provided (neither live models nor saved ensemble)"
                 )
                 instance.model_status = False
         # Handle regular models (non-ensemble)

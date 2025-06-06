@@ -387,7 +387,7 @@ class SeperateVRLogic(SeparatorAttributesLogic):
 
         return result
 
-    def seperate(self) -> Optional[Dict[str, np.ndarray]]:
+    def separate(self) -> Optional[Dict[str, np.ndarray]]:
         """Main VR separation method."""
         if not all(
             [nets_new_vr, nets_vr, ModelParameters, spec_utils, self.md.vr_model_param]

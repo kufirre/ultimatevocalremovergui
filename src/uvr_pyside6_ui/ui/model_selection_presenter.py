@@ -9,6 +9,7 @@ class ModelSelectionPresenter(QObject):
     """Manage user interactions for selecting processing methods and models."""
 
     request_show_download_center = Signal(str)  # Emits originating_method
+    model_changed = Signal(str, str, str, str)  # method, model, primary_stem, secondary_stem
 
     def __init__(self, view, adapter):
         super().__init__()
@@ -31,6 +32,11 @@ class ModelSelectionPresenter(QObject):
 
             # self.view.set_ensemble_checked(self._is_advanced_ensemble_options) # REMOVED
         # Debug print removed
+
+    def connect_demucs_stem_changes(self, demucs_presenter):
+        """Connect to Demucs stem selection changes."""
+        if hasattr(demucs_presenter, 'view') and hasattr(demucs_presenter.view, 'stems_changed'):
+            demucs_presenter.view.stems_changed.connect(self._handle_demucs_stem_change)
 
     @Slot(str)
     def _handle_model_list_refresh_on_download(self, model_type_ui_name: str):
@@ -68,9 +74,11 @@ class ModelSelectionPresenter(QObject):
             and auto_selected_model != ac.ENSEMBLE_MODEL_INFO_TEXT
         ):
             self._current_model = auto_selected_model
+            self._emit_model_change_info()
 
         else:
             self._current_model = ""
+            self._emit_model_change_info()
 
         # Manage ensemble view expansion state
         # Ensure ensemble_view is accessed correctly via self.view (ModelSelectionView)
@@ -101,8 +109,91 @@ class ModelSelectionPresenter(QObject):
         elif selected_text and selected_text != ac.ENSEMBLE_MODEL_INFO_TEXT:
             if self._current_model != selected_text:
                 self._current_model = selected_text
+                self._emit_model_change_info()
         elif not selected_text and self._current_model:
             self._current_model = ""
+            self._emit_model_change_info()
+
+    def _emit_model_change_info(self):
+        """Emit model change information including stem details."""
+        if not self._current_method or not self._current_model:
+            # Disable processing checkboxes when no model is selected
+            self.model_changed.emit("", "", "", "")
+            return
+
+        primary_stem, secondary_stem = self._get_stems_for_model(
+            self._current_method, self._current_model
+        )
+        self.model_changed.emit(
+            self._current_method, self._current_model, primary_stem, secondary_stem
+        )
+
+    def _get_stems_for_model(self, method: str, model_name: str):
+        """Get primary and secondary stem names for the given model."""
+        try:
+            # Get model info from adapter
+            model_info = self.adapter.get_model_info(model_name, method)
+            
+            if method == ac.DEMUCS_MODELS_KEY:
+                # For Demucs, check the currently selected stem in the Demucs view
+                # Try to get current stem selection from Demucs presenter
+                demucs_presenter = getattr(self, '_demucs_presenter', None)
+                if demucs_presenter and hasattr(demucs_presenter, 'view'):
+                    current_stem = demucs_presenter.view.stem_combo.currentText()
+                    return self._get_demucs_stems_for_selection(current_stem)
+                # Default fallback for Demucs
+                return ac.VOCAL_STEM, ac.INST_STEM
+                
+            elif method == ac.VR_ARCH_MODELS_KEY:
+                if model_info and hasattr(model_info, 'primary_stem'):
+                    primary = getattr(model_info, 'primary_stem', ac.VOCAL_STEM)
+                    secondary = ac.secondary_stem(primary)
+                    return primary, secondary
+            elif method == ac.MDX_NET_MODELS_KEY:
+                if model_info and hasattr(model_info, 'mdx_model_stems'):
+                    stems = getattr(model_info, 'mdx_model_stems', [])
+                    if stems:
+                        primary = stems[0] if stems else ac.VOCAL_STEM
+                        secondary = ac.secondary_stem(primary)
+                        return primary, secondary
+                # Default for most MDX models
+                return ac.VOCAL_STEM, ac.INST_STEM
+            elif method == ac.ENSEMBLE_MODELS_KEY:
+                # For ensemble, disable individual stem checkboxes
+                return "Primary", "Secondary"
+        except Exception as e:
+            # If we can't get model info, use defaults
+            pass
+        
+        # Default fallback
+        return ac.VOCAL_STEM, ac.INST_STEM
+
+    @Slot(str)
+    def _handle_demucs_stem_change(self, stem_selection: str):
+        """Handle changes in Demucs stem selection."""
+        if self._current_method == ac.DEMUCS_MODELS_KEY and self._current_model:
+            primary_stem, secondary_stem = self._get_demucs_stems_for_selection(stem_selection)
+            self.model_changed.emit(
+                self._current_method, self._current_model, primary_stem, secondary_stem
+            )
+
+    def _get_demucs_stems_for_selection(self, stem_selection: str):
+        """Get primary and secondary stems for Demucs based on selection."""
+        if stem_selection == "All Stems":
+            return "Primary", "Secondary"  # Disable checkboxes for All Stems
+        elif stem_selection == "Vocals":
+            return ac.VOCAL_STEM, ac.INST_STEM
+        elif stem_selection == "Instrumental":
+            # Instrumental is created by combining Bass+Drums+Other or subtracting Vocals
+            return ac.INST_STEM, ac.VOCAL_STEM
+        elif stem_selection == "Bass":
+            return ac.BASS_STEM, ac.secondary_stem(ac.BASS_STEM)
+        elif stem_selection == "Drums":
+            return ac.DRUM_STEM, ac.secondary_stem(ac.DRUM_STEM)
+        elif stem_selection == "Other":
+            return ac.OTHER_STEM, ac.secondary_stem(ac.OTHER_STEM)
+        else:
+            return ac.VOCAL_STEM, ac.INST_STEM  # Default fallback
 
     def get_current_selection(self) -> dict:
         """Return the currently chosen processing method and model."""

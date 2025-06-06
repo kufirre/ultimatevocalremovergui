@@ -818,7 +818,7 @@ class TestProcessingWorkerIntegration:
                 "uvr_pyside6_ui.core.processing_worker.SeperateVRLogic"
             ) as mock_vr_logic:
                 mock_separator = Mock()
-                mock_separator.seperate.return_value = (
+                mock_separator.separate.return_value = (
                     np.random.rand(2, 44100).astype(np.float32),  # vocals
                     np.random.rand(2, 44100).astype(np.float32),  # instrumental
                 )

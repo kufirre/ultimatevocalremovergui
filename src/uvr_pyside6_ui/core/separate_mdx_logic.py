@@ -147,7 +147,7 @@ class SeperateMDXLogic(SeparatorAttributesLogic):
         actual_sr_pitched = ac.DEFAULT_SAMPLE_RATE
         if md.is_pitch_change:
             if not spec_utils:
-                logger.error("Error: spec_utils not available for pitch change.")
+                logger.error("spec_utils not available for pitch change.")
                 return None
             mix_processed_norm_np, actual_sr_pitched = (
                 spec_utils.change_pitch_semitones(
@@ -253,10 +253,10 @@ class SeperateMDXLogic(SeparatorAttributesLogic):
 
         return processed_audio_np.T
 
-    def seperate(self) -> Optional[Dict[str, np.ndarray]]:
+    def separate(self) -> Optional[Dict[str, np.ndarray]]:
         """Main MDX separation method."""
         if not MdxnetSet or not ort or not onnx_load or not onnx_ConvertModel:
-            logger.error("Error: MDX-Net or ONNX dependencies not available.")
+            logger.error("MDX-Net or ONNX dependencies not available.")
             return None
 
         md = self.md
@@ -269,7 +269,7 @@ class SeperateMDXLogic(SeparatorAttributesLogic):
 
         if md.is_mdx_ckpt:
             if not MdxnetSet:
-                logger.error("Error: MdxnetSet (for .ckpt) not available.")
+                logger.error("MdxnetSet (for .ckpt) not available.")
                 return None
             logger.info("Loading MDX CKPT model...")
             try:
@@ -297,14 +297,14 @@ class SeperateMDXLogic(SeparatorAttributesLogic):
                 self.device.type == "mps"
             ):
                 if not ort:
-                    logger.error("Error: ONNX Runtime not available.")
+                    logger.error("ONNX Runtime not available.")
                     return None
                 self.model_run_instance = ort.InferenceSession(
                     md.model_path, providers=self.run_type
                 )
             else:
                 if not onnx_load or not onnx_ConvertModel:
-                    logger.error("Error: ONNX conversion modules not available.")
+                    logger.error("ONNX conversion modules not available.")
                     return None
                 onnx_mdl = onnx_load(md.model_path)
                 self.model_run_instance = onnx_ConvertModel(onnx_mdl)

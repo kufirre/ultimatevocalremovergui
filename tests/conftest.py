@@ -159,19 +159,19 @@ def mock_model_data():
 def mock_separator_logic():
     """Mock separator logic for different architectures."""
     mock_vr_separator = Mock()
-    mock_vr_separator.seperate.return_value = {
+    mock_vr_separator.separate.return_value = {
         ac.VOCAL_STEM: np.random.rand(2, 1000).astype(np.float32),
         ac.INST_STEM: np.random.rand(2, 1000).astype(np.float32),
     }
 
     mock_mdx_separator = Mock()
-    mock_mdx_separator.seperate.return_value = {
+    mock_mdx_separator.separate.return_value = {
         ac.VOCAL_STEM: np.random.rand(2, 1000).astype(np.float32),
         ac.INST_STEM: np.random.rand(2, 1000).astype(np.float32),
     }
 
     mock_demucs_separator = Mock()
-    mock_demucs_separator.seperate.return_value = {
+    mock_demucs_separator.separate.return_value = {
         ac.VOCAL_STEM: np.random.rand(2, 1000).astype(np.float32),
         ac.INST_STEM: np.random.rand(2, 1000).astype(np.float32),
         ac.BASS_STEM: np.random.rand(2, 1000).astype(np.float32),

@@ -65,7 +65,8 @@ class ExecutionControlView(QWidget):
         # Progress bar
         self.progress_bar = QProgressBar()
         self.progress_bar.setObjectName("mainProgressBar")  # Set object name for QSS
-        self.progress_bar.setTextVisible(False)  # Hide text inside progress bar
+        self.progress_bar.setTextVisible(True)  # Enable text inside progress bar
+        self.progress_bar.setFormat("%p% - %v/%m")  # Show percentage and value/max
         self.progress_bar.setValue(0)  # Start at 0
         progress_layout.addWidget(self.progress_bar)
 

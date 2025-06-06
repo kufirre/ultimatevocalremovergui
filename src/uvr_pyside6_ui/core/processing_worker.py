@@ -63,11 +63,11 @@ class ProcessingWorker(QObject):
 
     def run(self):
         if not self.model_data or not self.model_data.model_status:
-            error_msg = "Error: Could not create valid model data from settings."
+            error_msg = "Could not create valid model data from settings."
             if self.model_data and not self.model_data.model_status:
-                error_msg = f"Error: Model data initialization failed for {self.model_data.model_name if self.model_data.model_name else 'Unknown Model'}."
+                error_msg = f"Model data initialization failed for {self.model_data.model_name if self.model_data.model_name else 'Unknown Model'}."
             else:
-                error_msg = "Error: ModelData object is None."
+                error_msg = "ModelData object is None."
             self.processing_finished.emit(False, error_msg)
             return
 
@@ -87,7 +87,7 @@ class ProcessingWorker(QObject):
             ]
         ):
             self.processing_finished.emit(
-                False, "Error: Core separation logic modules not fully available."
+                False, "Core separation logic modules not fully available."
             )
             return
 
@@ -98,7 +98,7 @@ class ProcessingWorker(QObject):
             ):
                 self.processing_finished.emit(
                     False,
-                    f"Error: Input file missing or invalid: {self.model_data.audio_file}",
+                    f"Input file missing or invalid: {self.model_data.audio_file}",
                 )
                 return
             if (
@@ -107,7 +107,7 @@ class ProcessingWorker(QObject):
             ):
                 self.processing_finished.emit(
                     False,
-                    f"Error: Export directory invalid: {self.model_data.export_path}",
+                    f"Export directory invalid: {self.model_data.export_path}",
                 )
                 return
 
@@ -117,7 +117,7 @@ class ProcessingWorker(QObject):
             ):
                 self.processing_finished.emit(
                     False,
-                    f"Error: Primary model file not found: {self.model_data.model_path}",
+                    f"Primary model file not found: {self.model_data.model_path}",
                 )
                 return
             elif self.model_data.is_ensemble_mode:
@@ -132,7 +132,7 @@ class ProcessingWorker(QObject):
                     # Saved ensemble - requires model_path file
                     self.processing_finished.emit(
                         False,
-                        f"Error: Ensemble configuration file not found: {self.model_data.model_path}",
+                        f"Ensemble configuration file not found: {self.model_data.model_path}",
                     )
                     return
 
@@ -156,7 +156,7 @@ class ProcessingWorker(QObject):
                 self.original_mix_audio = current_input_audio
             else:
                 self.processing_finished.emit(
-                    False, "Error: No valid audio input file specified."
+                    False, "No valid audio input file specified."
                 )
                 return
 
@@ -166,7 +166,7 @@ class ProcessingWorker(QObject):
             ):
                 if current_input_audio is None:
                     self.processing_finished.emit(
-                        False, "Error: Audio not loaded for pre-processing."
+                        False, "Audio not loaded for pre-processing."
                     )
                     return
                 self.progress_updated.emit(
@@ -182,7 +182,7 @@ class ProcessingWorker(QObject):
                     self.model_data.pre_proc_model, pre_proc_pd
                 )
                 if pre_proc_separator:
-                    pre_proc_results = pre_proc_separator.seperate()
+                    pre_proc_results = pre_proc_separator.separate()
                     if (
                         pre_proc_results
                         and self.model_data.pre_proc_model.primary_stem
@@ -266,7 +266,7 @@ class ProcessingWorker(QObject):
                 else:
                     self.processing_finished.emit(
                         False,
-                        f"Error: Unsupported primary processing method: {self.model_data.process_method}",
+                        f"Unsupported primary processing method: {self.model_data.process_method}",
                     )
 
         except Exception as e:
@@ -295,7 +295,7 @@ class ProcessingWorker(QObject):
             return
 
         self.progress_updated.emit(30, f"Running {method_name} separation...")
-        primary_results = primary_separator.seperate()
+        primary_results = primary_separator.separate()
         if not self._is_running or not primary_results:
             if self._is_running:
                 self.processing_finished.emit(
@@ -340,7 +340,7 @@ class ProcessingWorker(QObject):
                             secondary_model_for_stem_obj, sec_proc_data
                         )
                         if sec_separator:
-                            sec_results = sec_separator.seperate()
+                            sec_results = sec_separator.separate()
                             if sec_results and self._is_running:
                                 refined_stem_audio = sec_results.get(
                                     secondary_model_for_stem_obj.primary_stem
@@ -388,7 +388,7 @@ class ProcessingWorker(QObject):
                     sec_model_data, sec_process_data
                 )
                 if sec_separator:
-                    sec_results = sec_separator.seperate()
+                    sec_results = sec_separator.separate()
                     if sec_results and self._is_running:
                         scale = (
                             sec_model_data.secondary_model_chain_scale
@@ -466,7 +466,7 @@ class ProcessingWorker(QObject):
                     splitter_model_data, splitter_process_data
                 )
                 if splitter_separator:
-                    splitter_results = splitter_separator.seperate()
+                    splitter_results = splitter_separator.separate()
                     if (
                         splitter_results
                         and self.model_data.is_save_inst_vocal_splitter
@@ -688,7 +688,7 @@ class ProcessingWorker(QObject):
                 )
                 continue
 
-            member_results = member_separator.seperate()
+            member_results = member_separator.separate()
             if member_results and self._is_running:
                 self._write_to_console(
                     f"Model {member_model_data.model_basename} produced stems: {list(member_results.keys())}",

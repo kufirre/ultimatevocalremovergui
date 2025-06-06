@@ -50,12 +50,33 @@ class ExecutionControlPresenter(QObject):
                 "output_path": output_path,
             }
         )
-        # Add general processing settings
-        all_settings.update(settings)
+        
+        # Add general processing settings, but map stem-only keys based on method
+        internal_method_name = model_details.get("chosen_process_method")
+        
+        # Map stem-only keys to method-specific keys
+        if internal_method_name == ac.DEMUCS_ARCH_TYPE:
+            # For Demucs, use Demucs-specific keys
+            all_settings.update({
+                "use_gpu": settings.get("use_gpu", False),
+                "normalize": settings.get("normalize", False),
+                "output_format": settings.get("output_format", "WAV"),
+                "sample_mode": settings.get("sample_mode", False),
+                "is_primary_stem_only_Demucs": settings.get("primary_stem_only", False),
+                "is_secondary_stem_only_Demucs": settings.get("secondary_stem_only", False),
+            })
+        else:
+            # For other methods, use generic keys
+            all_settings.update({
+                "use_gpu": settings.get("use_gpu", False),
+                "normalize": settings.get("normalize", False),
+                "output_format": settings.get("output_format", "WAV"),
+                "sample_mode": settings.get("sample_mode", False),
+                "is_primary_stem_only": settings.get("primary_stem_only", False),
+                "is_secondary_stem_only": settings.get("secondary_stem_only", False),
+            })
 
         # Add specific model settings based on selection
-        internal_method_name = model_details.get("chosen_process_method")
-
         # Map internal method name back to UI key for presenter lookup
         ui_method_key = None
         if internal_method_name == ac.VR_ARCH_TYPE:
@@ -122,7 +143,15 @@ class ExecutionControlPresenter(QObject):
             return
 
         self.view.set_progress_value(value)
-        self.view.set_progress_text(text)
+        
+        # Update both the progress bar format and the label
+        if value > 0:
+            # Format: "Process Progress: XX%" like the original UVR
+            self.view.progress_bar.setFormat(f"Process Progress: {value}%")
+            self.view.set_progress_text(text)
+        else:
+            self.view.progress_bar.setFormat("%p%")
+            self.view.set_progress_text(text)
 
         # Only log progress at key milestones and avoid repetitive 100% logs
         if value % 20 == 0 and value > 0 and value < 100:

@@ -291,6 +291,6 @@ class SeparatorAttributesLogic:
         result[stem_name] = source_data
         return result
 
-    def seperate(self) -> Optional[Dict[str, np.ndarray]]:
+    def separate(self) -> Optional[Dict[str, np.ndarray]]:
         """Main separation method - to be implemented by subclasses."""
-        raise NotImplementedError("Subclasses must implement seperate method")
+        raise NotImplementedError("Subclasses must implement separate method")

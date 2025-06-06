@@ -83,6 +83,27 @@ class ProcessingSettingsPresenter(QObject):
             # sample_duration = self.get_app_setting("sample_duration", 30) # Placeholder
             # self.view.sample_mode_checkbox.setText(f"Sample Mode ({sample_duration}s)" if is_checked else "Sample Mode")
 
+    @Slot(str, str, str, str)
+    def handle_model_change(self, method: str, model: str, primary_stem: str, secondary_stem: str):
+        """Handle model selection changes to update checkbox labels and availability."""
+        if not method or not model or not primary_stem or not secondary_stem:
+            # No model selected - disable checkboxes and reset labels
+            self.view.set_stem_checkboxes_enabled(False)
+            self.view.set_primary_stem_text("Primary Stem")
+            self.view.set_secondary_stem_text("Secondary Stem")
+        else:
+            # Model selected - update labels
+            self.view.set_primary_stem_text(primary_stem)
+            self.view.set_secondary_stem_text(secondary_stem)
+            
+            # Enable checkboxes based on method and selection
+            enable_checkboxes = (
+                method != "Ensemble" and 
+                primary_stem != "Primary" and  # Disable for All Stems mode
+                secondary_stem != "Secondary"
+            )
+            self.view.set_stem_checkboxes_enabled(enable_checkboxes)
+
     def get_settings(self) -> dict:  # For ExecutionControlPresenter
         return {
             "use_gpu": self._use_gpu,

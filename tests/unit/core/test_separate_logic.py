@@ -467,10 +467,10 @@ class TestSeparateLogicMocked:
         model_data = ModelData()
         process_data = {}
 
-        # Test that separator classes have seperate method
-        assert hasattr(separate_logic.SeperateVRLogic, "seperate")
-        assert hasattr(separate_logic.SeperateMDXLogic, "seperate")
-        assert hasattr(separate_logic.SeperateDemucsLogic, "seperate")
+        # Test that separator classes have separate method
+        assert hasattr(separate_logic.SeperateVRLogic, "separate")
+        assert hasattr(separate_logic.SeperateMDXLogic, "separate")
+        assert hasattr(separate_logic.SeperateDemucsLogic, "separate")
 
     def test_mock_demucs_4_stem_output(self):
         """Test 4-stem output structure for Demucs."""
@@ -680,7 +680,7 @@ class TestSeperateVRLogic:
                         separator = separate_logic.SeperateVRLogic(
                             self.model_data, self.process_data
                         )
-                        result = separator.seperate()
+                        result = separator.separate()
 
                         # Check if audio was loaded (might be None if dependencies missing)
                         assert result is None or isinstance(result, dict)
@@ -704,7 +704,7 @@ class TestSeperateVRLogic:
                             )  # VR 5.1 model size
 
                             # Should handle interruption gracefully
-                            result = separator.seperate()
+                            result = separator.separate()
                             # The result might be None due to user interruption
 
     def test_vr_logic_missing_vr_model_param(self):
@@ -712,7 +712,7 @@ class TestSeperateVRLogic:
         self.model_data.vr_model_param = None
 
         separator = separate_logic.SeperateVRLogic(self.model_data, self.process_data)
-        result = separator.seperate()
+        result = separator.separate()
 
         assert result is None
 
@@ -771,7 +771,7 @@ class TestSeperateVRLogic:
                 )
 
                 # Test should complete without error
-                result = separator.seperate()
+                result = separator.separate()
 
     @patch("uvr_pyside6_ui.core.separate_logic_base.prepare_mix_logic")
     def test_vr_logic_high_end_processing(self, mock_prepare_mix):
@@ -950,7 +950,7 @@ class TestSeperateMDXLogic:
         mock_prepare_mix.return_value = None
 
         separator = separate_logic.SeperateMDXLogic(self.model_data, self.process_data)
-        result = separator.seperate()
+        result = separator.separate()
 
         assert result is None
 
@@ -960,7 +960,7 @@ class TestSeperateMDXLogic:
             separator = separate_logic.SeperateMDXLogic(
                 self.model_data, self.process_data
             )
-            result = separator.seperate()
+            result = separator.separate()
             assert result is None
 
     def test_mdx_logic_missing_onnx_dependencies(self):
@@ -969,7 +969,7 @@ class TestSeperateMDXLogic:
             separator = separate_logic.SeperateMDXLogic(
                 self.model_data, self.process_data
             )
-            result = separator.seperate()
+            result = separator.separate()
             assert result is None
 
     @patch("uvr_pyside6_ui.core.separate_logic_base.prepare_mix_logic")
@@ -988,7 +988,7 @@ class TestSeperateMDXLogic:
 
         # The separator should raise InterruptedError when user interruption happens
         with pytest.raises(InterruptedError, match="Processing stopped by user"):
-            separator.seperate()
+            separator.separate()
 
     def test_mdx_logic_denoise_options(self):
         """Test MDX separator with different denoise options."""
@@ -1208,7 +1208,7 @@ class TestSeperateMDXCLogic:
         mock_prepare_mix.return_value = None
 
         separator = separate_logic.SeperateMDXCLogic(self.model_data, self.process_data)
-        result = separator.seperate()
+        result = separator.separate()
 
         assert result is None
 
@@ -1218,7 +1218,7 @@ class TestSeperateMDXCLogic:
             separator = separate_logic.SeperateMDXCLogic(
                 self.model_data, self.process_data
             )
-            result = separator.seperate()
+            result = separator.separate()
             assert result is None
 
     def test_mdxc_logic_missing_configs(self):
@@ -1226,7 +1226,7 @@ class TestSeperateMDXCLogic:
         self.model_data.mdx_c_configs = None
 
         separator = separate_logic.SeperateMDXCLogic(self.model_data, self.process_data)
-        result = separator.seperate()
+        result = separator.separate()
         assert result is None
 
     @patch("uvr_pyside6_ui.core.separate_logic_base.prepare_mix_logic")
@@ -1240,7 +1240,7 @@ class TestSeperateMDXCLogic:
         # Mock dependencies
         with patch("uvr_pyside6_ui.core.separate_mdxc_logic.TFC_TDF_net"):
             # Should handle interruption gracefully
-            result = separator.seperate()
+            result = separator.separate()
 
     def test_mdxc_logic_stem_selection_options(self):
         """Test MDX-C separator with different stem selection options."""
@@ -1346,7 +1346,7 @@ class TestSeperateMDXCLogic:
         mock_tfc_tdf.side_effect = Exception("Model loading failed")
 
         separator = separate_logic.SeperateMDXCLogic(self.model_data, self.process_data)
-        result = separator.seperate()
+        result = separator.separate()
 
         assert result is None
 
@@ -1364,7 +1364,7 @@ class TestSeperateMDXCLogic:
         separator = separate_logic.SeperateMDXCLogic(self.model_data, self.process_data)
 
         with patch("uvr_pyside6_ui.core.separate_mdxc_logic.TFC_TDF_net"):
-            result = separator.seperate()
+            result = separator.separate()
             assert result is None
 
 
@@ -1532,7 +1532,7 @@ class TestSeperateDemucsLogic:
         separator = separate_logic.SeperateDemucsLogic(
             self.model_data, self.process_data
         )
-        result = separator.seperate()
+        result = separator.separate()
 
         assert result is None
 
@@ -1550,7 +1550,7 @@ class TestSeperateDemucsLogic:
         separator = separate_logic.SeperateDemucsLogic(
             self.model_data, self.process_data
         )
-        result = separator.seperate()
+        result = separator.separate()
 
         assert result is None
 
@@ -1560,7 +1560,7 @@ class TestSeperateDemucsLogic:
             separator = separate_logic.SeperateDemucsLogic(
                 self.model_data, self.process_data
             )
-            result = separator.seperate()
+            result = separator.separate()
             assert result is None
 
     @patch("uvr_pyside6_ui.core.separate_logic_base.prepare_mix_logic")
@@ -1591,7 +1591,7 @@ class TestSeperateDemucsLogic:
                     separator = separate_logic.SeperateDemucsLogic(
                         model_data, process_data
                     )
-                    result = separator.seperate()
+                    result = separator.separate()
 
                     # Should return None on failure
                     assert result is None
@@ -1615,7 +1615,7 @@ class TestSeperateDemucsLogic:
                     mock_stat.return_value = mock_stat_obj
 
                     # Should handle interruption gracefully
-                    result = separator.seperate()
+                    result = separator.separate()
 
     def test_demucs_logic_device_configuration(self):
         """Test Demucs separator device configuration."""
@@ -1704,7 +1704,7 @@ class TestSeperateDemucsLogic:
         separator = separate_logic.SeperateDemucsLogic(
             self.model_data, self.process_data
         )
-        result = separator.seperate()
+        result = separator.separate()
 
         assert result is None
 
@@ -1733,7 +1733,7 @@ class TestSeperateDemucsLogic:
         with patch("gzip.open") as mock_gzip:
             with patch("torch.load", return_value=(Mock, [], {}, {})):
                 # Should handle gzipped models
-                result = separator.seperate()
+                result = separator.separate()
 
     def test_demucs_logic_custom_source_list(self):
         """Test Demucs separator with custom source list."""

@@ -143,3 +143,22 @@ class ProcessingSettingsView(QWidget):
         self.sample_mode_checkbox.blockSignals(True)
         self.sample_mode_checkbox.setChecked(is_checked)
         self.sample_mode_checkbox.blockSignals(False)
+
+    @Slot(str)
+    def set_primary_stem_text(self, stem_name: str):
+        """Update the primary stem checkbox text with the actual stem name."""
+        self.primary_stem_checkbox.setText(f"{stem_name} Only")
+
+    @Slot(str) 
+    def set_secondary_stem_text(self, stem_name: str):
+        """Update the secondary stem checkbox text with the actual stem name."""
+        self.secondary_stem_checkbox.setText(f"{stem_name} Only")
+
+    @Slot(bool)
+    def set_stem_checkboxes_enabled(self, is_enabled: bool):
+        """Enable or disable both stem checkboxes."""
+        self.primary_stem_checkbox.setEnabled(is_enabled)
+        self.secondary_stem_checkbox.setEnabled(is_enabled)
+        if not is_enabled:
+            self.primary_stem_checkbox.setChecked(False)
+            self.secondary_stem_checkbox.setChecked(False)

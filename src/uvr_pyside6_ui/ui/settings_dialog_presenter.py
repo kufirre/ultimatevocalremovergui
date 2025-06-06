@@ -153,7 +153,7 @@ class SettingsDialogPresenter(QObject):
         if not isinstance(
             self.adapter, UVRCoreAdapter
         ):  # Should not happen with proper init
-            self.view.dc_progress_info_label.setText("Error: Adapter unavailable.")
+            self.view.dc_progress_info_label.setText("Adapter unavailable.")
             return
 
         if not self._full_online_catalog:
@@ -195,11 +195,11 @@ class SettingsDialogPresenter(QObject):
                 self.view.dc_progress_percent_label.setText("0%")
                 self.view.dc_progress_bar.setValue(0)
         else:
-            self.view.set_vr_models(["Error: Could not load catalog"])
-            self.view.set_mdx_models(["Error: Could not load catalog"])
-            self.view.set_demucs_models(["Error: Could not load catalog"])
+            self.view.set_vr_models(["Could not load catalog"])
+            self.view.set_mdx_models(["Could not load catalog"])
+            self.view.set_demucs_models(["Could not load catalog"])
             self.view.dc_progress_info_label.setText(
-                "Error: Could not load download catalog"
+                "Could not load download catalog"
             )
 
     def _get_filtered_downloadable_models(self, ui_model_type: str) -> dict:
@@ -888,7 +888,7 @@ For more information, visit the project documentation."""
         except Exception as e:
             logger.error(f"Error starting download: {e}")
             self.view.set_download_in_progress_state(False)
-            self.view.show_status_message(f"Error: {str(e)}", 5000)
+            self.view.show_status_message(f"{str(e)}", 5000)
 
     @Slot(str, int)
     def _on_adapter_download_progress(self, model_name: str, percentage: int):

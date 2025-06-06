@@ -47,14 +47,14 @@ class SeperateMDXCLogic(SeparatorAttributesLogic):
         """Perform MDX-C demixing on audio."""
         md = self.md
         if not md.mdx_c_configs or not TFC_TDF_net:
-            logger.error("Error: MDX-C configs or TFC_TDF_net not available.")
+            logger.error("MDX-C configs or TFC_TDF_net not available.")
             return None
 
         org_mix_shape_ref = mix_processed_norm_np.T  # (length, channels) for pitch fix
         actual_sr_pitched = ac.DEFAULT_SAMPLE_RATE
         if md.is_pitch_change:
             if not spec_utils:
-                logger.error("Error: spec_utils not available for pitch change.")
+                logger.error("spec_utils not available for pitch change.")
                 return None
             mix_processed_norm_np, actual_sr_pitched = (
                 spec_utils.change_pitch_semitones(
@@ -254,11 +254,11 @@ class SeperateMDXCLogic(SeparatorAttributesLogic):
                 )
             return stem_audio.T
 
-    def seperate(self) -> Optional[Dict[str, np.ndarray]]:
+    def separate(self) -> Optional[Dict[str, np.ndarray]]:
         """Main MDX-C separation method."""
         if not TFC_TDF_net or not self.md.mdx_c_configs:
             logger.error(
-                "Error: MDX-C dependencies (TFC_TDF_net/configs) not available."
+                "MDX-C dependencies (TFC_TDF_net/configs) not available."
             )
             return None
 

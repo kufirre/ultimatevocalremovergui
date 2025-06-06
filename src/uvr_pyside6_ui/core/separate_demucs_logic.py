@@ -89,7 +89,7 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
         actual_sr_pitched = ac.DEFAULT_SAMPLE_RATE
         if md.is_pitch_change:
             if not spec_utils:
-                logger.error("Error: spec_utils not available for pitch change.")
+                logger.error("spec_utils not available for pitch change.")
                 return None
             mix_tensor_np, actual_sr_pitched = spec_utils.change_pitch_semitones(
                 mix_tensor.cpu().numpy(),
@@ -307,7 +307,7 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
 
         return sources_np
 
-    def seperate(self) -> Optional[Dict[str, np.ndarray]]:
+    def separate(self) -> Optional[Dict[str, np.ndarray]]:
         """Main Demucs separation method."""
         md = self.md
         self.progress_value = 0
@@ -326,7 +326,7 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
             or Path(self.md.model_path).stat().st_size == 0
         ):
             logger.error(
-                f"Error: Demucs model file not found or empty: {self.md.model_path}"
+                f"Demucs model file not found or empty: {self.md.model_path}"
             )
             return None
 
@@ -337,7 +337,7 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
                 or Path(md.model_path).stat().st_size == 0
             ):
                 logger.error(
-                    f"Error: Demucs model file not found or empty: {md.model_path}"
+                    f"Demucs model file not found or empty: {md.model_path}"
                 )
                 return None
 
@@ -515,7 +515,7 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
                             torch.load = original_load
                     except Exception as fallback_error:
                         logger.error(
-                            f"Error: Both secure and fallback loading failed: {fallback_error}"
+                            f"Both secure and fallback loading failed: {fallback_error}"
                         )
                         return None
 
@@ -565,6 +565,13 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
         self._console_log(ac.DONE_MESSAGE)
         outputs = {}
 
+        # Log stem-only flags
+        logger.debug(f"is_primary_stem_only = {md.is_primary_stem_only}")
+        logger.debug(f"is_secondary_stem_only = {md.is_secondary_stem_only}")
+        logger.debug(f"demucs_stems = {md.demucs_stems}")
+        logger.debug(f"primary_stem = {md.primary_stem}")
+        logger.debug(f"secondary_stem = {md.secondary_stem}")
+
         # Use md.demucs_source_map for indexing, as it's derived correctly in ModelData
         if md.demucs_stems == ac.ALL_STEMS:
             logger.debug("Processing ALL_STEMS - will output all 4 stems")
@@ -591,23 +598,72 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
             # Single stem processing
             logger.debug(f"Processing single stem: {md.demucs_stems}")
             target_primary_stem_cap = md.demucs_stems
-            if target_primary_stem_cap in md.demucs_source_map:
+            
+            # Special handling for Instrumental since it's not a direct Demucs output
+            if target_primary_stem_cap == ac.INST_STEM:
+                logger.debug("Processing Instrumental stem - will create from other stems")
+                
+                # Create instrumental by combining Bass+Drums+Other or subtracting Vocals
+                if ac.VOCAL_STEM in md.demucs_source_map:
+                    vocal_idx = md.demucs_source_map[ac.VOCAL_STEM]
+                    if vocal_idx < all_stems_output.shape[0]:
+                        vocal_data = all_stems_output[vocal_idx].T  # Shape: (length, channels)
+                        # mix_audio_norm_np is also (length, channels), so they should match
+                        logger.debug(f"mix_audio_norm_np shape: {mix_audio_norm_np.shape}")
+                        logger.debug(f"vocal_data shape: {vocal_data.shape}")
+                        instrumental_data = mix_audio_norm_np - vocal_data
+                        
+                        # Handle instrumental stem only case
+                        if md.is_primary_stem_only and not md.is_secondary_stem_only:
+                            logger.debug("Instrumental only mode - outputting single stem")
+                            self._write_stem(
+                                ac.INST_STEM, instrumental_data, md.model_samplerate
+                            )
+                            outputs[ac.INST_STEM] = instrumental_data
+                            
+                        # Handle vocal stem only case (secondary)
+                        elif md.is_secondary_stem_only and not md.is_primary_stem_only:
+                            logger.debug("Vocal only mode (from instrumental selection)")
+                            self._write_stem(
+                                ac.VOCAL_STEM, vocal_data, md.model_samplerate
+                            )
+                            outputs[ac.VOCAL_STEM] = vocal_data
+                            
+                        # Handle normal dual stem output case
+                        else:
+                            logger.debug("Dual stem mode - outputting instrumental and vocal")
+                            self._write_stem(
+                                ac.INST_STEM, instrumental_data, md.model_samplerate
+                            )
+                            outputs[ac.INST_STEM] = instrumental_data
+                            
+                            self._write_stem(
+                                ac.VOCAL_STEM, vocal_data, md.model_samplerate
+                            )
+                            outputs[ac.VOCAL_STEM] = vocal_data
+                    else:
+                        logger.error("Vocal stem index out of range for instrumental creation")
+                else:
+                    logger.error("Vocal stem not found in model for instrumental creation")
+                    
+            elif target_primary_stem_cap in md.demucs_source_map:
                 stem_idx = md.demucs_source_map[target_primary_stem_cap]
                 if stem_idx < all_stems_output.shape[0]:
                     primary_stem_data = all_stems_output[stem_idx].T
-                    if not md.is_secondary_stem_only:
+                    
+                    # Handle primary stem only case
+                    if md.is_primary_stem_only and not md.is_secondary_stem_only:
+                        logger.debug("Primary stem only mode - outputting single stem")
                         self._write_stem(
                             target_primary_stem_cap,
                             primary_stem_data,
                             md.model_samplerate,
                         )
                         outputs[target_primary_stem_cap] = primary_stem_data
-
-                    # Create secondary stem if needed
-                    if (
-                        not md.is_primary_stem_only
-                        and not md.secondary_stem.startswith("No ")
-                    ):
+                        
+                    # Handle secondary stem only case  
+                    elif md.is_secondary_stem_only and not md.is_primary_stem_only:
+                        logger.debug("Secondary stem only mode - outputting single stem")
                         if md.is_demucs_combine_stems:
                             # Combine all non-primary stems
                             combined_stem = np.zeros_like(primary_stem_data)
@@ -630,13 +686,49 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
                                 md.model_samplerate,
                             )
                             outputs[md.secondary_stem] = secondary_stem_data
+                            
+                    # Handle normal dual stem output case (both stems)
+                    else:
+                        logger.debug("Dual stem mode - outputting primary and secondary stems")
+                        # Output primary stem
+                        self._write_stem(
+                            target_primary_stem_cap,
+                            primary_stem_data,
+                            md.model_samplerate,
+                        )
+                        outputs[target_primary_stem_cap] = primary_stem_data
+
+                        # Create secondary stem if needed
+                        if not md.secondary_stem.startswith("No "):
+                            if md.is_demucs_combine_stems:
+                                # Combine all non-primary stems
+                                combined_stem = np.zeros_like(primary_stem_data)
+                                for other_stem, other_idx in md.demucs_source_map.items():
+                                    if (
+                                        other_stem != target_primary_stem_cap
+                                        and other_idx < all_stems_output.shape[0]
+                                    ):
+                                        combined_stem += all_stems_output[other_idx].T
+                                self._write_stem(
+                                    md.secondary_stem, combined_stem, md.model_samplerate
+                                )
+                                outputs[md.secondary_stem] = combined_stem
+                            else:
+                                # Create secondary by subtraction
+                                secondary_stem_data = mix_audio_norm_np - primary_stem_data
+                                self._write_stem(
+                                    md.secondary_stem,
+                                    secondary_stem_data,
+                                    md.model_samplerate,
+                                )
+                                outputs[md.secondary_stem] = secondary_stem_data
                 else:
                     logger.error(
-                        f"Error: Stem index {stem_idx} out of range for model output shape {all_stems_output.shape}"
+                        f"Stem index {stem_idx} out of range for model output shape {all_stems_output.shape}"
                     )
             else:
                 logger.error(
-                    f"Error: Selected Demucs primary stem '{target_primary_stem_cap}' not found in model source map: {md.demucs_source_map}."
+                    f"Selected Demucs primary stem '{target_primary_stem_cap}' not found in model source map: {md.demucs_source_map}."
                 )
 
         clear_gpu_cache_logic()

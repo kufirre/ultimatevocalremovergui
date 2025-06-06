@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import gzip
-import os
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -370,7 +369,7 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
 
             else:  # Demucs v3/v4
                 model_name_from_path = Path(md.model_path).stem
-                repo_path = Path(os.path.dirname(md.model_path))
+                repo_path = Path(md.model_path).parent
 
                 # Secure loading using safe_globals context manager for PyTorch 2.6+ compatibility
                 try:

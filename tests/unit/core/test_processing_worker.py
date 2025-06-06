@@ -1,10 +1,12 @@
 """
-Unit tests for RealProcessingWorker class.
+Unit tests for ProcessingWorker class.
 
 Tests cover processing workflow, ensemble logic, audio processing,
-error handling, and edge cases in audio separation.
+error handling, threading, memory management, and edge cases in audio separation.
 """
 
+import threading
+import time
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -13,13 +15,13 @@ import pytest
 
 from uvr_pyside6_ui.core import app_constants as ac
 from uvr_pyside6_ui.core.model_data import ModelData
-from uvr_pyside6_ui.core.processing_worker import ProcessingThread, RealProcessingWorker
+from uvr_pyside6_ui.core.processing_worker import ProcessingThread, ProcessingWorker
 
 
 @pytest.mark.unit
 @pytest.mark.worker
-class TestRealProcessingWorker:
-    """Test cases for RealProcessingWorker class."""
+class TestProcessingWorker:
+    """Test cases for ProcessingWorker class."""
 
     def test_worker_initialization_valid_settings(self, valid_settings_dict):
         """Test worker initialization with valid settings."""
@@ -27,12 +29,45 @@ class TestRealProcessingWorker:
             mock_model_data.return_value = Mock(spec=ModelData)
             mock_model_data.return_value.model_status = True
 
-            worker = RealProcessingWorker(valid_settings_dict)
+            worker = ProcessingWorker(valid_settings_dict)
 
             assert worker.settings == valid_settings_dict
             assert worker._is_running is True
             assert worker.model_data is not None
             assert worker.progress_value == 0
+
+    def test_worker_initialization_comprehensive_settings(self, valid_settings_dict):
+        """Test worker initialization with comprehensive settings."""
+        # Test with all possible settings
+        comprehensive_settings = valid_settings_dict.copy()
+        comprehensive_settings.update(
+            {
+                "denoise_output": True,
+                "is_tta": True,
+                "is_post_process": True,
+                "batch_size": 4,
+                "segment_size": 256,
+                "overlap": 0.5,
+                "pitch_shift": 2.0,
+                "secondary_model": True,
+                "ensemble_mode": True,
+                "normalize_output": True,
+                "gpu_conversion": True,
+                "output_format": "wav",
+            }
+        )
+
+        with patch.object(ModelData, "from_settings_dict") as mock_model_data:
+            mock_model_data.return_value = Mock(spec=ModelData)
+            mock_model_data.return_value.model_status = True
+
+            worker = ProcessingWorker(comprehensive_settings)
+
+            assert worker.settings == comprehensive_settings
+            assert worker._is_running is True
+            assert worker.model_data is not None
+            assert hasattr(worker, "progress_updated")
+            assert hasattr(worker, "processing_finished")
 
     def test_worker_initialization_invalid_settings(self):
         """Test worker initialization with invalid settings."""
@@ -41,13 +76,30 @@ class TestRealProcessingWorker:
         with patch.object(ModelData, "from_settings_dict") as mock_model_data:
             mock_model_data.side_effect = Exception("Invalid settings")
 
-            worker = RealProcessingWorker(invalid_settings)
+            worker = ProcessingWorker(invalid_settings)
 
             assert worker.model_data is None
 
+    def test_worker_different_output_formats(self, valid_settings_dict):
+        """Test worker with different output formats."""
+        output_formats = ["wav", "mp3", "flac", "m4a"]
+
+        for format_type in output_formats:
+            settings = valid_settings_dict.copy()
+            settings["output_format"] = format_type
+
+            with patch.object(ModelData, "from_settings_dict") as mock_model_data:
+                mock_model_data.return_value = Mock(spec=ModelData)
+                mock_model_data.return_value.model_status = True
+
+                worker = ProcessingWorker(settings)
+
+                assert worker.settings == settings
+                assert worker.model_data is not None
+
     def test_run_missing_model_data(self, valid_settings_dict):
         """Test run method with missing model data."""
-        worker = RealProcessingWorker(valid_settings_dict)
+        worker = ProcessingWorker(valid_settings_dict)
         worker.model_data = None
 
         # Mock the signal emission
@@ -65,7 +117,7 @@ class TestRealProcessingWorker:
         mock_model_data.model_status = False
         mock_model_data.model_name = "test_model"
 
-        worker = RealProcessingWorker(valid_settings_dict)
+        worker = ProcessingWorker(valid_settings_dict)
         worker.model_data = mock_model_data
         worker.processing_finished = Mock()
 
@@ -82,7 +134,7 @@ class TestRealProcessingWorker:
         mock_model_data.is_ensemble_mode = False
         mock_model_data.audio_file = "/nonexistent/file.wav"
 
-        worker = RealProcessingWorker(valid_settings_dict)
+        worker = ProcessingWorker(valid_settings_dict)
         worker.model_data = mock_model_data
         worker.processing_finished = Mock()
 
@@ -129,7 +181,7 @@ class TestRealProcessingWorker:
         mock_model_data.audio_file = str(mock_audio_file)
         mock_model_data.export_path = "/nonexistent/directory"
 
-        worker = RealProcessingWorker(valid_settings_dict)
+        worker = ProcessingWorker(valid_settings_dict)
         worker.model_data = mock_model_data
         worker.processing_finished = Mock()
 
@@ -184,7 +236,7 @@ class TestRealProcessingWorker:
         mock_model_data.model_basename = "Test_Ensemble"
         mock_model_data.process_method = ac.ENSEMBLE_MODE
 
-        worker = RealProcessingWorker(ensemble_settings_dict)
+        worker = ProcessingWorker(ensemble_settings_dict)
         worker.model_data = mock_model_data
         worker.processing_finished = Mock()
         worker.progress_updated = Mock()
@@ -195,9 +247,71 @@ class TestRealProcessingWorker:
         # Should finish with error due to empty ensemble models
         worker.processing_finished.emit.assert_called_once()
 
+    def test_memory_cleanup_during_processing(
+        self, valid_settings_dict, mock_model_data, mock_audio_file, temp_dir
+    ):
+        """Test memory cleanup during processing."""
+        mock_model_data.model_status = True
+        mock_model_data.is_ensemble_mode = False
+        mock_model_data.audio_file = str(mock_audio_file)
+        mock_model_data.export_path = str(temp_dir)
+
+        worker = ProcessingWorker(valid_settings_dict)
+        worker.model_data = mock_model_data
+        worker.processing_finished = Mock()
+
+        with patch(
+            "uvr_pyside6_ui.core.processing_worker.clear_gpu_cache_logic"
+        ) as mock_cleanup:
+            with patch("uvr_pyside6_ui.core.processing_worker.SeperateVRLogic", Mock()):
+                with patch(
+                    "uvr_pyside6_ui.core.separate_logic_base.prepare_mix_logic", Mock()
+                ):
+                    with patch(
+                        "uvr_pyside6_ui.core.processing_worker.write_audio_logic",
+                        Mock(),
+                    ):
+                        with patch.object(Path, "exists", return_value=True):
+                            with patch.object(Path, "is_dir", return_value=True):
+                                worker.run()
+
+                # GPU cache should be cleared during processing
+                assert mock_cleanup.call_count > 0
+
+    def test_large_audio_file_handling(
+        self, valid_settings_dict, mock_model_data, mock_audio_file, temp_dir
+    ):
+        """Test processing worker with large audio files."""
+        mock_model_data.model_status = True
+        mock_model_data.is_ensemble_mode = False
+        mock_model_data.audio_file = str(mock_audio_file)
+        mock_model_data.export_path = str(temp_dir)
+
+        worker = ProcessingWorker(valid_settings_dict)
+        worker.model_data = mock_model_data
+        worker.processing_finished = Mock()
+
+        with patch(
+            "uvr_pyside6_ui.core.separate_logic_base.prepare_mix_logic"
+        ) as mock_prepare:
+            # Simulate large audio file (10 minutes at 44.1kHz stereo)
+            large_audio = np.random.rand(26460000, 2).astype(np.float32)
+            mock_prepare.return_value = large_audio
+
+            with patch("uvr_pyside6_ui.core.processing_worker.SeperateVRLogic", Mock()):
+                with patch(
+                    "uvr_pyside6_ui.core.processing_worker.write_audio_logic", Mock()
+                ):
+                    with patch.object(Path, "exists", return_value=True):
+                        with patch.object(Path, "is_dir", return_value=True):
+                            worker.run()
+
+            # Should handle large files without crashing
+            worker.processing_finished.emit.assert_called_once()
+
     def test_process_ensemble_no_models(self, valid_settings_dict):
         """Test ensemble processing with no models."""
-        worker = RealProcessingWorker(valid_settings_dict)
+        worker = ProcessingWorker(valid_settings_dict)
         worker.model_data = Mock()
         worker.model_data.ensemble_models = []
         worker.processing_finished = Mock()
@@ -211,7 +325,7 @@ class TestRealProcessingWorker:
 
     def test_combine_ensemble_outputs_average(self, valid_settings_dict):
         """Test ensemble output combination using average algorithm."""
-        worker = RealProcessingWorker(valid_settings_dict)
+        worker = ProcessingWorker(valid_settings_dict)
 
         # Create test audio outputs
         output1 = np.random.rand(2, 1000).astype(np.float32)
@@ -229,7 +343,7 @@ class TestRealProcessingWorker:
 
     def test_combine_ensemble_outputs_empty_list(self, valid_settings_dict):
         """Test ensemble combination with empty output list."""
-        worker = RealProcessingWorker(valid_settings_dict)
+        worker = ProcessingWorker(valid_settings_dict)
 
         result = worker._combine_ensemble_outputs([], ac.AVERAGE_ENSEMBLE)
 
@@ -237,7 +351,7 @@ class TestRealProcessingWorker:
 
     def test_combine_ensemble_outputs_single_output(self, valid_settings_dict):
         """Test ensemble combination with single output (edge case)."""
-        worker = RealProcessingWorker(valid_settings_dict)
+        worker = ProcessingWorker(valid_settings_dict)
 
         output = np.random.rand(2, 1000).astype(np.float32)
         outputs = [output]
@@ -248,7 +362,7 @@ class TestRealProcessingWorker:
 
     def test_average_ensemble_mismatched_shapes(self, valid_settings_dict):
         """Test average ensemble with mismatched audio shapes."""
-        worker = RealProcessingWorker(valid_settings_dict)
+        worker = ProcessingWorker(valid_settings_dict)
 
         output1 = np.random.rand(2, 1000).astype(np.float32)
         output2 = np.random.rand(2, 2000).astype(np.float32)  # Different length
@@ -262,7 +376,7 @@ class TestRealProcessingWorker:
     @pytest.mark.edge_case
     def test_average_ensemble_mono_audio(self, valid_settings_dict):
         """Test average ensemble with mono audio arrays."""
-        worker = RealProcessingWorker(valid_settings_dict)
+        worker = ProcessingWorker(valid_settings_dict)
 
         output1 = np.random.rand(1000).astype(np.float32)  # Mono
         output2 = np.random.rand(1000).astype(np.float32)  # Mono
@@ -274,7 +388,7 @@ class TestRealProcessingWorker:
 
     def test_spectral_ensemble_max(self, valid_settings_dict):
         """Test spectral ensemble with max algorithm."""
-        worker = RealProcessingWorker(valid_settings_dict)
+        worker = ProcessingWorker(valid_settings_dict)
 
         # Create test outputs
         output1 = np.random.rand(2, 1000).astype(np.float32) * 0.5
@@ -301,7 +415,7 @@ class TestRealProcessingWorker:
 
     def test_spectral_ensemble_no_spec_utils(self, valid_settings_dict):
         """Test spectral ensemble when spec_utils is not available."""
-        worker = RealProcessingWorker(valid_settings_dict)
+        worker = ProcessingWorker(valid_settings_dict)
 
         output1 = np.random.rand(2, 1000).astype(np.float32)
         output2 = np.random.rand(2, 1000).astype(np.float32)
@@ -314,7 +428,7 @@ class TestRealProcessingWorker:
 
     def test_align_spectrograms_successful(self, valid_settings_dict):
         """Test successful spectrogram alignment."""
-        worker = RealProcessingWorker(valid_settings_dict)
+        worker = ProcessingWorker(valid_settings_dict)
 
         # Create spectrograms with different time frames
         spec1 = np.random.rand(2, 513, 100).astype(np.complex64)
@@ -334,7 +448,7 @@ class TestRealProcessingWorker:
     @pytest.mark.edge_case
     def test_align_spectrograms_shape_mismatch(self, valid_settings_dict):
         """Test spectrogram alignment with incompatible shapes."""
-        worker = RealProcessingWorker(valid_settings_dict)
+        worker = ProcessingWorker(valid_settings_dict)
 
         spec1 = np.random.rand(2, 513, 100).astype(np.complex64)
         spec2 = np.random.rand(1, 513, 100).astype(np.complex64)  # Different channels
@@ -355,7 +469,7 @@ class TestRealProcessingWorker:
         mock_model_data.is_4_stem_ensemble = False
         mock_model_data.model_basename = "test_model"
 
-        worker = RealProcessingWorker(valid_settings_dict)
+        worker = ProcessingWorker(valid_settings_dict)
         worker.model_data = mock_model_data
 
         process_data = worker._create_process_data()
@@ -374,7 +488,7 @@ class TestRealProcessingWorker:
         mock_model_data.export_path = str(temp_dir)
         mock_model_data.audio_file = str(temp_dir / "test.wav")  # Valid string path
 
-        worker = RealProcessingWorker(valid_settings_dict)
+        worker = ProcessingWorker(valid_settings_dict)
         worker.model_data = mock_model_data
 
         input_audio = np.random.rand(2, 1000).astype(np.float32)
@@ -394,7 +508,7 @@ class TestRealProcessingWorker:
         mock_model_data.export_path = str(temp_dir)
         mock_model_data.model_basename = "primary_model"
 
-        worker = RealProcessingWorker(valid_settings_dict)
+        worker = ProcessingWorker(valid_settings_dict)
         worker.model_data = mock_model_data
 
         chained_model = Mock(spec=ModelData)
@@ -412,7 +526,7 @@ class TestRealProcessingWorker:
 
     def test_set_progress_bar_callback(self, valid_settings_dict):
         """Test progress bar callback functionality."""
-        worker = RealProcessingWorker(valid_settings_dict)
+        worker = ProcessingWorker(valid_settings_dict)
         worker.progress_updated = Mock()
 
         worker._set_progress_bar_callback(0.5, "Test message")
@@ -423,7 +537,7 @@ class TestRealProcessingWorker:
     @pytest.mark.edge_case
     def test_set_progress_bar_callback_out_of_bounds(self, valid_settings_dict):
         """Test progress bar callback with out-of-bounds values."""
-        worker = RealProcessingWorker(valid_settings_dict)
+        worker = ProcessingWorker(valid_settings_dict)
         worker.progress_updated = Mock()
 
         # Test values outside 0-1 range
@@ -435,7 +549,7 @@ class TestRealProcessingWorker:
 
     def test_write_to_console(self, valid_settings_dict):
         """Test console writing functionality."""
-        worker = RealProcessingWorker(valid_settings_dict)
+        worker = ProcessingWorker(valid_settings_dict)
         worker.progress_updated = Mock()
         worker.progress_value = 50
 
@@ -445,7 +559,7 @@ class TestRealProcessingWorker:
 
     def test_write_to_console_no_base_text(self, valid_settings_dict):
         """Test console writing without base text."""
-        worker = RealProcessingWorker(valid_settings_dict)
+        worker = ProcessingWorker(valid_settings_dict)
         worker.progress_updated = Mock()
         worker.progress_value = 30
 
@@ -455,7 +569,7 @@ class TestRealProcessingWorker:
 
     def test_stop_processing(self, valid_settings_dict):
         """Test stopping the processing worker."""
-        worker = RealProcessingWorker(valid_settings_dict)
+        worker = ProcessingWorker(valid_settings_dict)
 
         assert worker._is_running is True
 
@@ -465,7 +579,7 @@ class TestRealProcessingWorker:
 
     def test_get_separator_for_model_invalid(self, valid_settings_dict):
         """Test separator creation with invalid model."""
-        worker = RealProcessingWorker(valid_settings_dict)
+        worker = ProcessingWorker(valid_settings_dict)
         worker._write_to_console = Mock()
 
         model_data = Mock(spec=ModelData)
@@ -492,6 +606,26 @@ class TestProcessingThread:
         assert thread.settings_dict == valid_settings_dict
         assert thread.worker is None
 
+    def test_thread_comprehensive_initialization(self, valid_settings_dict):
+        """Test processing thread comprehensive initialization."""
+        comprehensive_settings = valid_settings_dict.copy()
+        comprehensive_settings.update(
+            {
+                "denoise_output": True,
+                "is_tta": True,
+                "normalize_output": True,
+                "gpu_conversion": True,
+            }
+        )
+
+        thread = ProcessingThread(comprehensive_settings)
+
+        assert thread.settings_dict == comprehensive_settings
+        assert thread.worker is None
+        assert hasattr(thread, "progress_updated")
+        assert hasattr(thread, "processing_finished")
+        assert not thread.isRunning()
+
     def test_thread_run_successful(self, valid_settings_dict):
         """Test successful thread execution."""
         thread = ProcessingThread(valid_settings_dict)
@@ -499,12 +633,12 @@ class TestProcessingThread:
         thread.processing_finished = Mock()
 
         # Mock worker creation and execution
-        mock_worker = Mock(spec=RealProcessingWorker)
+        mock_worker = Mock(spec=ProcessingWorker)
         mock_worker.progress_updated = Mock()
         mock_worker.processing_finished = Mock()
 
         with patch(
-            "uvr_pyside6_ui.core.processing_worker.RealProcessingWorker",
+            "uvr_pyside6_ui.core.processing_worker.ProcessingWorker",
             return_value=mock_worker,
         ):
             thread.run()
@@ -518,7 +652,7 @@ class TestProcessingThread:
         thread.processing_finished = Mock()
 
         with patch(
-            "uvr_pyside6_ui.core.processing_worker.RealProcessingWorker"
+            "uvr_pyside6_ui.core.processing_worker.ProcessingWorker"
         ) as mock_worker_class:
             mock_worker_class.side_effect = Exception("Test error")
 
@@ -534,7 +668,7 @@ class TestProcessingThread:
         thread = ProcessingThread(valid_settings_dict)
 
         # Set up a mock worker
-        mock_worker = Mock(spec=RealProcessingWorker)
+        mock_worker = Mock(spec=ProcessingWorker)
         thread.worker = mock_worker
 
         thread.stop_processing()
@@ -549,3 +683,210 @@ class TestProcessingThread:
         thread.stop_processing()
 
         assert thread.worker is None
+
+    def test_thread_signal_connections(self, valid_settings_dict):
+        """Test processing thread signal connections."""
+        thread = ProcessingThread(valid_settings_dict)
+
+        # Test signal connections by connecting mock callbacks
+        progress_callback = Mock()
+        finished_callback = Mock()
+
+        thread.progress_updated.connect(progress_callback)
+        thread.processing_finished.connect(finished_callback)
+
+        # Verify connections work by emitting signals
+        thread.progress_updated.emit(50, "Test progress")
+        thread.processing_finished.emit(True, "Test finished")
+
+        progress_callback.assert_called_once_with(50, "Test progress")
+        finished_callback.assert_called_once_with(True, "Test finished")
+
+    def test_thread_memory_management(self, valid_settings_dict):
+        """Test processing thread memory management."""
+        # Monitor thread lifecycle
+        initial_thread_count = threading.active_count()
+
+        thread = ProcessingThread(valid_settings_dict)
+
+        # Mock worker to avoid actual processing
+        mock_worker = Mock(spec=ProcessingWorker)
+        mock_worker.progress_updated = Mock()
+        mock_worker.processing_finished = Mock()
+
+        with patch(
+            "uvr_pyside6_ui.core.processing_worker.ProcessingWorker",
+            return_value=mock_worker,
+        ):
+            thread.start()
+            thread.wait(5000)  # Wait up to 5 seconds
+
+        # Thread should be cleaned up
+        final_thread_count = threading.active_count()
+        assert final_thread_count <= initial_thread_count + 1  # Account for test thread
+
+    def test_thread_concurrent_execution(self, valid_settings_dict):
+        """Test multiple processing threads running concurrently."""
+        threads = []
+        results = []
+
+        def capture_result(success, message):
+            results.append((success, message))
+
+        # Create multiple threads with different settings
+        for i in range(3):
+            settings = valid_settings_dict.copy()
+            settings["model_name"] = f"test_model_{i}"
+
+            thread = ProcessingThread(settings)
+            thread.processing_finished.connect(capture_result)
+            threads.append(thread)
+
+        # Mock worker for all threads
+        mock_worker = Mock(spec=ProcessingWorker)
+        mock_worker.progress_updated = Mock()
+        mock_worker.processing_finished = Mock()
+
+        with patch(
+            "uvr_pyside6_ui.core.processing_worker.ProcessingWorker",
+            return_value=mock_worker,
+        ):
+            # Start all threads
+            for thread in threads:
+                thread.start()
+
+            # Wait for all threads to complete
+            for thread in threads:
+                thread.wait(5000)
+
+        # All threads should have finished
+        for thread in threads:
+            assert not thread.isRunning()
+
+    def test_thread_performance_monitoring(self, valid_settings_dict):
+        """Test processing thread performance monitoring."""
+        thread = ProcessingThread(valid_settings_dict)
+
+        # Mock worker to complete quickly
+        mock_worker = Mock(spec=ProcessingWorker)
+        mock_worker.progress_updated = Mock()
+        mock_worker.processing_finished = Mock()
+
+        start_time = time.time()
+
+        with patch(
+            "uvr_pyside6_ui.core.processing_worker.ProcessingWorker",
+            return_value=mock_worker,
+        ):
+            thread.start()
+            thread.wait(5000)
+
+        end_time = time.time()
+        processing_time = end_time - start_time
+
+        # Should complete quickly with mocks
+        assert processing_time < 5.0
+        assert not thread.isRunning()
+
+
+@pytest.mark.integration
+@pytest.mark.worker
+class TestProcessingWorkerIntegration:
+    """Integration tests for processing worker with real-world scenarios."""
+
+    def test_full_vr_processing_workflow(
+        self, valid_settings_dict, mock_model_data, mock_audio_file, temp_dir
+    ):
+        """Test full VR processing workflow integration."""
+        # Setup mocks for VR processing
+        mock_model_data.model_status = True
+        mock_model_data.is_ensemble_mode = False
+        mock_model_data.audio_file = str(mock_audio_file)
+        mock_model_data.export_path = str(temp_dir)
+        mock_model_data.process_method = ac.VR_ARCH_TYPE
+
+        worker = ProcessingWorker(valid_settings_dict)
+        worker.model_data = mock_model_data
+        worker.processing_finished = Mock()
+
+        with patch(
+            "uvr_pyside6_ui.core.separate_logic_base.prepare_mix_logic"
+        ) as mock_prepare:
+            mock_prepare.return_value = np.random.rand(2, 44100).astype(np.float32)
+
+            with patch(
+                "uvr_pyside6_ui.core.processing_worker.SeperateVRLogic"
+            ) as mock_vr_logic:
+                mock_separator = Mock()
+                mock_separator.seperate.return_value = (
+                    np.random.rand(2, 44100).astype(np.float32),  # vocals
+                    np.random.rand(2, 44100).astype(np.float32),  # instrumental
+                )
+                mock_vr_logic.return_value = mock_separator
+
+                with patch(
+                    "uvr_pyside6_ui.core.processing_worker.write_audio_logic", Mock()
+                ):
+                    with patch(
+                        "uvr_pyside6_ui.core.processing_worker.clear_gpu_cache_logic",
+                        Mock(),
+                    ):
+                        with patch.object(Path, "exists", return_value=True):
+                            with patch.object(Path, "is_dir", return_value=True):
+                                worker.run()
+
+                # Should have processed successfully without crashing
+                worker.processing_finished.emit.assert_called_once()
+
+    def test_error_recovery_workflow(
+        self, valid_settings_dict, mock_model_data, mock_audio_file, temp_dir
+    ):
+        """Test error recovery workflow during processing."""
+        mock_model_data.model_status = True
+        mock_model_data.is_ensemble_mode = False
+        mock_model_data.audio_file = str(mock_audio_file)
+        mock_model_data.export_path = str(temp_dir)
+
+        worker = ProcessingWorker(valid_settings_dict)
+        worker.model_data = mock_model_data
+        worker.processing_finished = Mock()
+
+        with patch(
+            "uvr_pyside6_ui.core.separate_logic_base.prepare_mix_logic"
+        ) as mock_prepare:
+            # Simulate error in audio preparation
+            mock_prepare.side_effect = Exception("Audio preparation failed")
+
+            with patch.object(Path, "exists", return_value=True):
+                with patch.object(Path, "is_dir", return_value=True):
+                    worker.run()
+
+            # Should handle error gracefully
+            worker.processing_finished.emit.assert_called_once()
+            args = worker.processing_finished.emit.call_args[0]
+            assert args[0] is False  # Success = False
+
+    def test_threading_integration_workflow(self, valid_settings_dict):
+        """Test threading integration workflow."""
+        thread = ProcessingThread(valid_settings_dict)
+
+        # Test thread lifecycle
+        assert not thread.isRunning()
+
+        # Mock worker to avoid actual processing
+        mock_worker = Mock(spec=ProcessingWorker)
+        mock_worker.progress_updated = Mock()
+        mock_worker.processing_finished = Mock()
+
+        with patch(
+            "uvr_pyside6_ui.core.processing_worker.ProcessingWorker",
+            return_value=mock_worker,
+        ):
+            thread.start()
+            assert thread.isRunning()
+
+            # Stop and wait
+            thread.stop_processing()
+            thread.wait(5000)
+
+        assert not thread.isRunning()

@@ -43,7 +43,7 @@ except ImportError as e:
     prepare_mix_logic, write_audio_logic = None, None
 
 
-class RealProcessingWorker(QObject):
+class ProcessingWorker(QObject):
     progress_updated = Signal(int, str)
     processing_finished = Signal(bool, str)
 
@@ -1027,17 +1027,19 @@ class RealProcessingWorker(QObject):
 
 
 class ProcessingThread(QThread):
-    progress_updated = Signal(int, str)
-    processing_finished = Signal(bool, str)
+    """Thread for running audio processing tasks."""
 
-    def __init__(self, settings_dict: Dict[str, Any], parent=None):
-        super().__init__(parent)
+    progress_updated = Signal(int, str)  # progress, message
+    processing_finished = Signal(bool, str)  # success, message
+
+    def __init__(self, settings_dict: dict):
+        super().__init__()
         self.settings_dict = settings_dict
-        self.worker: Optional[RealProcessingWorker] = None
+        self.worker: Optional[ProcessingWorker] = None
 
     def run(self):
         try:
-            self.worker = RealProcessingWorker(self.settings_dict)
+            self.worker = ProcessingWorker(self.settings_dict)
             self.worker.progress_updated.connect(self.progress_updated)
             self.worker.processing_finished.connect(self.processing_finished)
             self.worker.run()

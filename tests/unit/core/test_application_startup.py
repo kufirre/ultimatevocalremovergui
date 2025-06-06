@@ -175,17 +175,21 @@ def test_qrc_resources_load_successfully():
 
 @pytest.mark.critical
 def test_core_module_imports():
-    """Test that all core modules can be imported without errors."""
-    try:
-        from uvr_pyside6_ui.core.model_data import ModelData
-        from uvr_pyside6_ui.core.processing_worker import RealProcessingWorker
-        from uvr_pyside6_ui.core.uvr_core_adapter import UVRCoreAdapter
+    """Test that all core modules can be imported."""
+    from uvr_pyside6_ui.core import (
+        app_constants,
+        logger_utils,
+        model_data,
+        processing_worker,
+    )
+    from uvr_pyside6_ui.core.processing_worker import ProcessingWorker
 
-        assert UVRCoreAdapter is not None
-        assert ModelData is not None
-        assert RealProcessingWorker is not None
-    except ImportError as e:
-        pytest.fail(f"Failed to import core modules: {e}")
+    # Verify key modules and classes exist
+    assert app_constants is not None
+    assert logger_utils is not None
+    assert model_data is not None
+    assert processing_worker is not None
+    assert ProcessingWorker is not None
 
 
 @pytest.mark.critical

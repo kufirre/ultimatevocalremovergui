@@ -1,5 +1,6 @@
 import os
 import sys
+from pathlib import Path
 
 from PySide6.QtCore import QFile, QIODevice, Qt, QTextStream
 from PySide6.QtGui import QFont, QFontDatabase
@@ -21,10 +22,10 @@ def run():
     # Determine the base path of the application
     if getattr(sys, "frozen", False):
         # If the application is run as a bundle, use PyInstaller's _MEIPASS
-        BASE_PATH = sys._MEIPASS
+        BASE_PATH = Path(sys._MEIPASS)
     else:
         # If run as a script, use the directory of this file
-        BASE_PATH = os.path.dirname(os.path.abspath(__file__))
+        BASE_PATH = Path(__file__).resolve().parent
 
     # Change the current working directory to the base path
     os.chdir(BASE_PATH)

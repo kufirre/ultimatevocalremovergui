@@ -1,3 +1,5 @@
+"""Execution control view for the UVR PySide6 application."""
+
 from PySide6.QtCore import QSize, Signal, Slot  # Import QSize
 from PySide6.QtGui import QIcon  # Import QIcon
 from PySide6.QtWidgets import (
@@ -9,6 +11,10 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from ..core.logger_utils import get_logger
+
+logger = get_logger(__name__)
 
 
 class ExecutionControlView(QWidget):
@@ -37,9 +43,11 @@ class ExecutionControlView(QWidget):
                 self.start_button.setIcon(play_icon)
                 self.start_button.setIconSize(QSize(18, 18))  # Adjust size as needed
             else:
-                print("Warning: Could not load play.png icon for Start button.")
+                logger.warning(
+                    "Warning: Could not load play.png icon for Start button."
+                )
         except Exception as e:
-            print(f"Error loading play icon: {e}")
+            logger.error(f"Error loading play icon: {e}")
         self.start_button.clicked.connect(self.start_processing_clicked)
         exec_layout.addWidget(self.start_button)
 

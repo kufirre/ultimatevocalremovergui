@@ -453,17 +453,17 @@ class TestUVRCoreAdapter:
         assert result is None
 
     def test_get_model_info_exception_handling(self):
-        """Test get_model_info exception handling."""
+        """Test exception handling in get_model_info."""
         adapter = UVRCoreAdapter()
 
         with patch.object(
             adapter, "_get_project_models_dir", side_effect=Exception("Test error")
         ):
-            with patch("builtins.print") as mock_print:
+            with patch("uvr_pyside6_ui.core.uvr_core_adapter.logger") as mock_logger:
                 result = adapter.get_model_info("test_model", ac.VR_ARCH_MODELS_KEY)
 
         assert result is None
-        mock_print.assert_called_once()
+        mock_logger.error.assert_called_once()
 
     def test_download_model_string_download_info(self):
         """Test downloading model with string download info."""
@@ -588,11 +588,11 @@ class TestUVRCoreAdapter:
         """Test loading name mapper when file doesn't exist."""
         adapter = UVRCoreAdapter()
 
-        with patch("builtins.print") as mock_print:
+        with patch("uvr_pyside6_ui.core.uvr_core_adapter.logger") as mock_logger:
             result = adapter._load_name_mapper(self.temp_dir)
 
         assert result == {}
-        mock_print.assert_called_once()
+        mock_logger.warning.assert_called_once()
 
     def test_load_name_mapper_json_error(self):
         """Test loading name mapper with invalid JSON."""
@@ -606,11 +606,11 @@ class TestUVRCoreAdapter:
 
         mapper_file.write_text("invalid json {")
 
-        with patch("builtins.print") as mock_print:
+        with patch("uvr_pyside6_ui.core.uvr_core_adapter.logger") as mock_logger:
             result = adapter._load_name_mapper(test_dir)
 
         assert result == {}
-        mock_print.assert_called_once()
+        mock_logger.error.assert_called_once()
 
     def test_get_display_name_from_mapper_success(self):
         """Test getting display name from mapper successfully."""

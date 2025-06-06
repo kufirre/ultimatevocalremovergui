@@ -4,7 +4,7 @@ from typing import List
 
 import natsort
 from PySide6.QtCore import QSize, Qt, Signal, Slot  # Import QSize
-from PySide6.QtGui import QIcon  # Import QIcon
+from PySide6.QtGui import QIcon  # Import QIcon, QFont, QPixmap
 from PySide6.QtWidgets import (
     QComboBox,
     QGridLayout,
@@ -21,6 +21,9 @@ from PySide6.QtWidgets import (
 )
 
 from ..core import app_constants as ac
+from ..core.logger_utils import get_logger
+
+logger = get_logger(__name__)
 
 
 class EnsembleSettingsView(QWidget):
@@ -103,7 +106,7 @@ class EnsembleSettingsView(QWidget):
                 self.add_to_ensemble_button.setIcon(add_icon)
                 self.add_to_ensemble_button.setIconSize(QSize(20, 20))
         except Exception as e:
-            print(f"Error loading add_icon for ensemble button: {e}")
+            logger.error(f"Error loading add_icon for ensemble button: {e}")
 
         self.remove_from_ensemble_button = QPushButton("")
         self.remove_from_ensemble_button.setToolTip(
@@ -115,7 +118,7 @@ class EnsembleSettingsView(QWidget):
                 self.remove_from_ensemble_button.setIcon(remove_icon)
                 self.remove_from_ensemble_button.setIconSize(QSize(20, 20))
         except Exception as e:
-            print(f"Error loading remove_icon for ensemble button: {e}")
+            logger.error(f"Error loading remove_icon for ensemble button: {e}")
 
         self.add_to_ensemble_button.setMaximumWidth(36)
         self.remove_from_ensemble_button.setMaximumWidth(36)

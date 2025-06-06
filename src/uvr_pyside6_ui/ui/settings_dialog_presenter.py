@@ -124,7 +124,7 @@ class SettingsDialogPresenter(QObject):
                     default_settings.update(loaded_settings)
                     return default_settings
             except (OSError, json.JSONDecodeError) as e:
-                print(
+                logger.warning(
                     f"Error loading settings from {self._settings_file_path}: {e}. Using defaults."
                 )
                 return default_settings
@@ -138,8 +138,9 @@ class SettingsDialogPresenter(QObject):
                 json.dump(self._current_settings, f, indent=4)
             if self.view:  # Update status if view is available
                 self.view.show_status_message("Settings saved.", 2000)
+            logger.info(f"Settings saved successfully to {self._settings_file_path}")
         except OSError as e:
-            print(f"Error saving settings to {self._settings_file_path}: {e}")
+            logger.error(f"Error saving settings to {self._settings_file_path}: {e}")
             if self.view:
                 QMessageBox.warning(
                     self.view, "Save Error", f"Could not save settings: {e}"

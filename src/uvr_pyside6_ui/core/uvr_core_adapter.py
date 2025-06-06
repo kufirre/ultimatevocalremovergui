@@ -1,3 +1,5 @@
+"""UVRCoreAdapter: Main adapter for UVR processing functionality."""
+
 import json
 from pathlib import Path
 from typing import Any
@@ -7,8 +9,11 @@ from PySide6.QtCore import QObject, Signal
 
 from . import app_constants as ac
 from .download_worker import DownloadManager
+from .logger_utils import get_logger
 from .model_downloader import fetch_online_model_catalog
 from .processing_worker import ProcessingThread
+
+logger = get_logger(__name__)
 
 # ... (MODEL_SUBDIRS and other constants as in response #35, ensure ac.ENSEMBLE_MODELS_KEY is used) ...
 MODEL_SUBDIRS = {
@@ -78,7 +83,7 @@ class UVRCoreAdapter(QObject):
             if cwd_candidate.is_dir():
                 return cwd_candidate
 
-            print(
+            logger.warning(
                 f"Warning: Could not determine models directory. Tried: {models_path} and {cwd_candidate}"
             )
             return None
@@ -89,7 +94,7 @@ class UVRCoreAdapter(QObject):
             cwd_candidate = Path.cwd() / "models"
             if cwd_candidate.is_dir():
                 return cwd_candidate
-            print(
+            logger.warning(
                 f"Warning: Could not determine models directory due to IndexError. Tried: {cwd_candidate}"
             )
             return None
@@ -326,7 +331,7 @@ class UVRCoreAdapter(QObject):
             return model_info
 
         except Exception as e:
-            print(f"Error getting model info for {model_name}: {e}")
+            logger.error(f"Error getting model info for {model_name}: {e}")
             return None
 
     def download_model(
@@ -528,19 +533,21 @@ class UVRCoreAdapter(QObject):
                     # print(f"Successfully loaded name mapper from: {mapper_file_path}")
                     return mapper_content
             except json.JSONDecodeError as e:
-                print(
+                logger.error(
                     f"ERROR: JSONDecodeError when loading name mapper from {mapper_file_path}: {e}"
                 )
                 # Consider logging this error more formally.
                 pass
             except Exception as e:
-                print(
+                logger.error(
                     f"ERROR: Unexpected error loading name mapper from {mapper_file_path}: {e}"
                 )
                 # Consider logging this error.
                 pass
         else:
-            print(f"Warning: Name mapper file not found at: {mapper_file_path}")
+            logger.warning(
+                f"Warning: Name mapper file not found at: {mapper_file_path}"
+            )
         return {}
 
     def _get_display_name_from_mapper(

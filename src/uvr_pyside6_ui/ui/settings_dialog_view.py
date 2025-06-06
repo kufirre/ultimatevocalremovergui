@@ -1,3 +1,5 @@
+"""Settings Dialog View for UVR PySide6 application."""
+
 from PySide6.QtCore import QSize, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QCloseEvent, QIcon
 from PySide6.QtWidgets import (
@@ -16,6 +18,10 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from ..core.logger_utils import get_logger
+
+logger = get_logger(__name__)
 
 
 class SettingsDialogView(QDialog):
@@ -140,7 +146,7 @@ class SettingsDialogView(QDialog):
             if not guide_icon.isNull():
                 self.tab_widget.setTabIcon(0, guide_icon)
         except Exception as e:
-            print(f"Could not load guide icon: {e}")
+            logger.error(f"Could not load guide icon: {e}")
 
     def _on_advanced_menu_selected(self, menu_text: str):
         """Handle advanced menu selection - emit signal to open appropriate window."""
@@ -257,7 +263,7 @@ class SettingsDialogView(QDialog):
             else:
                 self.tab_widget.addTab(settings_tab, "Additional Settings")
         except Exception as e:
-            print(f"Error loading settings icon: {e}")
+            logger.error(f"Error loading settings icon: {e}")
             self.tab_widget.addTab(settings_tab, "Additional Settings")
 
     def _create_download_center_tab(self):
@@ -382,7 +388,7 @@ class SettingsDialogView(QDialog):
                     2, download_tab_icon
                 )  # Download Center is tab index 2
         except Exception as e:
-            print(f"Could not load download tab icon: {e}")
+            logger.error(f"Could not load download tab icon: {e}")
 
     def _on_architecture_changed(self):
         """Handle architecture dropdown changes and update model list."""

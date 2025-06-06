@@ -1,3 +1,5 @@
+"""File I/O view for UVR PySide6 application."""
+
 from PySide6.QtCore import QSize, Signal, Slot
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
@@ -9,6 +11,10 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from ..core.logger_utils import get_logger
+
+logger = get_logger(__name__)
 
 
 class FileIOView(QWidget):
@@ -49,7 +55,7 @@ class FileIOView(QWidget):
                 self.select_input_button.setIcon(browse_icon)
                 self.select_input_button.setIconSize(QSize(16, 16))  # Adjust as needed
         except Exception as e:
-            print(f"Error loading browse_icon for input button: {e}")
+            logger.error(f"Error loading browse_icon for input button: {e}")
         self.select_input_button.clicked.connect(self.select_input_clicked)
         input_hbox.addWidget(self.input_path_edit)
         input_hbox.addWidget(self.select_input_button)
@@ -70,7 +76,7 @@ class FileIOView(QWidget):
                 self.select_output_button.setIcon(browse_icon)
                 self.select_output_button.setIconSize(QSize(16, 16))  # Adjust as needed
         except Exception as e:
-            print(f"Error loading browse_icon for output button: {e}")
+            logger.error(f"Error loading browse_icon for output button: {e}")
         self.select_output_button.clicked.connect(self.select_output_clicked)
         output_hbox.addWidget(self.output_path_edit)
         output_hbox.addWidget(self.select_output_button)

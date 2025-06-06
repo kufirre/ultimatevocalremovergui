@@ -1236,7 +1236,16 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
         if md.demucs_version not in [ac.DEMUCS_V1, ac.DEMUCS_V2] and (
             not demucs_get_model or not demucs_segments
         ):
-            print("Demucs modules not available. Please install Demucs.")
+            logger.error("Demucs modules not available. Please install Demucs.")
+            return None
+
+        if (
+            not self.model_data.model_path
+            or not Path(self.model_data.model_path).is_file()
+        ):
+            logger.error(
+                f"Error: Demucs model file not found or empty: {self.model_data.model_path}"
+            )
             return None
 
         try:
@@ -1245,7 +1254,9 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
                 or not Path(md.model_path).exists()
                 or Path(md.model_path).stat().st_size == 0
             ):
-                print(f"Error: Demucs model file not found or empty: {md.model_path}")
+                logger.error(
+                    f"Error: Demucs model file not found or empty: {md.model_path}"
+                )
                 return None
 
             if md.demucs_version == ac.DEMUCS_V1:
@@ -1265,9 +1276,7 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
                 if (
                     demucs_apply_model_v2 is None
                 ):  # Check if demucs_apply_model_v2 was imported
-                    print(
-                        "Demucs v2 apply_model not available."
-                    )  # Log error if not imported
+                    logger.error("Demucs v2 apply_model not available.")
                     return None
                 self.model_run_instance = demucs_apply_model_v2(
                     md.demucs_source_list, md.model_path
@@ -1553,7 +1562,7 @@ class SeperateDemucsLogic(SeparatorAttributesLogic):
 class SeperateVRLogic(SeparatorAttributesLogic):
     def _loading_mix_vr(self, audio_file_path_str: str) -> Optional[np.ndarray]:
         if not spec_utils or not self.md.vr_model_param:
-            print("VR spec_utils/params error.")
+            logger.error("VR spec_utils/params error.")
             return None
         X_wave: Dict[int, np.ndarray] = {}
         X_spec_s: Dict[int, np.ndarray] = {}
@@ -1586,7 +1595,7 @@ class SeperateVRLogic(SeparatorAttributesLogic):
                         )
 
                     except Exception as e:
-                        print(f"Audioread fallback for MP3 failed: {e}")
+                        logger.error(f"Audioread fallback for MP3 failed: {e}")
                 if X_wave[d_idx].ndim == 1:
                     X_wave[d_idx] = np.asarray([X_wave[d_idx], X_wave[d_idx]])
             else:
@@ -1623,7 +1632,7 @@ class SeperateVRLogic(SeparatorAttributesLogic):
         self, X_spec: np.ndarray
     ) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
         if not self.model_run_instance or not spec_utils:
-            print("VR model/spec_utils error.")
+            logger.error("VR model/spec_utils error.")
             return None, None
         md = self.md
         model_run = self.model_run_instance
@@ -1633,7 +1642,9 @@ class SeperateVRLogic(SeparatorAttributesLogic):
             patches = (X_mag_pad.shape[2] - 2 * model_run.offset) // roi_size
 
             if patches == 0:
-                print(f"Warning: Not enough data for patches (patches = {patches}).")
+                logger.warning(
+                    f"Warning: Not enough data for patches (patches = {patches})."
+                )
                 return np.array([])
             total_iterations = (
                 patches // md.batch_size
@@ -1666,7 +1677,7 @@ class SeperateVRLogic(SeparatorAttributesLogic):
                         raise ValueError(ac.WINDOW_SIZE_ERROR_MESSAGE)
                     mask_chunks.append(pred.detach().cpu().numpy())
                 if not mask_chunks:
-                    print("Warning: No mask chunks.")
+                    logger.warning("Warning: No mask chunks.")
                     return np.array([])
                 # Concatenate each chunk along time axis
                 concatenated_chunks = [
@@ -1686,8 +1697,8 @@ class SeperateVRLogic(SeparatorAttributesLogic):
         X_mag_pad /= X_mag_pad.max() if X_mag_pad.max() > 0 else 1.0
         mask_pred = _execute(X_mag_pad, roi_size)
         if mask_pred.size == 0:
-            print(
-                "Error: Mask prediction failed (mask_pred is empty). This usually means the audio is too short for the model's window size."
+            logger.warning(
+                "Warning: Mask prediction failed (mask_pred is empty). This usually means the audio is too short for the model's window size."
             )
             # Return appropriately shaped zero spectrograms to avoid downstream errors with empty arrays
             # This will lead to silent output stems instead of a crash.
@@ -1711,7 +1722,7 @@ class SeperateVRLogic(SeparatorAttributesLogic):
                     + mask_tta_pred[:, :, roi_size // 2 : roi_size // 2 + n_frame]
                 ) * 0.5
             else:
-                print("Warning: TTA mask prediction failed.")
+                logger.warning("Warning: TTA mask prediction failed.")
         else:
             mask_pred = mask_pred[:, :, :n_frame]
         is_non_accom_stem = any(stem == md.primary_stem for stem in ac.NON_ACCOM_STEMS)
@@ -1746,7 +1757,7 @@ class SeperateVRLogic(SeparatorAttributesLogic):
 
     def _spec_to_wav_vr_logic(self, spec: np.ndarray) -> Optional[np.ndarray]:
         if not spec_utils or not self.md.vr_model_param:
-            print("VR spec_utils/params error.")
+            logger.error("VR spec_utils/params error.")
             return None
 
         # Debug info about the input spectrogram
@@ -1755,19 +1766,25 @@ class SeperateVRLogic(SeparatorAttributesLogic):
             if not self.md.is_secondary_stem_only
             else self.md.secondary_stem
         )
-        print(f"{stem_name} spec shape before _spec_to_wav_vr_logic: {spec.shape}")
+        logger.debug(
+            f"{stem_name} spec shape before _spec_to_wav_vr_logic: {spec.shape}"
+        )
 
         # Check for NaN/Inf values in the spectrogram
         if np.isnan(np.sum(spec)):
-            print("Warning: Spectrogram contains NaN values. Attempting to fix...")
+            logger.warning(
+                "Warning: Spectrogram contains NaN values. Attempting to fix..."
+            )
             spec = np.nan_to_num(spec, nan=0.0)
         if np.isinf(np.sum(spec)):
-            print("Warning: Spectrogram contains Inf values. Attempting to fix...")
+            logger.warning(
+                "Warning: Spectrogram contains Inf values. Attempting to fix..."
+            )
             spec = np.nan_to_num(spec, posinf=1.0, neginf=-1.0)
 
         # Additional check for zero values
         if np.all(np.abs(spec) < 1e-10):
-            print(
+            logger.warning(
                 f"Warning: Spectrogram for {stem_name} contains all zeros or very small values."
             )
             # Create a small non-zero spectrogram instead of returning empty array
@@ -1796,7 +1813,7 @@ class SeperateVRLogic(SeparatorAttributesLogic):
                         is_v51_model=self.md.is_vr_51_model,
                     )
                 except Exception as e:
-                    print(f"Error in high-end processing: {e}")
+                    logger.error(f"Error in high-end processing: {e}")
                     # Fall back to regular processing
                     result = spec_utils.cmb_spectrogram_to_wave(
                         spec,
@@ -1808,28 +1825,28 @@ class SeperateVRLogic(SeparatorAttributesLogic):
                     spec, self.md.vr_model_param, is_v51_model=self.md.is_vr_51_model
                 )
         except Exception as e:
-            print(f"Error in spectrogram to wave conversion: {e}")
+            logger.error(f"Error in spectrogram to wave conversion: {e}")
             import traceback
 
-            print(f"Traceback: {traceback.format_exc()}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
             # Create a small non-zero waveform instead of empty array
             return np.ones((2, 1000)) * 1e-5  # Small non-zero array
 
         # Debug info about the output waveform
-        print(
+        logger.debug(
             f"{stem_name} shape after _spec_to_wav_vr_logic: {result.shape if result is not None else 'None'}"
         )
 
         # Check if result is empty or None
         if result is None:
-            print(f"Warning: Conversion returned None for {stem_name}.")
+            logger.warning(f"Warning: Conversion returned None for {stem_name}.")
             return np.ones((2, 1000)) * 1e-5  # Small non-zero array
 
         if result.size == 0 or result.shape[1] == 0:
-            print(
+            logger.warning(
                 f"{stem_name} is empty (shape {result.shape}) BEFORE resampling. Creating non-empty output."
             )
-            print(
+            logger.warning(
                 f"Warning: Conversion produced empty output for {stem_name}. Creating non-empty output."
             )
 
@@ -1857,10 +1874,10 @@ class SeperateVRLogic(SeparatorAttributesLogic):
 
         # Check for NaN/Inf values in the result
         if np.isnan(np.sum(result)):
-            print("Warning: Result contains NaN values. Fixing...")
+            logger.warning("Warning: Result contains NaN values. Fixing...")
             result = np.nan_to_num(result, nan=0.0)
         if np.isinf(np.sum(result)):
-            print("Warning: Result contains Inf values. Fixing...")
+            logger.warning("Warning: Result contains Inf values. Fixing...")
             result = np.nan_to_num(result, posinf=1.0, neginf=-1.0)
 
         return result
@@ -1869,7 +1886,7 @@ class SeperateVRLogic(SeparatorAttributesLogic):
         if not all(
             [nets_new_vr, nets_vr, ModelParameters, spec_utils, self.md.vr_model_param]
         ):
-            print("VR dependencies/params error.")
+            logger.error("VR dependencies/params error.")
             return None
         md = self.md
         self.progress_value = 0
@@ -1877,28 +1894,28 @@ class SeperateVRLogic(SeparatorAttributesLogic):
         # Prepare original mix to get its shape for silent output generation if needed
         original_mix_audio_array = self._prepare_mix()
         if original_mix_audio_array is None:
-            print("Failed to load original audio, cannot proceed.")
+            logger.error("Failed to load original audio, cannot proceed.")
             return None
         # original_mix_audio_array is (length, channels)
 
-        print(f"Processing with VR model: {md.model_basename}...")
+        logger.info(f"Processing with VR model: {md.model_basename}...")
         try:
             # Get model hash for debugging
             import hashlib
 
             with open(md.model_path, "rb") as f:
                 model_hash = hashlib.md5(f.read()).hexdigest()
-            print(f"Model file hash: {model_hash}")
+            logger.info(f"Model file hash: {model_hash}")
 
             # Check if hash exists in model_data.json
             model_hash_found = False
             if hasattr(md, "vr_model_param") and md.vr_model_param:
-                print(
+                logger.info(
                     f"Using VR model parameters: {md.vr_model_param.param['band'][1]['sr']} Hz, {md.vr_model_param.param['band'][1]['n_fft']} FFT"
                 )
                 model_hash_found = True
             else:
-                print("Warning: VR model parameters not found or invalid")
+                logger.warning("Warning: VR model parameters not found or invalid")
 
             nn_arch_sizes = [
                 31191,
@@ -1914,12 +1931,12 @@ class SeperateVRLogic(SeparatorAttributesLogic):
             vr_5_1_models_sizes = [56817, 218409]
             model_size_kb = Path(md.model_path).stat().st_size / 1024
             nn_arch_size = min(nn_arch_sizes, key=lambda x: abs(x - model_size_kb))
-            print(
+            logger.info(
                 f"Model size: {model_size_kb} KB, Selected architecture size: {nn_arch_size}"
             )
 
             if nn_arch_size in vr_5_1_models_sizes or md.is_vr_51_model:
-                print("Using VR 5.1 model architecture")
+                logger.info("Using VR 5.1 model architecture")
                 self.model_run_instance = nets_new_vr.CascadedNet(
                     md.vr_model_param.param["bins"] * 2,
                     nn_arch_size,
@@ -1927,7 +1944,7 @@ class SeperateVRLogic(SeparatorAttributesLogic):
                     nout_lstm=md.model_capacity[1],
                 )
             else:
-                print("Using standard VR model architecture")
+                logger.info("Using standard VR model architecture")
                 self.model_run_instance = nets_vr.determine_model_capacity(
                     md.vr_model_param.param["bins"] * 2, nn_arch_size
                 )
@@ -1938,10 +1955,10 @@ class SeperateVRLogic(SeparatorAttributesLogic):
             )
             self.model_run_instance.to(self.device).eval()
         except Exception as e:
-            print(f"Error loading VR model: {e}")
+            logger.error(f"Error loading VR model: {e}")
             import traceback
 
-            print(f"Traceback: {traceback.format_exc()}")
+            logger.error(traceback.format_exc())
             return None
 
         self._update_progress(0.0, message="Loading audio mix...")
@@ -1951,34 +1968,36 @@ class SeperateVRLogic(SeparatorAttributesLogic):
 
         # Check spectrogram
         if np.all(np.abs(X_spec) < 1e-10):
-            print("Warning: Input spectrogram contains all zeros or very small values")
+            logger.warning(
+                "Warning: Input spectrogram contains all zeros or very small values"
+            )
 
-        print("Running VR inference...")
+        logger.info("Running VR inference...")
         y_spec, v_spec = self._inference_vr_logic(X_spec)
 
         if y_spec is None or v_spec is None:
-            print("VR inference error.")
+            logger.error("VR inference error.")
             return None
 
         # NaN/Inf check for y_spec and v_spec
         if np.isnan(np.sum(y_spec)):
-            print(
+            logger.warning(
                 "Warning: Primary stem spectrogram contains NaN values. Attempting to fix..."
             )
             y_spec = np.nan_to_num(y_spec, nan=0.0)
         if np.isinf(np.sum(y_spec)):
-            print(
+            logger.warning(
                 "Warning: Primary stem spectrogram contains Inf values. Attempting to fix..."
             )
             y_spec = np.nan_to_num(y_spec, posinf=1.0, neginf=-1.0)
 
         if np.isnan(np.sum(v_spec)):
-            print(
+            logger.warning(
                 "Warning: Secondary stem spectrogram contains NaN values. Attempting to fix..."
             )
             v_spec = np.nan_to_num(v_spec, nan=0.0)
         if np.isinf(np.sum(v_spec)):
-            print(
+            logger.warning(
                 "Warning: Secondary stem spectrogram contains Inf values. Attempting to fix..."
             )
             v_spec = np.nan_to_num(v_spec, posinf=1.0, neginf=-1.0)
@@ -1986,13 +2005,13 @@ class SeperateVRLogic(SeparatorAttributesLogic):
         self._console_log(ac.DONE_MESSAGE)
         outputs = {}
         if not md.is_secondary_stem_only:
-            print(f"Converting {md.primary_stem}...")
+            logger.info(f"Converting {md.primary_stem}...")
 
             primary_wave = self._spec_to_wav_vr_logic(y_spec)
 
             if primary_wave is not None:
                 if primary_wave.size == 0:
-                    print(
+                    logger.warning(
                         f"Warning: {md.primary_stem} wave is empty. Creating silent output."
                     )
                     primary_wave = np.zeros_like(original_mix_audio_array)
@@ -2001,7 +2020,7 @@ class SeperateVRLogic(SeparatorAttributesLogic):
                     md.model_samplerate != ac.DEFAULT_SAMPLE_RATE
                     and primary_wave.size > 0
                 ):  # Ensure not resampling empty array
-                    print(
+                    logger.info(
                         f"Resampling {md.primary_stem} from {md.model_samplerate} Hz to {ac.DEFAULT_SAMPLE_RATE} Hz"
                     )
                     primary_wave = librosa.resample(
@@ -2026,16 +2045,16 @@ class SeperateVRLogic(SeparatorAttributesLogic):
                 )
                 outputs.update(self.primary_source_map)
             else:
-                print(f"Failed to convert {md.primary_stem} (returned None).")
+                logger.warning(f"Failed to convert {md.primary_stem} (returned None).")
 
         if not md.is_primary_stem_only:
-            print(f"Converting {md.secondary_stem}...")
+            logger.info(f"Converting {md.secondary_stem}...")
 
             secondary_wave = self._spec_to_wav_vr_logic(v_spec)
 
             if secondary_wave is not None:
                 if secondary_wave.size == 0:
-                    print(
+                    logger.warning(
                         f"Warning: {md.secondary_stem} wave is empty. Creating silent output."
                     )
                     secondary_wave = np.zeros_like(original_mix_audio_array)
@@ -2044,7 +2063,7 @@ class SeperateVRLogic(SeparatorAttributesLogic):
                     md.model_samplerate != ac.DEFAULT_SAMPLE_RATE
                     and secondary_wave.size > 0
                 ):  # Ensure not resampling empty array
-                    print(
+                    logger.info(
                         f"Resampling {md.secondary_stem} from {md.model_samplerate} Hz to {ac.DEFAULT_SAMPLE_RATE} Hz"
                     )
                     secondary_wave = librosa.resample(
@@ -2068,7 +2087,9 @@ class SeperateVRLogic(SeparatorAttributesLogic):
                 )
                 outputs.update(self.secondary_source_map)
             else:
-                print(f"Failed to convert {md.secondary_stem} (returned None).")
+                logger.warning(
+                    f"Failed to convert {md.secondary_stem} (returned None)."
+                )
         clear_gpu_cache_logic()
         return outputs
 
@@ -2083,12 +2104,12 @@ def vr_denoiser_logic(
     cropsize: int = 256,
 ) -> np.ndarray:
     if not nets_new_vr or not spec_utils:
-        print("Warning: VR denoiser dependencies missing.")
+        logger.warning("Warning: VR denoiser dependencies missing.")
         return audio_input
 
     model_path = Path(model_path_str)
     if not model_path.exists():
-        print(f"Warning: Denoiser/Deverber model not found: {model_path}")
+        logger.warning(f"Warning: Denoiser/Deverber model not found: {model_path}")
         return audio_input
 
     nout, nout_lstm = (64, 128) if is_deverber else (16, 128)
@@ -2101,7 +2122,7 @@ def vr_denoiser_logic(
         model.to(device)
         model.eval()
     except Exception as e:
-        print(f"Error loading denoiser/deverber model {model_path}: {e}")
+        logger.error(f"Error loading denoiser/deverber model {model_path}: {e}")
         return audio_input
 
     if audio_input.shape[0] > audio_input.shape[1]:  # Ensure (channels, length)

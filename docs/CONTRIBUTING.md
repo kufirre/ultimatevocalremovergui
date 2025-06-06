@@ -108,6 +108,9 @@ git checkout -b fix/issue-description
 Run these commands before committing:
 
 ```bash
+# Auto-fix linting issues (NEW!)
+make fix-lint           # Automatically fix code style and linting issues
+
 # Format code
 make format
 
@@ -123,6 +126,28 @@ make test
 # Complete quality pipeline
 make check-all
 ```
+
+#### Auto-Fix Linting (Recommended Workflow)
+
+The `make fix-lint` command automatically resolves most linting issues:
+
+- **Code formatting** with Black
+- **Import organization** with ruff
+- **Unused import removal** with ruff  
+- **Style fixes** that can be auto-corrected
+- **Comprehensive reporting** of remaining issues
+
+```bash
+# Recommended development workflow
+make fix-lint          # Auto-fix most linting issues
+make check-all         # Verify everything passes
+```
+
+The script provides detailed feedback:
+- ✅ Issues automatically fixed
+- ⚠️ Issues requiring manual attention  
+- 📊 Final issue counts for all tools
+- 💡 Next steps and commands to run
 
 ### 4. Commit Guidelines
 
@@ -567,6 +592,9 @@ git checkout -b fix/issue-description
 Run these commands before committing:
 
 ```bash
+# Auto-fix linting issues (NEW!)
+make fix-lint           # Automatically fix code style and linting issues
+
 # Format code
 make format
 
@@ -582,6 +610,28 @@ make test
 # Complete quality pipeline
 make check-all
 ```
+
+#### Auto-Fix Linting (Recommended Workflow)
+
+The `make fix-lint` command automatically resolves most linting issues:
+
+- **Code formatting** with Black
+- **Import organization** with ruff
+- **Unused import removal** with ruff  
+- **Style fixes** that can be auto-corrected
+- **Comprehensive reporting** of remaining issues
+
+```bash
+# Recommended development workflow
+make fix-lint          # Auto-fix most linting issues
+make check-all         # Verify everything passes
+```
+
+The script provides detailed feedback:
+- ✅ Issues automatically fixed
+- ⚠️ Issues requiring manual attention  
+- 📊 Final issue counts for all tools
+- 💡 Next steps and commands to run
 
 ### 4. Commit Guidelines
 

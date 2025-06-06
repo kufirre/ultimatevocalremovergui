@@ -1,7 +1,7 @@
 # Makefile for UVR PySide6 project
 # Provides convenient shortcuts for common development tasks
 
-.PHONY: help install install-dev format lint test test-fast check-all clean setup-hooks
+.PHONY: help install install-dev format lint fix-lint test test-fast check-all clean setup-hooks
 
 # Default target
 help:
@@ -13,6 +13,7 @@ help:
 	@echo "  install-dev  - Install with development dependencies"
 	@echo "  format       - Format code with Black and isort"
 	@echo "  lint         - Run linting and quality checks"
+	@echo "  fix-lint     - Automatically fix linting issues"
 	@echo "  test         - Run the full test suite"
 	@echo "  test-fast    - Run fast tests only"
 	@echo "  check-all    - Run complete quality pipeline"
@@ -21,6 +22,7 @@ help:
 	@echo ""
 	@echo "Example usage:"
 	@echo "  make install-dev  # Set up development environment"
+	@echo "  make fix-lint     # Auto-fix linting issues"
 	@echo "  make check-all    # Run all quality checks"
 
 # Installation targets
@@ -38,6 +40,10 @@ format:
 lint:
 	@echo "🔍 Running linting checks..."
 	./scripts/lint.sh
+
+fix-lint:
+	@echo "🔧 Auto-fixing linting issues..."
+	./scripts/fix-lint.sh
 
 # Testing targets
 test:

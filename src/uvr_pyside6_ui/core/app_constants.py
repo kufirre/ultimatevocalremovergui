@@ -1,4 +1,6 @@
-# src/uvr_pyside6_ui/core/app_constants.py
+"""Application constants for UVR PySide6 application."""
+
+import json
 import platform
 from pathlib import Path
 

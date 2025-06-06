@@ -76,15 +76,16 @@ class TestModelDownloader:
         cached_catalog = {"cached": "data"}
         cache_file = self.cache_dir / ac.ONLINE_CATALOG_CACHE_FILENAME
 
-        # Create cache directory and file
+        # Create cache file
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         cache_file.write_text(json.dumps(cached_catalog))
 
-        with patch("builtins.print") as mock_print:
+        # Fix patch path to match the import structure
+        with patch("uvr_pyside6_ui.core.model_downloader.logger") as mock_logger:
             catalog = model_downloader.fetch_online_model_catalog()
 
             assert catalog == cached_catalog
-            mock_print.assert_called_with("Using cached online model catalog.")
+            mock_logger.info.assert_called_with("Using cached online model catalog.")
 
     def test_fetch_online_model_catalog_cache_error_fallback(self):
         """Test fallback when cache file is corrupted."""

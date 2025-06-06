@@ -11,7 +11,10 @@ import numpy as np
 from PySide6.QtCore import QObject, QThread, Signal
 
 from . import app_constants as ac
+from .logger_utils import get_logger
 from .model_data import ModelData
+
+logger = get_logger(__name__)
 
 try:
     from lib_v5 import spec_utils
@@ -26,7 +29,9 @@ try:
         write_audio_logic,
     )
 except ImportError as e:
-    print(f"Warning: Could not import separation logic modules or spec_utils: {e}")
+    logger.warning(
+        f"Warning: Could not import separation logic modules or spec_utils: {e}"
+    )
     SeperateVRLogic, SeperateMDXLogic, SeperateMDXCLogic, SeperateDemucsLogic = (
         None,
         None,
@@ -52,7 +57,7 @@ class RealProcessingWorker(QObject):
         try:
             self.model_data = ModelData.from_settings_dict(settings_dict)
         except Exception as e:
-            print(f"Error creating ModelData: {e}\n{traceback.format_exc()}")
+            logger.error(f"Error creating ModelData: {e}\n{traceback.format_exc()}")
             self.model_data = None
 
     def run(self):
@@ -565,31 +570,31 @@ class RealProcessingWorker(QObject):
         self._execute_separation_pipeline(ac.MDX_ARCH_TYPE, process_data)
 
     def _process_demucs(self, process_data: Dict[str, Any]):
-        print("Starting Demucs processing")
-        print(f"Model path: {self.model_data.model_path}")
-        print(f"Model basename: {self.model_data.model_basename}")
-        print(f"Demucs version: {self.model_data.demucs_version}")
-        print(f"Demucs stems: {self.model_data.demucs_stems}")
-        print(f"Demucs source list: {self.model_data.demucs_source_list}")
+        logger.info("Starting Demucs processing")
+        logger.info(f"Model path: {self.model_data.model_path}")
+        logger.info(f"Model basename: {self.model_data.model_basename}")
+        logger.info(f"Demucs version: {self.model_data.demucs_version}")
+        logger.info(f"Demucs stems: {self.model_data.demucs_stems}")
+        logger.info(f"Demucs source list: {self.model_data.demucs_source_list}")
 
         # Check if model file exists
         if self.model_data.model_path:
             model_path = Path(self.model_data.model_path)
             if model_path.exists():
-                print(f"Model file exists: {model_path}")
-                print(f"Model file size: {model_path.stat().st_size} bytes")
+                logger.info(f"Model file exists: {model_path}")
+                logger.info(f"Model file size: {model_path.stat().st_size} bytes")
             else:
-                print(f"Model file does not exist: {model_path}")
+                logger.info(f"Model file does not exist: {model_path}")
 
             # Check parent directory
             model_dir = model_path.parent
             if model_dir.exists():
-                print(f"Model directory exists: {model_dir}")
-                print("Files in model directory:")
+                logger.info(f"Model directory exists: {model_dir}")
+                logger.info("Files in model directory:")
                 for file in model_dir.iterdir():
-                    print(f"  - {file.name}")
+                    logger.info(f"  - {file.name}")
             else:
-                print(f"Model directory does not exist: {model_dir}")
+                logger.info(f"Model directory does not exist: {model_dir}")
 
         self._execute_separation_pipeline(ac.DEMUCS_ARCH_TYPE, process_data)
 

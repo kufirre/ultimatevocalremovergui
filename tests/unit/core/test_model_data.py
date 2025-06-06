@@ -470,17 +470,17 @@ class TestModelData:
                     assert len(model_data.ensemble_models) == 1
 
     def test_load_ensemble_config_file_not_found(self):
-        """Test ensemble config loading when file not found."""
+        """Test ensemble config loading when file doesn't exist."""
         model_data = ModelData(
             model_path="/nonexistent/ensemble.json", is_ensemble_mode=True
         )
 
         with patch.object(Path, "exists", return_value=False):
-            with patch("builtins.print") as mock_print:
+            with patch("uvr_pyside6_ui.core.model_data.logger") as mock_logger:
                 model_data._load_ensemble_config({})
 
                 assert model_data.model_status is False
-                mock_print.assert_called()
+                mock_logger.error.assert_called()
 
     def test_load_ensemble_config_json_error(self):
         """Test ensemble config loading with JSON parse error."""
@@ -490,11 +490,11 @@ class TestModelData:
 
         with patch.object(Path, "exists", return_value=True):
             with patch("builtins.open", mock_open(read_data="invalid json")):
-                with patch("builtins.print") as mock_print:
+                with patch("uvr_pyside6_ui.core.model_data.logger") as mock_logger:
                     model_data._load_ensemble_config({})
 
                     assert model_data.model_status is False
-                    mock_print.assert_called()
+                    mock_logger.error.assert_called()
 
     def test_create_live_ensemble_from_ui_settings(self):
         """Test creating live ensemble from UI settings."""
@@ -551,11 +551,11 @@ class TestModelData:
         """Test determining model process method with unknown extension."""
         model_data = ModelData()
 
-        with patch("builtins.print") as mock_print:
+        with patch("uvr_pyside6_ui.core.model_data.logger") as mock_logger:
             result = model_data._determine_model_process_method("model.unknown")
 
             assert result is None
-            mock_print.assert_called()
+            mock_logger.warning.assert_called()
 
     def test_get_secondary_model_settings_vocal_inst(self):
         """Test getting secondary model settings for vocal/instrumental."""

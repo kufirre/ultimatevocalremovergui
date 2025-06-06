@@ -7,7 +7,11 @@ import logging
 import os
 from typing import Optional
 
-from . import app_constants as ac
+# Define log level constants directly to avoid circular imports
+DEFAULT_LOG_LEVEL = "INFO"
+DEBUG_LOG_LEVEL = "DEBUG"
+LOG_FORMAT = "%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(message)s"
+LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
 class UVRLogger:
@@ -26,18 +30,18 @@ class UVRLogger:
 
         # Determine log level from environment variable or default
         if log_level is None:
-            log_level = os.environ.get("UVR_LOG_LEVEL", ac.DEFAULT_LOG_LEVEL)
+            log_level = os.environ.get("UVR_LOG_LEVEL", DEFAULT_LOG_LEVEL)
 
         # Configure root logger
         logging.basicConfig(
             level=getattr(logging, log_level.upper(), logging.INFO),
-            format=ac.LOG_FORMAT,
-            datefmt=ac.LOG_DATE_FORMAT,
+            format=LOG_FORMAT,
+            datefmt=LOG_DATE_FORMAT,
             force=True,  # Override any existing configuration
         )
 
         # Disable logging for production if needed
-        if not enable_console and log_level != ac.DEBUG_LOG_LEVEL:
+        if not enable_console and log_level != DEBUG_LOG_LEVEL:
             logging.disable(logging.CRITICAL)
 
         cls._configured = True

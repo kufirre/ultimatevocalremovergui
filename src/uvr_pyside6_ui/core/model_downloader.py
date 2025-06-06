@@ -1,3 +1,5 @@
+"""Model downloader module for UVR PySide6 application."""
+
 import json
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Tuple
@@ -5,6 +7,9 @@ from typing import Any, Callable, Dict, Optional, Tuple
 import requests
 
 from . import app_constants as ac
+from .logger_utils import get_logger
+
+logger = get_logger(__name__)
 
 # Ensure the main models directory and subdirectories exist
 MODELS_DIR = Path.cwd() / "models"
@@ -29,10 +34,10 @@ def fetch_online_model_catalog() -> Dict[str, Any]:
         try:
             # TODO: Add cache expiry (e.g., if file is older than 1 day, refresh)
             with open(ONLINE_CATALOG_CACHE_FILE, encoding="utf-8") as f:
-                print("Using cached online model catalog.")
+                logger.info("Using cached online model catalog.")
                 return json.load(f)
         except Exception as e:
-            print(f"Error reading cached catalog: {e}. Fetching fresh.")
+            logger.error(f"Error reading cached catalog: {e}. Fetching fresh.")
 
     try:
         response = requests.get(ac.DOWNLOAD_CHECKS_URL, timeout=10)
@@ -40,15 +45,15 @@ def fetch_online_model_catalog() -> Dict[str, Any]:
         catalog_data = response.json()
         with open(ONLINE_CATALOG_CACHE_FILE, "w", encoding="utf-8") as f:
             json.dump(catalog_data, f, indent=4)
-        print("Fetched and cached online model catalog.")
+        logger.info("Fetched and cached online model catalog.")
         return catalog_data
     except requests.RequestException as e:
-        print(f"Error fetching online model catalog: {e}")
-        print("Using fallback catalog.")
+        logger.error(f"Error fetching online model catalog: {e}")
+        logger.info("Using fallback catalog.")
         return ac.FALLBACK_ONLINE_CATALOG.copy()  # Ensure it's a copy
     except json.JSONDecodeError as e:
-        print(f"Error decoding online model catalog JSON: {e}")
-        print("Using fallback catalog.")
+        logger.error(f"Error decoding online model catalog JSON: {e}")
+        logger.info("Using fallback catalog.")
         return ac.FALLBACK_ONLINE_CATALOG.copy()
 
 
@@ -108,7 +113,7 @@ def download_model_file(
             if progress_callback:
                 progress_callback(Path(url).name, 0)
 
-            print(
+            logger.info(
                 f"Downloading {file_type_name} {Path(url).name} from {url} to {local_path}..."
             )
             response = requests.get(url, stream=True, timeout=60)  # Increased timeout
@@ -133,13 +138,13 @@ def download_model_file(
 
             if progress_callback:
                 progress_callback(Path(url).name, 100)
-            print(f"Successfully downloaded {Path(url).name}")
+            logger.info(f"Successfully downloaded {Path(url).name}")
 
         return True, str(local_model_path), local_config_path_str
 
     except requests.RequestException as e:
         msg = f"Error downloading {model_name}: {e}"
-        print(msg)
+        logger.error(msg)
         # Clean up any partial downloads
         for _, local_p, _ in files_to_download:
             if local_p.exists():
@@ -147,7 +152,7 @@ def download_model_file(
         return False, msg, None
     except Exception as e_gen:
         msg = f"An unexpected error occurred downloading {model_name}: {e_gen}"
-        print(msg)
+        logger.error(msg)
         for _, local_p, _ in files_to_download:
             if local_p.exists():
                 local_p.unlink(missing_ok=True)
@@ -157,12 +162,12 @@ def download_model_file(
 if __name__ == "__main__":
     catalog = fetch_online_model_catalog()
     if catalog:
-        print("\nSample of fetched catalog:")
+        logger.info("\nSample of fetched catalog:")
         for key, value in list(catalog.items())[:2]:
             if isinstance(value, dict):
-                print(f"  {key}: {list(value.keys())[:3]}...")
+                logger.info(f"  {key}: {list(value.keys())[:3]}...")
             else:
-                print(f"  {key}: {str(value)[:100]}...")
+                logger.info(f"  {key}: {str(value)[:100]}...")
 
     # def my_progress(filename, percent): print(f"Progress for {filename}: {percent}%")
     # Test download (replace with a small, real file URL for testing)

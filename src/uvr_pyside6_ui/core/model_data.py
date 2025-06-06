@@ -14,6 +14,9 @@ import yaml
 from ml_collections import ConfigDict
 
 from . import app_constants as ac
+from .logger_utils import get_logger
+
+logger = get_logger(__name__)
 
 try:
     from lib_v5.vr_network.model_param_init import ModelParameters
@@ -421,7 +424,7 @@ class ModelData:
                     try:
                         value = transform_func(value)
                     except (ValueError, TypeError):
-                        print(f"Warning: Transform failed for {settings_key}")
+                        logger.warning(f"Warning: Transform failed for {settings_key}")
                         continue
                 init_kwargs[attr_name] = value
 
@@ -468,7 +471,7 @@ class ModelData:
             try:
                 instance.export_path = str(Path(export_path_setting).resolve())
             except Exception as e:
-                print(
+                logger.warning(
                     f"Warning: Error resolving export path '{export_path_setting}': {e}"
                 )
                 instance.export_path = None
@@ -494,12 +497,12 @@ class ModelData:
                 if Path(instance.model_path).exists():
                     instance._load_ensemble_config(settings)
                 else:
-                    print(
+                    logger.error(
                         f"Error: Ensemble configuration file not found: {instance.model_path}"
                     )
                     instance.model_status = False
             else:
-                print(
+                logger.error(
                     "Error: No ensemble configuration provided (neither live models nor saved ensemble)"
                 )
                 instance.model_status = False
@@ -515,7 +518,7 @@ class ModelData:
                     instance.model_hash = instance._get_model_hash(instance.model_path)
                     instance._load_and_derive_model_properties(settings)
                 else:
-                    print(
+                    logger.warning(
                         f"Warning: Model file not found: {instance.model_name} at {instance.model_path or 'undetermined'}"
                     )
                     instance.model_status = False
@@ -649,7 +652,7 @@ class ModelData:
         if not base_model_dir:
             if self.process_method == ac.ENSEMBLE_MODE:
                 return None
-            print(
+            logger.warning(
                 f"Warning: base_model_dir is None for process_method: {self.process_method}"
             )
             return None
@@ -682,9 +685,11 @@ class ModelData:
                             demucs_model_actual_filename = fname
                             break
                 except Exception as e:
-                    print(f"Error processing Demucs model name mapper: {e}")
+                    logger.error(f"Error processing Demucs model name mapper: {e}")
             else:
-                print(f"Warning: Demucs model name mapper not found at {mapper_path}")
+                logger.warning(
+                    f"Warning: Demucs model name mapper not found at {mapper_path}"
+                )
 
             if demucs_model_actual_filename:
                 # Determine Demucs version from display name to select correct directory
@@ -705,7 +710,7 @@ class ModelData:
 
                 potential_path = demucs_specific_dir / demucs_model_actual_filename
                 if potential_path.exists():
-                    print(f"Found Demucs model via name mapper: {potential_path}")
+                    logger.info(f"Found Demucs model via name mapper: {potential_path}")
                     return str(potential_path)
                 else:
                     # Check the other Demucs directory as a fallback if version parsing was ambiguous
@@ -719,12 +724,12 @@ class ModelData:
                         fallback_dir / demucs_model_actual_filename
                     )
                     if potential_fallback_path.exists():
-                        print(
+                        logger.info(
                             f"Found Demucs model via name mapper in fallback directory: {potential_fallback_path}"
                         )
                         return str(potential_fallback_path)
                     else:
-                        print(
+                        logger.error(
                             f"Demucs model file (from mapper: {demucs_model_actual_filename}) not found in primary ({demucs_specific_dir}) or fallback ({fallback_dir}) directories."
                         )
                         return None  # Model in mapper but file missing
@@ -732,21 +737,21 @@ class ModelData:
                 # This case means the display name was not in the mapper.
                 # It could be a direct filename (e.g. user typed "htdemucs_ft.yaml" or a hash)
                 # Or it's a display name that's simply not mapped.
-                print(
+                logger.info(
                     f"Display name '{current_display_name}' not found in Demucs mapper. Attempting direct filename resolution."
                 )
                 # Try resolving current_display_name as a direct filename in both Demucs directories
                 # This handles cases where current_display_name is "htdemucs_ft.yaml" or "abc123hash.th"
                 path_in_newer_repo = DEMUCS_NEWER_REPO_DIR_PATH / current_display_name
                 if path_in_newer_repo.exists():
-                    print(
+                    logger.info(
                         f"Found Demucs model by direct name in v3_v4_repo: {path_in_newer_repo}"
                     )
                     return str(path_in_newer_repo)
 
                 path_in_root_demucs = DEMUCS_MODELS_DIR_PATH / current_display_name
                 if path_in_root_demucs.exists():
-                    print(
+                    logger.info(
                         f"Found Demucs model by direct name in root Demucs_Models: {path_in_root_demucs}"
                     )
                     return str(path_in_root_demucs)
@@ -774,7 +779,7 @@ class ModelData:
                             / f"{current_model_basename_for_fallback}{ext}"
                         )
 
-                print(
+                logger.error(
                     f"Could not resolve Demucs model path for '{current_display_name}' after all checks."
                 )
                 return None  # Exhausted Demucs checks
@@ -796,23 +801,23 @@ class ModelData:
                                     base_model_dir / f"{file_name}{ext}"
                                 )  # file_name from mapper is usually without ext
                                 if potential_path.exists():
-                                    print(
+                                    logger.info(
                                         f"Found MDX model via name mapper: {potential_path}"
                                     )
                                     return str(potential_path)
                                 # If file_name from mapper already has extension
                                 potential_path_direct = base_model_dir / file_name
                                 if potential_path_direct.exists():
-                                    print(
+                                    logger.info(
                                         f"Found MDX model via name mapper (direct): {potential_path_direct}"
                                     )
                                     return str(potential_path_direct)
-                            print(
+                            logger.info(
                                 f"MDX model file (from mapper) not found for: {file_name}"
                             )
                             return None  # Model in mapper but file missing
                 except Exception as e:
-                    print(f"Error checking MDX model name mapper: {e}")
+                    logger.error(f"Error checking MDX model name mapper: {e}")
 
             # Fallback for MDX if not found via mapper
             current_model_basename_for_fallback = Path(current_display_name).stem
@@ -926,7 +931,7 @@ class ModelData:
 
     def _load_ensemble_config(self, settings: Dict[str, Any]):
         if not self.model_path or not Path(self.model_path).exists():
-            print(f"Ensemble config file not found: {self.model_path}")
+            logger.error(f"Ensemble config file not found: {self.model_path}")
             self.model_status = False
             return
         try:
@@ -965,12 +970,14 @@ class ModelData:
                 if member_model_data.model_status:
                     self.ensemble_models.append(member_model_data)
                 else:
-                    print(f"Warning: Failed to load ensemble member: {model_full_name}")
+                    logger.warning(
+                        f"Warning: Failed to load ensemble member: {model_full_name}"
+                    )
             if not self.ensemble_models:
-                print("Warning: Ensemble loaded no valid models.")
+                logger.warning("Warning: Ensemble loaded no valid models.")
                 self.model_status = False
         except Exception as e:
-            print(f"Error loading ensemble config {self.model_path}: {e}")
+            logger.error(f"Error loading ensemble config {self.model_path}: {e}")
             self.model_status = False
 
     def _load_and_derive_model_properties(self, settings: Dict[str, Any]):
@@ -990,17 +997,17 @@ class ModelData:
                     with open(hash_json_path, encoding="utf-8") as f:
                         model_params_json = json.load(f)
                 except Exception as e:
-                    print(f"Error loading hash JSON {hash_json_path}: {e}")
+                    logger.warning(f"Error loading hash JSON {hash_json_path}: {e}")
                     self.model_status = False
                     return
             else:
-                print(
+                logger.warning(
                     f"Warning: Hash JSON not found: {hash_json_path} for {self.model_name}"
                 )
                 # Fallback to master model_data.json
                 master_json_path = hash_dir / "model_data.json"
                 if master_json_path.exists():
-                    print(
+                    logger.info(
                         f"Attempting to load parameters from master: {master_json_path}"
                     )
                     try:
@@ -1008,7 +1015,7 @@ class ModelData:
                             master_data = json.load(f_master)
                         if self.model_hash in master_data:
                             model_params_json = master_data[self.model_hash]
-                            print(
+                            logger.info(
                                 f"Found parameters for hash {self.model_hash} in master JSON."
                             )
                             # Optionally, create the specific hash.json file here for future faster lookups
@@ -1016,15 +1023,17 @@ class ModelData:
                             #    json.dump(model_params_json, f_hash_specific, indent=4)
                             # print(f"Created specific hash JSON: {hash_json_path}")
                         else:
-                            print(
+                            logger.warning(
                                 f"Warning: Hash {self.model_hash} not found in master JSON: {master_json_path}"
                             )
                     except Exception as e_master:
-                        print(
+                        logger.error(
                             f"Error loading or parsing master JSON {master_json_path}: {e_master}"
                         )
                 else:
-                    print(f"Warning: Master JSON file not found: {master_json_path}")
+                    logger.warning(
+                        f"Warning: Master JSON file not found: {master_json_path}"
+                    )
 
         if self.process_method == ac.VR_ARCH_TYPE:
             if model_params_json:
@@ -1042,7 +1051,9 @@ class ModelData:
                     if param_file.exists():
                         self.vr_model_param = ModelParameters(str(param_file))
                     else:
-                        print(f"Warning: VR param file not found: {param_file}")
+                        logger.warning(
+                            f"Warning: VR param file not found: {param_file}"
+                        )
                         if param_file_name.endswith(".json"):
                             param_file_no_ext = (
                                 VR_PARAM_DIR_PATH
@@ -1057,7 +1068,7 @@ class ModelData:
                         else:
                             self.model_status = False
                 elif not param_file_name and not self.is_secondary_model:
-                    print(
+                    logger.critical(
                         f"Critical: 'vr_model_param' key missing or empty in JSON for {self.model_name}"
                     )
                     self.model_status = False
@@ -1077,7 +1088,9 @@ class ModelData:
                         ac.IS_BV_MODEL_REBAL_KEY, 0.0
                     )
             elif not self.is_secondary_model:
-                print(f"Critical: VR model params not found for {self.model_name}")
+                logger.critical(
+                    f"Critical: VR model params not found for {self.model_name}"
+                )
                 self.model_status = False
         elif self.process_method == ac.MDX_ARCH_TYPE:
             self.is_mdx_ckpt = self.model_path.endswith(ac.CKPT_EXT)
@@ -1112,10 +1125,12 @@ class ModelData:
                                     )
                                 )
                         except Exception as e:
-                            print(f"Error loading MDX-C YAML {config_yaml_path}: {e}")
+                            logger.error(
+                                f"Error loading MDX-C YAML {config_yaml_path}: {e}"
+                            )
                             self.model_status = False
                     else:
-                        print(
+                        logger.warning(
                             f"Warning: MDX-C config YAML not found: {config_yaml_path}"
                         )
                         self.model_status = False
@@ -1150,19 +1165,19 @@ class ModelData:
                         )
                         self.primary_stem = hparams.get("primary_stem", ac.VOCAL_STEM)
                         self.mdx_c_configs = ConfigDict(hparams)
-                        print(
+                        logger.info(
                             f"Loaded hyper_parameters from CKPT for {self.model_name}"
                         )
                     else:
-                        print(
+                        logger.warning(
                             f"Warning: hyper_parameters not found in MDX CKPT {self.model_name}"
                         )
                 except Exception as e:
-                    print(
+                    logger.warning(
                         f"Warning: Could not load hyper_parameters from MDX CKPT {self.model_name}: {e}"
                     )
             elif not self.is_secondary_model:
-                print(
+                logger.warning(
                     f"Warning: MDX model params JSON not found for ONNX model {self.model_name}"
                 )
         elif self.process_method == ac.DEMUCS_ARCH_TYPE:
@@ -1274,22 +1289,24 @@ class ModelData:
                     if member_model_data.model_status:
                         self.ensemble_models.append(member_model_data)
                     else:
-                        print(f"Warning: Failed to load ensemble member: {model_name}")
+                        logger.warning(
+                            f"Warning: Failed to load ensemble member: {model_name}"
+                        )
 
             if not self.ensemble_models:
-                print("Warning: Live ensemble created no valid models.")
+                logger.warning("Warning: Live ensemble created no valid models.")
                 self.model_status = False
             else:
                 # Create a synthetic model name for the ensemble
                 self.model_basename = (
                     f"Live_Ensemble_{len(self.ensemble_models)}_models"
                 )
-                print(
+                logger.info(
                     f"Created live ensemble with {len(self.ensemble_models)} models: {[m.model_basename for m in self.ensemble_models]}"
                 )
 
         except Exception as e:
-            print(f"Error creating live ensemble from UI settings: {e}")
+            logger.error(f"Error creating live ensemble from UI settings: {e}")
             self.model_status = False
 
     def _parse_stem_pair_to_primary_stem(self, stem_pair: str) -> str:
@@ -1348,5 +1365,7 @@ class ModelData:
             except Exception:
                 pass
 
-        print(f"Warning: Could not determine process method for model: {model_name}")
+        logger.warning(
+            f"Warning: Could not determine process method for model: {model_name}"
+        )
         return None

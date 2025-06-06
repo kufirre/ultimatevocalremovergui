@@ -1,3 +1,5 @@
+"""Model selection view for UVR PySide6 application."""
+
 from typing import Dict, List
 
 from PySide6.QtCore import Signal, Slot
@@ -13,6 +15,9 @@ from PySide6.QtWidgets import (
 )
 
 from ..core import app_constants as ac
+from ..core.logger_utils import get_logger
+
+logger = get_logger(__name__)
 
 
 class ModelSelectionView(QWidget):
@@ -105,7 +110,7 @@ class ModelSelectionView(QWidget):
                 if not dl_icon.isNull():
                     download_item.setIcon(dl_icon)
             except Exception as e:
-                print(f"Error loading download icon for model_combo item: {e}")
+                logger.error(f"Error loading download icon for model_combo item: {e}")
             self.model_combo_model.appendRow(download_item)
 
             if has_actual_models:

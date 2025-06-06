@@ -143,15 +143,7 @@ class ExecutionControlPresenter(QObject):
             return
 
         self.view.set_progress_value(value)
-        
-        # Update both the progress bar format and the label
-        if value > 0:
-            # Format: "Process Progress: XX%" like the original UVR
-            self.view.progress_bar.setFormat(f"Process Progress: {value}%")
-            self.view.set_progress_text(text)
-        else:
-            self.view.progress_bar.setFormat("%p%")
-            self.view.set_progress_text(text)
+        self.view.set_progress_text(text)
 
         # Only log progress at key milestones and avoid repetitive 100% logs
         if value % 20 == 0 and value > 0 and value < 100:

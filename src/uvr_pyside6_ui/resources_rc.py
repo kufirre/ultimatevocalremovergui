@@ -102017,7 +102017,7 @@ QH\x821m\xc3\x9dZQ\xad\xdcDkR\xf7\xb0\
 \xce~\x84i\xbc\xc5$\xff3UDWi>g\xde\
 \x0at\x12\xb0\xdfBn\xbb\x90h\x1fd\xa4\xd8\xad\x80\
 \xd8\xa1\xb3\xa1\xc2w\xd2\x97\xb8\xd4\xe4+\x00\x00\x00\
-\x00\x00\x04\xf3\
+\x00\x00\x05\x9a\
 /\
 * Progress Bar S\
 tyling */\x0aQProgr\
@@ -102049,56 +102049,66 @@ el=\x22true\x22] {\x0a   \
    font-size: 11\
 px;\x0a    margin-b\
 ottom: 2px;\x0a}\x0a\x0a/\
-* Modern Scrollb\
-ar Styling */\x0aQS\
-crollBar:vertica\
-l {\x0a    border: \
-none;\x0a    backgr\
-ound: #2d2d2d;\x0a \
-   width: 8px;\x0a \
-   margin: 0px;\x0a\
-}\x0a\x0aQScrollBar::h\
-andle:vertical {\
-\x0a    background:\
- #555;\x0a    min-h\
-eight: 20px;\x0a   \
- border-radius: \
-4px;\x0a}\x0a\x0aQScrollB\
-ar::add-line:ver\
-tical, QScrollBa\
-r::sub-line:vert\
-ical {\x0a    heigh\
-t: 0px;\x0a}\x0a\x0aQScro\
-llBar::add-page:\
-vertical, QScrol\
-lBar::sub-page:v\
-ertical {\x0a    ba\
-ckground: none;\x0a\
-}\x0a\x0aQScrollBar:ho\
-rizontal {\x0a    b\
+* Style for prog\
+ress percentage \
+label */\x0aQLabel[\
+progressPercenta\
+ge=\x22true\x22] {\x0a   \
+ color: #3498db;\
+\x0a    font-size: \
+12px;\x0a    font-w\
+eight: bold;\x0a   \
+ margin-left: 5p\
+x;\x0a}\x0a\x0a/* Modern \
+Scrollbar Stylin\
+g */\x0aQScrollBar:\
+vertical {\x0a    b\
 order: none;\x0a   \
  background: #2d\
-2d2d;\x0a    height\
-: 8px;\x0a    margi\
-n: 0px;\x0a}\x0a\x0aQScro\
-llBar::handle:ho\
-rizontal {\x0a    b\
-ackground: #555;\
-\x0a    min-width: \
-20px;\x0a    border\
--radius: 4px;\x0a}\x0a\
-\x0aQScrollBar::add\
--line:horizontal\
-, QScrollBar::su\
-b-line:horizonta\
-l {\x0a    width: 0\
-px;\x0a}\x0a\x0aQScrollBa\
-r::add-page:hori\
-zontal, QScrollB\
-ar::sub-page:hor\
-izontal {\x0a    ba\
-ckground: none;\x0a\
-}\x0a\
+2d2d;\x0a    width:\
+ 8px;\x0a    margin\
+: 0px;\x0a}\x0a\x0aQScrol\
+lBar::handle:ver\
+tical {\x0a    back\
+ground: #555;\x0a  \
+  min-height: 20\
+px;\x0a    border-r\
+adius: 4px;\x0a}\x0a\x0aQ\
+ScrollBar::add-l\
+ine:vertical, QS\
+crollBar::sub-li\
+ne:vertical {\x0a  \
+  height: 0px;\x0a}\
+\x0a\x0aQScrollBar::ad\
+d-page:vertical,\
+ QScrollBar::sub\
+-page:vertical {\
+\x0a    background:\
+ none;\x0a}\x0a\x0aQScrol\
+lBar:horizontal \
+{\x0a    border: no\
+ne;\x0a    backgrou\
+nd: #2d2d2d;\x0a   \
+ height: 8px;\x0a  \
+  margin: 0px;\x0a}\
+\x0a\x0aQScrollBar::ha\
+ndle:horizontal \
+{\x0a    background\
+: #555;\x0a    min-\
+width: 20px;\x0a   \
+ border-radius: \
+4px;\x0a}\x0a\x0aQScrollB\
+ar::add-line:hor\
+izontal, QScroll\
+Bar::sub-line:ho\
+rizontal {\x0a    w\
+idth: 0px;\x0a}\x0a\x0aQS\
+crollBar::add-pa\
+ge:horizontal, Q\
+ScrollBar::sub-p\
+age:horizontal {\
+\x0a    background:\
+ none;\x0a}\x0a\
 \x00\x00\x13\xaa\
 /\
 * Basic Dark The\
@@ -102554,10 +102564,10 @@ qt_resource_struct = b"\
 \x00\x00\x00\x00\x00\x00\x00\x00\
 \x00\x00\x00\x0c\x00\x02\x00\x00\x00\x02\x00\x00\x00\x05\
 \x00\x00\x00\x00\x00\x00\x00\x00\
-\x00\x00\x02\xd6\x00\x00\x00\x00\x00\x01\x00\x18\xe97\
+\x00\x00\x02\xd6\x00\x00\x00\x00\x00\x01\x00\x18\xe9\xde\
 \x00\x00\x01\x97GA\xfa\xd5\
 \x00\x00\x02\xae\x00\x00\x00\x00\x00\x01\x00\x18\xe4@\
-\x00\x00\x01\x97=C\xb14\
+\x00\x00\x01\x97Gc\xbc\xea\
 \x00\x00\x02d\x00\x00\x00\x00\x00\x01\x00\x12\xc6\xc0\
 \x00\x00\x01\x97\x0cP\xe3\x83\
 \x00\x00\x02\x86\x00\x00\x00\x00\x00\x01\x00\x16\xca\xdc\

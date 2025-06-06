@@ -49,10 +49,12 @@ class ProcessingWorker(QObject):
 
     def __init__(self, settings_dict: Dict[str, Any]):
         super().__init__()
-        self.settings = settings_dict
+        self.settings_dict = settings_dict
+        self.model_data = ModelData.from_settings_dict(settings_dict)
         self._is_running = True
-        self.model_data: Optional[ModelData] = None
         self.progress_value = 0
+        self.progress_count = 0  # Track incremental progress steps
+        self.total_progress_steps = 100  # Will be set based on processing type
         self.original_mix_audio: Optional[np.ndarray] = None
 
         try:
@@ -62,221 +64,83 @@ class ProcessingWorker(QObject):
             self.model_data = None
 
     def run(self):
-        if not self.model_data or not self.model_data.model_status:
-            error_msg = "Could not create valid model data from settings."
-            if self.model_data and not self.model_data.model_status:
-                error_msg = f"Model data initialization failed for {self.model_data.model_name if self.model_data.model_name else 'Unknown Model'}."
-            else:
-                error_msg = "ModelData object is None."
-            self.processing_finished.emit(False, error_msg)
-            return
-
-        if not self._is_running:
-            self.processing_finished.emit(False, "Processing Canceled")
-            return
-
-        if not all(
-            [
-                SeperateVRLogic,
-                SeperateMDXLogic,
-                SeperateMDXCLogic,
-                SeperateDemucsLogic,
-                clear_gpu_cache_logic,
-                prepare_mix_logic,
-                write_audio_logic,
-            ]
-        ):
-            self.processing_finished.emit(
-                False, "Core separation logic modules not fully available."
-            )
-            return
-
+        """Execute the audio processing task."""
+        logger.info("ProcessingWorker started")
         try:
-            if not self.model_data.is_ensemble_mode and (
-                not self.model_data.audio_file
-                or not Path(self.model_data.audio_file).exists()
-            ):
-                self.processing_finished.emit(
-                    False,
-                    f"Input file missing or invalid: {self.model_data.audio_file}",
-                )
-                return
-            if (
-                not self.model_data.export_path
-                or not Path(self.model_data.export_path).is_dir()
-            ):
-                self.processing_finished.emit(
-                    False,
-                    f"Export directory invalid: {self.model_data.export_path}",
-                )
+            # Initial progress (5%) - matching original UVR pattern
+            self._set_progress_bar_callback(0.05, "Loading model and preparing audio...")
+            
+            self.model_data = ModelData.from_settings_dict(self.settings_dict)
+            logger.info(f"Model: {self.model_data.model_basename}")
+            logger.info(f"Method: {self.model_data.process_method}")
+            logger.info(f"Audio file: {self.model_data.audio_file}")
+
+            # Load and prepare audio
+            self.original_mix_audio = self._load_audio()
+            if self.original_mix_audio is None:
+                self.processing_finished.emit(False, "Failed to load audio file")
                 return
 
-            if not self.model_data.is_ensemble_mode and (
-                not self.model_data.model_path
-                or not Path(self.model_data.model_path).exists()
-            ):
-                self.processing_finished.emit(
-                    False,
-                    f"Primary model file not found: {self.model_data.model_path}",
-                )
-                return
+            # Set expected progress steps based on method
+            if self.model_data.process_method == ac.DEMUCS_ARCH_TYPE:
+                self.total_progress_steps = 50  # Approximate steps for Demucs processing
+            elif self.model_data.process_method == ac.MDX_ARCH_TYPE:
+                self.total_progress_steps = 100  # More steps for MDX processing
+            else:
+                self.total_progress_steps = 75   # VR processing steps
+
+            # Reset progress counter for processing phase
+            self.progress_count = 0
+            
+            # Process based on method
+            if self.model_data.process_method == ac.VR_ARCH_TYPE:
+                self._process_vr_arch(self._create_process_data())
+            elif self.model_data.process_method == ac.MDX_ARCH_TYPE:
+                if self.model_data.is_mdx_c:
+                    logger.info("Processing with MDX-C")
+                else:
+                    logger.info("Processing with MDX-Net")
+                self._process_mdx_net(self._create_process_data())
+            elif self.model_data.process_method == ac.DEMUCS_ARCH_TYPE:
+                self._process_demucs(self._create_process_data())
             elif self.model_data.is_ensemble_mode:
-                # For live ensembles, check if we have ensemble_models instead of a model_path file
-                if self.model_data.ensemble_models:
-                    # Live ensemble - no model_path file needed, models are in ensemble_models list
-                    pass
-                elif (
-                    not self.model_data.model_path
-                    or not Path(self.model_data.model_path).exists()
-                ):
-                    # Saved ensemble - requires model_path file
-                    self.processing_finished.emit(
-                        False,
-                        f"Ensemble configuration file not found: {self.model_data.model_path}",
-                    )
-                    return
-
-            self.progress_updated.emit(5, "Loading audio file...")
-            current_input_audio = None
-            audio_file_to_load = self.model_data.audio_file
-            if (
-                not audio_file_to_load
-                and self.model_data.is_ensemble_mode
-                and self.model_data.ensemble_models
-            ):
-                audio_file_to_load = self.model_data.ensemble_models[0].audio_file
-
-            if audio_file_to_load:
-                current_input_audio = prepare_mix_logic(str(audio_file_to_load))
-                if current_input_audio is None:
-                    self.processing_finished.emit(
-                        False, f"Failed to load audio from {audio_file_to_load}"
-                    )
-                    return
-                self.original_mix_audio = current_input_audio
+                self._process_ensemble(self.original_mix_audio)
             else:
                 self.processing_finished.emit(
-                    False, "No valid audio input file specified."
+                    False, f"Unsupported processing method: {self.model_data.process_method}"
                 )
                 return
 
-            if (
-                self.model_data.pre_proc_model
-                and self.model_data.is_demucs_pre_proc_model_activate
-            ):
-                if current_input_audio is None:
-                    self.processing_finished.emit(
-                        False, "Audio not loaded for pre-processing."
-                    )
-                    return
-                self.progress_updated.emit(
-                    10,
-                    f"Pre-processing with: {self.model_data.pre_proc_model.model_basename}...",
-                )
-                pre_proc_pd = self._create_process_data_for_chained_model(
-                    self.model_data.pre_proc_model,
-                    current_input_audio,
-                    is_pre_proc=True,
-                )
-                pre_proc_separator = self._get_separator_for_model(
-                    self.model_data.pre_proc_model, pre_proc_pd
-                )
-                if pre_proc_separator:
-                    pre_proc_results = pre_proc_separator.separate()
-                    if (
-                        pre_proc_results
-                        and self.model_data.pre_proc_model.primary_stem
-                        in pre_proc_results
-                        and self._is_running
-                    ):
-                        current_input_audio = pre_proc_results[
-                            self.model_data.pre_proc_model.primary_stem
-                        ]
-                        self.original_mix_audio = current_input_audio
-                        self._write_to_console(
-                            "Pre-processing complete. Using output as input for main model.",
-                            "",
-                        )
-                        if self.model_data.is_demucs_pre_proc_model_inst_mix:
-                            inst_stem_name = (
-                                self.model_data.pre_proc_model.secondary_stem
-                            )
-                            if inst_stem_name and inst_stem_name in pre_proc_results:
-                                pre_proc_separator._write_stem(
-                                    f"{inst_stem_name}_(PreProc)",
-                                    pre_proc_results[inst_stem_name],
-                                    self.model_data.pre_proc_model.model_samplerate,
-                                )
-                    elif self._is_running:
-                        self._write_to_console(
-                            f"Pre-processing model {self.model_data.pre_proc_model.model_basename} did not return expected output.",
-                            "",
-                        )
-                        self.processing_finished.emit(False, "Pre-processing failed.")
-                        return
-                else:
-                    self._write_to_console(
-                        "Could not create separator for pre-processing model.", ""
-                    )
-                    self.processing_finished.emit(False, "Pre-processing setup failed.")
-                    return
-
-            if not self._is_running:
-                return
-
-            self._write_to_console(
-                f"is_ensemble_mode = {self.model_data.is_ensemble_mode}", ""
-            )
-            self._write_to_console(
-                f"is_ensemble_member = {self.model_data.is_ensemble_member}", ""
-            )
-            self._write_to_console(
-                f"process_method = {self.model_data.process_method}", ""
-            )
-            self._write_to_console(
-                f"model_basename = {self.model_data.model_basename}", ""
-            )
-
-            if (
-                self.model_data.is_ensemble_mode
-                and not self.model_data.is_ensemble_member
-            ):
-                self._write_to_console("====== CALLING _process_ensemble ======", "")
-                self._process_ensemble(current_input_audio)
-            else:
-                main_process_data = self._create_process_data(
-                    current_input_audio if current_input_audio is not None else None
-                )
-                self.progress_updated.emit(
-                    15,
-                    f"Processing with primary model: {self.model_data.model_basename}...",
-                )
-                if self.model_data.process_method == ac.VR_ARCH_TYPE:
-                    self._execute_separation_pipeline(
-                        ac.VR_ARCH_TYPE, main_process_data
-                    )
-                elif self.model_data.process_method == ac.MDX_ARCH_TYPE:
-                    self._execute_separation_pipeline(
-                        ac.MDX_ARCH_TYPE, main_process_data
-                    )
-                elif self.model_data.process_method == ac.DEMUCS_ARCH_TYPE:
-                    self._execute_separation_pipeline(
-                        ac.DEMUCS_ARCH_TYPE, main_process_data
-                    )
-                else:
-                    self.processing_finished.emit(
-                        False,
-                        f"Unsupported primary processing method: {self.model_data.process_method}",
-                    )
+            # Final progress (95%) - matching original UVR pattern
+            self._set_progress_bar_callback(0.95, "Processing complete!")
+            
+            # Complete (100%)
+            self.progress_updated.emit(100, "Done")
+            self.processing_finished.emit(True, "Processing completed successfully")
 
         except Exception as e:
-            error_msg = (
-                f"Processing failed: {str(e)}\n\nTraceback:\n{traceback.format_exc()}"
-            )
-            self.processing_finished.emit(False, error_msg)
+            logger.error(f"Processing error: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            self.processing_finished.emit(False, f"Processing failed: {str(e)}")
         finally:
-            if clear_gpu_cache_logic:
-                clear_gpu_cache_logic()
+            logger.info("ProcessingWorker finished")
+
+    def _load_audio(self) -> Optional[np.ndarray]:
+        """Load and prepare audio file for processing."""
+        if not self.model_data.audio_file or not Path(self.model_data.audio_file).exists():
+            logger.error(f"Audio file not found: {self.model_data.audio_file}")
+            return None
+            
+        try:
+            from .separate_logic_base import prepare_mix_logic
+            audio_data = prepare_mix_logic(str(self.model_data.audio_file))
+            if audio_data is None:
+                logger.error("Failed to load audio data")
+            return audio_data
+        except Exception as e:
+            logger.error(f"Error loading audio: {e}")
+            return None
 
     def _execute_separation_pipeline(
         self, method_name: str, process_data_initial: Dict[str, Any]
@@ -538,14 +402,49 @@ class ProcessingWorker(QObject):
     def _set_progress_bar_callback(
         self, current_step_fraction: float, message: Optional[str] = None
     ):
+        """Update progress following original UVR pattern: 5% start, 10-80% processing, 95% complete."""
         if not self._is_running:
             return
-        total_progress = int(current_step_fraction * 100)
-        total_progress = min(max(total_progress, 0), 100)
-        self.progress_value = total_progress
-        self.progress_updated.emit(
-            total_progress, message if message else f"Processing... {total_progress}%"
-        )
+            
+        # Follow original UVR progress pattern from separate.py
+        if current_step_fraction <= 0.05:
+            # Initial progress (0-5%)
+            progress_percent = int(current_step_fraction * 100)
+        elif current_step_fraction >= 0.95:
+            # Final completion (95-100%)
+            progress_percent = int(current_step_fraction * 100)
+        else:
+            # Incremental processing progress (10-80%)
+            # This matches the pattern: 0.1 + (0.8/length * progress_value)
+            self.progress_count += 1
+            base_progress = 10  # Start at 10%
+            processing_range = 70  # 80% - 10% = 70% range for processing
+            
+            # Calculate progress within the processing window
+            if self.total_progress_steps > 0:
+                processing_progress = min(
+                    (self.progress_count / self.total_progress_steps) * processing_range,
+                    processing_range
+                )
+            else:
+                processing_progress = current_step_fraction * processing_range
+                
+            progress_percent = int(base_progress + processing_progress)
+            
+        # Ensure progress is within bounds
+        progress_percent = min(max(progress_percent, 0), 100)
+        self.progress_value = progress_percent
+        
+        # Format message like original UVR
+        if not message:
+            if progress_percent < 10:
+                message = "Initializing..."
+            elif progress_percent >= 95:
+                message = "Finalizing..."
+            else:
+                message = f"Processing... {progress_percent}%"
+        
+        self.progress_updated.emit(progress_percent, message)
 
     def _write_to_console(self, message: str, base_text: str = ""):
         if not self._is_running:

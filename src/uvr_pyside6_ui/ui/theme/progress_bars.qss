@@ -22,6 +22,14 @@ QLabel[progressLabel="true"] {
     margin-bottom: 2px;
 }
 
+/* Style for progress percentage label */
+QLabel[progressPercentage="true"] {
+    color: #3498db;
+    font-size: 12px;
+    font-weight: bold;
+    margin-left: 5px;
+}
+
 /* Modern Scrollbar Styling */
 QScrollBar:vertical {
     border: none;

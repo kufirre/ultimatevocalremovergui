@@ -10,7 +10,9 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QVBoxLayout,
     QWidget,
+    QHBoxLayout,
 )
+from PySide6.QtCore import Qt  # Import Qt
 
 from ..core.logger_utils import get_logger
 
@@ -57,19 +59,32 @@ class ExecutionControlView(QWidget):
         progress_layout.setContentsMargins(0, 0, 0, 0)
         progress_layout.setSpacing(2)
 
-        # Add label above progress bar
+        # Add status label above progress bar
         self.progress_label = QLabel("Ready")
         self.progress_label.setProperty("progressLabel", True)  # For QSS styling
         progress_layout.addWidget(self.progress_label)
 
-        # Progress bar
+        # Progress bar and percentage container
+        progress_bar_container = QWidget()
+        progress_bar_layout = QHBoxLayout(progress_bar_container)
+        progress_bar_layout.setContentsMargins(0, 0, 0, 0)
+        progress_bar_layout.setSpacing(8)
+
+        # Progress bar (no text inside)
         self.progress_bar = QProgressBar()
         self.progress_bar.setObjectName("mainProgressBar")  # Set object name for QSS
-        self.progress_bar.setTextVisible(True)  # Enable text inside progress bar
-        self.progress_bar.setFormat("%p% - %v/%m")  # Show percentage and value/max
+        self.progress_bar.setTextVisible(False)  # Hide text inside progress bar
         self.progress_bar.setValue(0)  # Start at 0
-        progress_layout.addWidget(self.progress_bar)
+        progress_bar_layout.addWidget(self.progress_bar, 1)  # Take most space
 
+        # Percentage label beside the bar
+        self.progress_percentage_label = QLabel("0%")
+        self.progress_percentage_label.setProperty("progressPercentage", True)  # For QSS styling
+        self.progress_percentage_label.setMinimumWidth(50)  # Fixed width for alignment
+        self.progress_percentage_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        progress_bar_layout.addWidget(self.progress_percentage_label)
+
+        progress_layout.addWidget(progress_bar_container)
         exec_layout.addWidget(progress_container)
 
         # --- Status/Log Area ---
@@ -91,6 +106,8 @@ class ExecutionControlView(QWidget):
     def set_progress_value(self, value: int):
         """Updates the progress bar value."""
         self.progress_bar.setValue(value)
+        # Update percentage label beside the bar
+        self.progress_percentage_label.setText(f"{value}%")
         # Ensure the progress bar is visible when updated
         if not self.progress_bar.isVisible():
             self.progress_bar.show()

@@ -936,13 +936,21 @@ class ProcessingWorker(QObject):
         )
 
         # Check if we should save all individual outputs (equivalent to is_save_all_outputs_ensemble_var)
-        # Default to False to only keep ensemble files (like original UVR when unchecked)
-        save_all_outputs = getattr(self.model_data, 'save_all_outputs', False)  
-        # Also check for the setting in the ensemble models or fallback settings
-        if hasattr(self.model_data, 'ensemble_models') and self.model_data.ensemble_models:
-            # Try to get from settings - this would come from UI configuration
-            save_all_outputs = getattr(self.model_data, 'is_save_all_outputs_ensemble', False)
+        # Get from settings - this setting now comes from the Additional Settings tab
+        save_all_outputs = getattr(self.model_data, 'is_save_all_outputs_ensemble', True)
         
+        # Also check settings from the comprehensive settings system
+        if hasattr(self.model_data, 'additional_settings'):
+            settings = self.model_data.additional_settings
+            save_all_outputs = settings.get('is_save_all_outputs_ensemble', save_all_outputs)
+            
+            # Apply other ensemble settings
+            use_wav_ensemble = settings.get('is_wav_ensemble', False)
+            algorithm = settings.get('choose_algorithm', 'Average')
+            normalization = settings.get('is_normalization', False)
+            
+            self._write_to_console(f"🎯 Using settings: save_all={save_all_outputs}, algorithm={algorithm}, normalize={normalization}", "")
+
         self._write_to_console(f"🎯 Save all individual outputs: {save_all_outputs}", "")
 
         # Process each model in the ensemble

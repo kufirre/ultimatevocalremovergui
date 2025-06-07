@@ -5,8 +5,9 @@ This replaces MockProcessingWorker with actual audio separation functionality.
 
 import traceback
 import os
+import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import torch
@@ -104,6 +105,12 @@ class ProcessingWorker(QObject):
             logger.info(f"Method: {self.model_data.process_method}")
             logger.info(f"Audio file: {self.model_data.audio_file}")
             logger.info(f"Device: {self.device}")
+            logger.info(f"Is ensemble mode: {self.model_data.is_ensemble_mode}")
+            logger.info(f"Is ensemble member: {getattr(self.model_data, 'is_ensemble_member', False)}")
+            if self.model_data.is_ensemble_mode:
+                logger.info(f"Ensemble models count: {len(getattr(self.model_data, 'ensemble_models', []))}")
+                logger.info(f"Ensemble type: {getattr(self.model_data, 'ensemble_type', 'Unknown')}")
+                logger.info(f"Ensemble primary stem: {getattr(self.model_data, 'ensemble_primary_stem', 'Unknown')}")
 
             # Load and prepare audio
             self.original_mix_audio = self._load_audio()
@@ -112,7 +119,10 @@ class ProcessingWorker(QObject):
                 return
 
             # Set expected progress steps based on method
-            if self.model_data.process_method == ac.DEMUCS_ARCH_TYPE:
+            if self.model_data.is_ensemble_mode:
+                # Ensemble mode
+                self.total_progress_steps = len(getattr(self.model_data, 'ensemble_models', [])) * 20
+            elif self.model_data.process_method == ac.DEMUCS_ARCH_TYPE:
                 self.total_progress_steps = (
                     50  # Approximate steps for Demucs processing
                 )
@@ -128,8 +138,13 @@ class ProcessingWorker(QObject):
             processing_success = True
             processing_message = "Processing completed successfully"
 
-            # Process based on method
-            if self.model_data.process_method == ac.VR_ARCH_TYPE:
+            # Process based on method - check ensemble mode first
+            if self.model_data.is_ensemble_mode:
+                # Ensemble processing handles its own completion signaling
+                logger.info("🎯 Starting ensemble processing...")
+                self._process_ensemble(self.original_mix_audio)
+                return  # Don't emit completion signal here, ensemble handles it
+            elif self.model_data.process_method == ac.VR_ARCH_TYPE:
                 processing_success = self._process_vr_arch(self._create_process_data())
             elif self.model_data.process_method == ac.MDX_ARCH_TYPE:
                 if self.model_data.is_mdx_c:
@@ -139,10 +154,6 @@ class ProcessingWorker(QObject):
                 processing_success = self._process_mdx_net(self._create_process_data())
             elif self.model_data.process_method == ac.DEMUCS_ARCH_TYPE:
                 processing_success = self._process_demucs(self._create_process_data())
-            elif self.model_data.is_ensemble_mode:
-                # Ensemble processing handles its own completion signaling
-                self._process_ensemble(self.original_mix_audio)
-                return  # Don't emit completion signal here, ensemble handles it
             else:
                 self.processing_finished.emit(
                     False,
@@ -880,14 +891,53 @@ class ProcessingWorker(QObject):
             f"Starting ensemble with {num_models} models", ""
         )
 
-        # Store all outputs from ensemble models
-        all_outputs: Dict[str, List[np.ndarray]] = {}
+        # Get the primary and secondary stems for this ensemble
+        primary_stem = getattr(self.model_data, 'ensemble_primary_stem', ac.VOCAL_STEM)
+        secondary_stem = getattr(self.model_data, 'ensemble_secondary_stem', ac.INST_STEM)
+        
+        self._write_to_console(f"🎯 Ensemble primary stem: {primary_stem}", "")
+        self._write_to_console(f"🎯 Ensemble secondary stem: {secondary_stem}", "")
+        
+        # Check the actual stem-only settings from the master model_data
+        is_primary_stem_only = getattr(self.model_data, 'is_primary_stem_only', False)
+        is_secondary_stem_only = getattr(self.model_data, 'is_secondary_stem_only', False)
+        
+        self._write_to_console(f"🎯 Primary stem only: {is_primary_stem_only}", "")
+        self._write_to_console(f"🎯 Secondary stem only: {is_secondary_stem_only}", "")
+
+        # Determine what stems to process based on ensemble settings following UVR.py lines 6649-6653
+        stems_to_process = []
+        
+        # Following UVR.py logic: if not is_secondary_stem_only, process primary; if not is_primary_stem_only, process secondary
+        if not is_secondary_stem_only:
+            stems_to_process.append(primary_stem)
+            self._write_to_console(f"  ✓ Will process primary stem: {primary_stem}", "")
+        if not is_primary_stem_only:
+            stems_to_process.append(secondary_stem)
+            self._write_to_console(f"  ✓ Will process secondary stem: {secondary_stem}", "")
+            
+        if not stems_to_process:
+            self.processing_finished.emit(False, "No stems to process based on ensemble settings")
+            return
+            
+        self._write_to_console(f"🎯 Stems to process: {stems_to_process}", "")
+
+        # Store all outputs from ensemble models grouped by stem
+        all_outputs_by_stem: Dict[str, List[np.ndarray]] = {}
+        all_saved_files_by_stem: Dict[str, List[str]] = {}  # Track saved file paths for ensemble combination
+        for stem in stems_to_process:
+            all_outputs_by_stem[stem] = []
+            all_saved_files_by_stem[stem] = []
 
         ensemble_output_base = (
             Path(self.model_data.audio_file).stem
             if self.model_data.audio_file
             else "ensemble_output"
         )
+
+        # Check if we should save all individual outputs (equivalent to is_save_all_outputs_ensemble_var)
+        save_all_outputs = getattr(self.model_data, 'save_all_outputs', True)  # Default to True for now
+        self._write_to_console(f"🎯 Save all individual outputs: {save_all_outputs}", "")
 
         # Process each model in the ensemble
         successful_models = 0
@@ -911,18 +961,51 @@ class ProcessingWorker(QObject):
                     f"  Produced stems: {list(member_results.keys())}", ""
                 )
 
-                # Store outputs by stem name
-                for stem_name, stem_audio in member_results.items():
-                    if stem_audio is not None and stem_audio.size > 0:
-                        self._write_to_console(
-                            f"  {stem_name} shape: {stem_audio.shape}", ""
-                        )
-                        if stem_name not in all_outputs:
-                            all_outputs[stem_name] = []
-                        all_outputs[stem_name].append(stem_audio)
+                # Save individual model outputs following UVR.py pattern (line 6612)
+                for stem_name in stems_to_process:
+                    if stem_name in member_results:
+                        stem_audio = member_results[stem_name]
+                        if stem_audio is not None and stem_audio.size > 0:
+                            self._write_to_console(
+                                f"  {stem_name} shape: {stem_audio.shape}", ""
+                            )
+                            
+                            # Save individual model output with model name in filename (following UVR.py pattern)
+                            individual_output_filename = f"{ensemble_output_base}_{member_model_data.model_basename}_({stem_name}).wav"
+                            individual_output_path = Path(self.model_data.export_path) / individual_output_filename
+                            
+                            try:
+                                # Ensure proper audio format for writing
+                                if stem_audio.ndim == 1:
+                                    stem_audio_to_save = np.column_stack([stem_audio, stem_audio])
+                                elif stem_audio.ndim == 2:
+                                    if stem_audio.shape[0] == 2:
+                                        stem_audio_to_save = stem_audio.T
+                                    else:
+                                        stem_audio_to_save = stem_audio
+                                else:
+                                    self._write_to_console(f"❌ Invalid audio dimensions for {stem_name}: {stem_audio.shape}", "")
+                                    continue
+                                
+                                # Save individual output
+                                import soundfile as sf
+                                sf.write(str(individual_output_path), stem_audio_to_save, 44100)
+                                
+                                self._write_to_console(f"  ✓ Saved individual output: {individual_output_filename}", "")
+                                
+                                # Store for ensemble combination
+                                all_outputs_by_stem[stem_name].append(stem_audio)
+                                all_saved_files_by_stem[stem_name].append(str(individual_output_path))
+                                
+                            except Exception as save_error:
+                                self._write_to_console(f"❌ Error saving individual output {individual_output_filename}: {save_error}", "")
+                        else:
+                            self._write_to_console(
+                                f"  {stem_name} is None or empty, skipping", ""
+                            )
                     else:
                         self._write_to_console(
-                            f"  {stem_name} is None or empty, skipping", ""
+                            f"  {stem_name} not found in results, skipping", ""
                         )
             elif self._is_running:
                 self._write_to_console(
@@ -942,72 +1025,23 @@ class ProcessingWorker(QObject):
             self.processing_finished.emit(False, f"Ensemble failed: {error_msg}")
             return
 
-        if not all_outputs:
+        # Check if any stems have valid outputs
+        valid_stems = [stem for stem in stems_to_process if len(all_outputs_by_stem[stem]) >= 2]
+        if not valid_stems:
             self.processing_finished.emit(
-                False, "Ensemble processing failed: No results from any members."
+                False, "Ensemble processing failed: No stems have enough model outputs for ensembling."
             )
             return
 
         self.progress_updated.emit(90, "Combining ensemble results...")
 
-        # Available stems from models
-        available_stems = list(all_outputs.keys())
-        self._write_to_console(
-            f"Available stems from all models: {available_stems}", ""
-        )
-        self._write_to_console(
-            f"Ensemble primary stem: {self.model_data.ensemble_primary_stem}", ""
-        )
-        self._write_to_console(
-            f"Ensemble secondary stem: {self.model_data.ensemble_secondary_stem}",
-            "",
-        )
-        self._write_to_console(f"Ensemble type: {self.model_data.ensemble_type}", "")
-
-        # Process each available stem
+        # Process each stem with valid outputs following UVR.py ensemble_outputs pattern
         stems_saved = 0
-        for stem_name in available_stems:
+        for stem_name in valid_stems:
             if not self._is_running:
                 return
 
-            # Check if we should save this stem based on user settings
-            should_save_stem = True
-            if getattr(self.model_data, 'is_primary_stem_only', False):
-                # Only save primary stem
-                primary_stem = getattr(self.model_data, 'ensemble_primary_stem', None)
-                
-                # If primary stem is not set, try to infer from ensemble main stem pair
-                if not primary_stem:
-                    main_stem_pair = getattr(self.model_data, 'ensemble_main_stem_pair', '')
-                    if '/' in main_stem_pair:
-                        primary_stem = main_stem_pair.split('/')[0].strip()
-                        self._write_to_console(f"🔍 Inferred primary stem from pair '{main_stem_pair}': {primary_stem}", "")
-                
-                if primary_stem and stem_name != primary_stem:
-                    self._write_to_console(f"⏭️ Skipping {stem_name} (primary stem only mode, primary: {primary_stem})", "")
-                    should_save_stem = False
-            elif getattr(self.model_data, 'is_secondary_stem_only', False):
-                # Only save secondary stem 
-                secondary_stem = getattr(self.model_data, 'ensemble_secondary_stem', None)
-                
-                # If secondary stem is not set, try to infer from ensemble main stem pair
-                if not secondary_stem:
-                    main_stem_pair = getattr(self.model_data, 'ensemble_main_stem_pair', '')
-                    if '/' in main_stem_pair:
-                        secondary_stem = main_stem_pair.split('/')[1].strip()
-                        # Handle "No X" cases by mapping to appropriate stem
-                        if secondary_stem.startswith('No '):
-                            secondary_stem = ac.INST_STEM  # Default to instrumental for "No X" cases
-                        self._write_to_console(f"🔍 Inferred secondary stem from pair '{main_stem_pair}': {secondary_stem}", "")
-                
-                if secondary_stem and stem_name != secondary_stem:
-                    self._write_to_console(f"⏭️ Skipping {stem_name} (secondary stem only mode, secondary: {secondary_stem})", "")
-                    should_save_stem = False
-            
-            if not should_save_stem:
-                continue
-
-            stem_outputs = all_outputs[stem_name]
+            stem_outputs = all_outputs_by_stem[stem_name]
             self._write_to_console(
                 f"Processing stem: {stem_name} with {len(stem_outputs)} outputs", ""
             )
@@ -1018,9 +1052,24 @@ class ProcessingWorker(QObject):
                 )
                 continue
 
+            # Determine algorithm for this stem following UVR.py pattern
+            ensemble_algorithm = self.model_data.ensemble_type
+            if "/" in ensemble_algorithm:
+                # Primary/Secondary algorithm pair like "Max Spec/Min Spec"
+                primary_alg, secondary_alg = ensemble_algorithm.split("/", 1)
+                if stem_name == primary_stem:
+                    algorithm_for_stem = primary_alg.strip()
+                else:
+                    algorithm_for_stem = secondary_alg.strip()
+            else:
+                # Single algorithm for all stems
+                algorithm_for_stem = ensemble_algorithm
+                
+            self._write_to_console(f"  Using algorithm '{algorithm_for_stem}' for {stem_name}", "")
+
             # Apply ensemble algorithm
             ensembled_audio = self._combine_ensemble_outputs(
-                stem_outputs, self.model_data.ensemble_type
+                stem_outputs, algorithm_for_stem
             )
 
             if ensembled_audio is not None and ensembled_audio.size > 0:
@@ -1028,206 +1077,264 @@ class ProcessingWorker(QObject):
                     f"✓ Successfully ensembled {stem_name} - shape: {ensembled_audio.shape}", ""
                 )
 
-                # Save the ensembled result - use direct soundfile for simplicity
+                # Save the ensembled result
                 try:
-                    samplerate_to_save = 44100  # Use standard sample rate for ensemble output
-                    self._write_to_console(f"✓ Sample rate: {samplerate_to_save}", "")
-
-                    # Ensure proper audio format for writing - soundfile expects (N, 2) format
+                    samplerate_to_save = 44100
+                    
+                    # Ensure proper audio format for writing
                     if ensembled_audio.ndim == 1:
-                        # Convert mono to stereo: (N,) -> (N, 2)
                         ensembled_audio_final = np.column_stack([ensembled_audio, ensembled_audio])
                     elif ensembled_audio.ndim == 2:
                         if ensembled_audio.shape[0] == 2:
-                            # Convert (2, N) -> (N, 2)
                             ensembled_audio_final = ensembled_audio.T
                         else:
-                            # Already (N, 2) or similar
                             ensembled_audio_final = ensembled_audio
                     else:
                         self._write_to_console(f"❌ Invalid audio dimensions: {ensembled_audio.shape}", "")
                         continue
 
-                    # Get save format from model data or default to WAV
+                    # Save ensemble output with clear naming
                     save_format = getattr(self.model_data, 'save_format', 'WAV').upper()
                     file_ext = save_format.lower()
                     
-                    output_path = (
-                        Path(self.model_data.export_path)
-                        / f"{ensemble_output_base}_({stem_name}_Ensemble).{file_ext}"
-                    )
+                    ensemble_output_filename = f"{ensemble_output_base}_Ensemble_({stem_name}).{file_ext}"
+                    ensemble_output_path = Path(self.model_data.export_path) / ensemble_output_filename
 
-                    self._write_to_console(
-                        f"Saving ensemble {stem_name} to: {output_path}", ""
-                    )
-                    self._write_to_console(f"Final audio shape: {ensembled_audio_final.shape}, dtype: {ensembled_audio_final.dtype}", "")
+                    self._write_to_console(f"Saving ensemble {stem_name} to: {ensemble_output_filename}", "")
 
-                    # Validate parameters
-                    if not isinstance(ensembled_audio_final, np.ndarray):
-                        raise ValueError(f"Invalid audio data type: {type(ensembled_audio_final)}")
-                    if ensembled_audio_final.size == 0:
-                        raise ValueError("Audio data is empty")
-                    if not isinstance(samplerate_to_save, int) or samplerate_to_save <= 0:
-                        raise ValueError(f"Invalid sample rate: {samplerate_to_save}")
-                    
-                    self._write_to_console(f"✓ All parameters validated successfully", "")
-                    
-                    # Use soundfile directly for ensemble save
+                    # Save the ensemble result
                     import soundfile as sf
-                    
-                    # Apply normalization if enabled
-                    if getattr(self.model_data, 'is_normalization', False):
-                        max_val = np.abs(ensembled_audio_final).max()
-                        if max_val > 0:
-                            ensembled_audio_final = ensembled_audio_final / max_val
-                    
-                    # Determine subtype for WAV files
-                    subtype = None
-                    if save_format == 'WAV':
-                        wav_type = getattr(self.model_data, 'wav_type_set', 'PCM_16')
-                        if wav_type == 'PCM_16':
-                            subtype = 'PCM_16'
-                        elif wav_type == 'PCM_24':
-                            subtype = 'PCM_24'
-                        elif wav_type == 'FLOAT':
-                            subtype = 'FLOAT'
-                        else:
-                            subtype = 'PCM_16'  # Default
-                    
-                    # Save the file
-                    sf.write(str(output_path), ensembled_audio_final, samplerate_to_save, subtype=subtype)
-                    
-                    self._write_to_console(
-                        f"✓ Successfully saved ensemble {stem_name} to {output_path.name}", ""
-                    )
+                    sf.write(str(ensemble_output_path), ensembled_audio_final, samplerate_to_save)
+
                     stems_saved += 1
-                        
+                    self._write_to_console(f"✓ Saved ensemble {stem_name} successfully", "")
+
+                    # Clean up individual files if not saving all outputs (following UVR.py pattern)
+                    if not save_all_outputs:
+                        for individual_file in all_saved_files_by_stem[stem_name]:
+                            try:
+                                Path(individual_file).unlink()
+                                self._write_to_console(f"  🗑️ Cleaned up: {Path(individual_file).name}", "")
+                            except Exception:
+                                pass
+
                 except Exception as save_error:
-                    self._write_to_console(
-                        f"❌ Error saving ensemble {stem_name}: {save_error}", ""
-                    )
-                    # Add more detailed error information
+                    self._write_to_console(f"❌ Error saving ensemble {stem_name}: {save_error}", "")
                     import traceback
-                    self._write_to_console(f"❌ Save error details: {traceback.format_exc()}", "")
+                    self._write_to_console(f"❌ Save traceback: {traceback.format_exc()}", "")
             else:
                 self._write_to_console(
-                    f"❌ Failed to ensemble {stem_name}: empty or invalid result", ""
+                    f"❌ Ensemble combination failed for {stem_name}", ""
                 )
 
-        if self._is_running:
-            total_available = len(available_stems)
-            combinable_stems = sum(1 for stem in available_stems if len(all_outputs[stem]) >= 2)
-            
-            self._write_to_console(
-                f"====== ENSEMBLE SUMMARY ======", ""
+        # Final completion
+        if stems_saved > 0:
+            self.progress_updated.emit(100, "Ensemble processing complete!")
+            success_msg = f"Ensemble processing completed successfully. Saved {stems_saved} ensemble stem(s)"
+            if save_all_outputs:
+                total_individual_files = sum(len(files) for files in all_saved_files_by_stem.values())
+                success_msg += f" plus {total_individual_files} individual model outputs"
+            self.processing_finished.emit(True, success_msg)
+        else:
+            self.processing_finished.emit(
+                False, "Ensemble processing failed: No stems were saved successfully."
             )
-            self._write_to_console(
-                f"Models processed: {successful_models}/{num_models}", ""
-            )
-            self._write_to_console(
-                f"Stems found: {total_available}", ""
-            )
-            self._write_to_console(
-                f"Stems combinable: {combinable_stems}", ""
-            )
-            self._write_to_console(
-                f"Stems saved: {stems_saved}", ""
-            )
-            
-            if stems_saved > 0:
-                self.progress_updated.emit(100, "Ensemble processing complete!")
-                self.processing_finished.emit(True, f"✓ Ensemble completed successfully - saved {stems_saved} stem(s)")
-            else:
-                error_msg = "❌ Ensemble failed - no outputs were saved"
-                if total_available == 0:
-                    error_msg += " (no stems produced by member models)"
-                elif combinable_stems == 0:
-                    error_msg += f" (need at least 2 outputs per stem for ensembling, but all {total_available} stems had insufficient outputs)"
-                else:
-                    error_msg += " (unknown error during save)"
-                self._write_to_console(error_msg, "")
-                self.processing_finished.emit(False, error_msg)
 
     def _process_individual_model(self, model_data: ModelData, input_audio: np.ndarray) -> Optional[Dict[str, np.ndarray]]:
-        """Process a single model and return its results"""
+        """Process a single model and return its results - follows separate.py process_secondary_model pattern"""
         try:
-            # Store current model data temporarily
-            original_model_data = self.model_data
-            self.model_data = model_data
-            
             self._write_to_console(f"🔄 Processing model: {model_data.model_basename}", "")
             self._write_to_console(f"  Method: {model_data.process_method}", "")
+            self._write_to_console(f"  Model path: {model_data.model_path}", "")
+            self._write_to_console(f"  Model status: {model_data.model_status}", "")
             self._write_to_console(f"  Input audio shape: {input_audio.shape}", "")
             
-            # Ensure input audio is in correct format (2, N) for processing
-            if input_audio.ndim == 1:
-                # Convert mono to stereo
-                processed_audio = np.asfortranarray([input_audio, input_audio])
-            elif input_audio.ndim == 2:
-                if input_audio.shape[0] > input_audio.shape[1]:
-                    # If shape is (N, 2), transpose to (2, N)
-                    processed_audio = input_audio.T
-                else:
-                    # Already (2, N)
-                    processed_audio = input_audio
-            else:
-                self._write_to_console(f"❌ Invalid input audio dimensions: {input_audio.shape}", "")
+            # Check model status first
+            if not model_data.model_status:
+                self._write_to_console(f"❌ Model {model_data.model_basename} has invalid status", "")
                 return None
                 
-            self._write_to_console(f"  Processed audio shape: {processed_audio.shape}", "")
-            
-            # Process based on method
-            success = False
-            if model_data.process_method == ac.VR_ARCH_TYPE:
-                success = self._process_vr_arch_direct(processed_audio)
-            elif model_data.process_method == ac.MDX_ARCH_TYPE:
-                if model_data.is_mdx_c:
-                    success = self._process_mdx_c_direct(processed_audio)
-                else:
-                    success = self._process_mdx_regular_direct(processed_audio)
-            elif model_data.process_method == ac.DEMUCS_ARCH_TYPE:
-                success = self._process_demucs_direct(processed_audio)
-            else:
-                self._write_to_console(f"❌ Unsupported method: {model_data.process_method}", "")
+            # Check model path exists
+            if not model_data.model_path or not Path(model_data.model_path).exists():
+                self._write_to_console(f"❌ Model file not found: {model_data.model_path}", "")
                 return None
-                
-            self._write_to_console(f"  Processing success: {success}", "")
-                
-            # Restore original model data
-            self.model_data = original_model_data
             
-            if success:
-                # Return the processed stems
-                results = {}
-                if hasattr(self, '_temp_primary_result'):
-                    results[model_data.primary_stem] = self._temp_primary_result
-                    self._write_to_console(f"  ✓ Primary stem ({model_data.primary_stem}): {self._temp_primary_result.shape}", "")
-                    delattr(self, '_temp_primary_result')
-                if hasattr(self, '_temp_secondary_result'):
-                    results[model_data.secondary_stem] = self._temp_secondary_result
-                    self._write_to_console(f"  ✓ Secondary stem ({model_data.secondary_stem}): {self._temp_secondary_result.shape}", "")
-                    delattr(self, '_temp_secondary_result')
-                if hasattr(self, '_temp_demucs_results'):
-                    # For Demucs, return all stems from the results dictionary
-                    for stem_name, stem_audio in self._temp_demucs_results.items():
-                        self._write_to_console(f"  ✓ Demucs stem ({stem_name}): {stem_audio.shape}", "")
-                    results.update(self._temp_demucs_results)
-                    delattr(self, '_temp_demucs_results')
+            # Pass ensemble master's stem-only settings to individual models
+            # This ensures individual models only process the requested stems
+            if hasattr(self.model_data, 'is_primary_stem_only'):
+                model_data.is_primary_stem_only = self.model_data.is_primary_stem_only
+                self._write_to_console(f"  📋 Inherited primary stem only: {model_data.is_primary_stem_only}", "")
+            if hasattr(self.model_data, 'is_secondary_stem_only'):
+                model_data.is_secondary_stem_only = self.model_data.is_secondary_stem_only
+                self._write_to_console(f"  📋 Inherited secondary stem only: {model_data.is_secondary_stem_only}", "")
+            
+            # Save input audio to temp file - all separators expect file paths
+            temp_audio_file = self._save_temp_audio(input_audio)
+            self._write_to_console(f"  ✓ Created temp audio file: {temp_audio_file}", "")
+            
+            # Create process_data for the separator - following original pattern
+            # Use a temporary directory so separators don't save files in the main export path
+            temp_export_dir = tempfile.mkdtemp(prefix="ensemble_temp_")
+            process_data = {
+                'audio_file': temp_audio_file,
+                'audio_file_base': Path(temp_audio_file).stem,
+                'export_path': temp_export_dir,  # Use temp directory to prevent unwanted file saves
+                'set_progress_bar': self._set_progress_bar_callback,
+                'write_to_console': self._write_to_console,
+                'cached_source_callback': self._cached_source_callback,
+                'cached_model_source_holder': self._cached_model_source_holder,
+                'is_4_stem_ensemble': False,  # Individual models in ensemble
+                'list_all_models': [model_data.model_basename],
+                'process_iteration': self._process_iteration,
+                'is_ensemble_master': False,  # This is an ensemble member
+                'input_audio_array': input_audio,
+            }
+            
+            # Create the appropriate separator following original process_secondary_model pattern
+            separator = None
+            try:
+                if model_data.process_method == ac.VR_ARCH_TYPE:
+                    self._write_to_console(f"  🎵 Creating VR separator...", "")
+                    separator = SeparateVRLogic(model_data=model_data, process_data=process_data)
+                elif model_data.process_method == ac.MDX_ARCH_TYPE:
+                    if model_data.is_mdx_c:
+                        self._write_to_console(f"  🎛️ Creating MDX-C separator...", "")
+                        separator = SeparateMDXCLogic(model_data=model_data, process_data=process_data)
+                    else:
+                        self._write_to_console(f"  🎛️ Creating MDX separator...", "")
+                        separator = SeparateMDXLogic(model_data=model_data, process_data=process_data)
+                elif model_data.process_method == ac.DEMUCS_ARCH_TYPE:
+                    self._write_to_console(f"  🎸 Creating Demucs separator...", "")
+                    separator = SeparateDemucsLogic(model_data=model_data, process_data=process_data)
+                else:
+                    self._write_to_console(f"❌ Unsupported method: {model_data.process_method}", "")
+                    return None
                     
-                self._write_to_console(f"  📋 Final results: {list(results.keys())}", "")
-                return results
-            else:
-                self._write_to_console(f"  ❌ Processing failed for {model_data.model_basename}", "")
+                if not separator:
+                    self._write_to_console(f"❌ Failed to create separator for {model_data.model_basename}", "")
+                    return None
+                    
+            except Exception as separator_error:
+                self._write_to_console(f"❌ Error creating separator for {model_data.model_basename}: {separator_error}", "")
+                import traceback
+                self._write_to_console(f"❌ Separator creation traceback: {traceback.format_exc()}", "")
+                return None
+                
+            # Run the separator following original seperate() method pattern
+            try:
+                self._write_to_console(f"  🎯 Running separation...", "")
+                self._write_to_console(f"  🔍 Temp export dir: {temp_export_dir}", "")
+                self._write_to_console(f"  🔍 Model stem settings - Primary only: {getattr(model_data, 'is_primary_stem_only', False)}", "")
+                self._write_to_console(f"  🔍 Model stem settings - Secondary only: {getattr(model_data, 'is_secondary_stem_only', False)}", "")
+                self._write_to_console(f"  🔍 Model primary stem: {getattr(model_data, 'primary_stem', 'Unknown')}", "")
+                self._write_to_console(f"  🔍 Model secondary stem: {getattr(model_data, 'secondary_stem', 'Unknown')}", "")
+                
+                # List files in export directory before separation
+                export_files_before = set()
+                try:
+                    export_files_before = set(os.listdir(self.model_data.export_path))
+                    self._write_to_console(f"  📁 Export dir before: {len(export_files_before)} files", "")
+                except:
+                    pass
+                
+                # Call the separate method - this should return audio results
+                results = separator.separate()
+                
+                # List files in export directory after separation
+                export_files_after = set()
+                try:
+                    export_files_after = set(os.listdir(self.model_data.export_path))
+                    new_files = export_files_after - export_files_before
+                    if new_files:
+                        self._write_to_console(f"  ⚠️ Separator created {len(new_files)} files in main export dir: {list(new_files)}", "")
+                    else:
+                        self._write_to_console(f"  ✓ No files created in main export dir", "")
+                except:
+                    pass
+                
+                # List files in temp directory
+                try:
+                    temp_files = os.listdir(temp_export_dir)
+                    self._write_to_console(f"  📁 Temp dir after: {len(temp_files)} files: {temp_files}", "")
+                except:
+                    pass
+                
+                if results is None:
+                    self._write_to_console(f"❌ Separator returned None for {model_data.model_basename}", "")
+                    return None
+                    
+                self._write_to_console(f"  ✓ Separation completed, type: {type(results)}", "")
+                
+                # Handle different result types following original gather_sources pattern
+                if isinstance(results, dict):
+                    # Dictionary format - this is what we want for ensemble
+                    self._write_to_console(f"  📋 Results dictionary keys: {list(results.keys())}", "")
+                    
+                    # Validate that we have audio arrays
+                    valid_results = {}
+                    for stem_name, stem_audio in results.items():
+                        if isinstance(stem_audio, np.ndarray) and stem_audio.size > 0:
+                            valid_results[stem_name] = stem_audio
+                            self._write_to_console(f"    ✓ {stem_name}: {stem_audio.shape}", "")
+                        else:
+                            self._write_to_console(f"    ⚠️ {stem_name}: invalid or empty", "")
+                    
+                    if valid_results:
+                        return valid_results
+                    else:
+                        self._write_to_console(f"❌ No valid audio results from {model_data.model_basename}", "")
+                        return None
+                        
+                elif isinstance(results, tuple) and len(results) == 2:
+                    # Tuple format (primary, secondary) - convert to dictionary
+                    primary_audio, secondary_audio = results
+                    
+                    if isinstance(primary_audio, np.ndarray) and isinstance(secondary_audio, np.ndarray):
+                        result_dict = {
+                            model_data.primary_stem: primary_audio,
+                            model_data.secondary_stem: secondary_audio
+                        }
+                        self._write_to_console(f"  📋 Converted tuple to dict: {list(result_dict.keys())}", "")
+                        return result_dict
+                    else:
+                        self._write_to_console(f"❌ Invalid tuple results from {model_data.model_basename}", "")
+                        return None
+                        
+                elif isinstance(results, np.ndarray):
+                    # Single array - assume it's the primary stem
+                    self._write_to_console(f"  📋 Single array result, treating as {model_data.primary_stem}", "")
+                    return {model_data.primary_stem: results}
+                    
+                else:
+                    self._write_to_console(f"❌ Unsupported result type from {model_data.model_basename}: {type(results)}", "")
+                    return None
+                    
+            except Exception as processing_error:
+                self._write_to_console(f"❌ Processing error for {model_data.model_basename}: {processing_error}", "")
+                import traceback
+                self._write_to_console(f"❌ Processing traceback: {traceback.format_exc()}", "")
                 return None
                 
         except Exception as e:
-            self._write_to_console(f"❌ Error processing {model_data.model_basename}: {e}", "")
+            self._write_to_console(f"❌ General error processing {model_data.model_basename}: {e}", "")
             import traceback
-            self._write_to_console(f"❌ Traceback: {traceback.format_exc()}", "")
-            # Restore original model data
-            if 'original_model_data' in locals():
-                self.model_data = original_model_data
+            self._write_to_console(f"❌ General traceback: {traceback.format_exc()}", "")
             return None
+        finally:
+            # Clean up temp file and temp directory
+            try:
+                if 'temp_audio_file' in locals():
+                    os.unlink(temp_audio_file)
+                    self._write_to_console(f"  🗑️ Cleaned up temp audio file", "")
+            except:
+                pass
+            try:
+                if 'temp_export_dir' in locals():
+                    import shutil
+                    shutil.rmtree(temp_export_dir, ignore_errors=True)
+                    self._write_to_console(f"  🗑️ Cleaned up temp export directory", "")
+            except:
+                pass
 
     def _process_vr_arch_direct(self, input_audio: np.ndarray) -> bool:
         """Process VR model directly for ensemble - returns audio in memory"""
@@ -1489,6 +1596,7 @@ class ProcessingWorker(QObject):
     def _process_demucs_direct(self, input_audio: np.ndarray) -> bool:
         """Process Demucs model directly for ensemble"""
         try:
+            self._write_to_console(f"  📂 Importing Demucs modules...", "")
             import gzip
             import os
             from pathlib import Path
@@ -1497,27 +1605,38 @@ class ProcessingWorker(QObject):
             from demucs.pretrained import get_model as _gm
             from demucs.demucs import HDemucs
             from lib_v5 import spec_utils
+            self._write_to_console(f"  ✓ Demucs modules imported successfully", "")
         except ImportError as e:
             self._write_to_console(f"❌ Required Demucs modules not available: {e}", "")
             return False
 
         self._write_to_console(f"  Loading Demucs model: {self.model_data.model_basename}", "")
+        self._write_to_console(f"  Model path: {self.model_data.model_path}", "")
 
         # Save input audio to temporary file for processing
-        temp_audio_file = self._save_temp_audio(input_audio)
+        try:
+            temp_audio_file = self._save_temp_audio(input_audio)
+            self._write_to_console(f"  ✓ Created temp audio file: {temp_audio_file}", "")
+        except Exception as temp_error:
+            self._write_to_console(f"❌ Failed to create temp audio file: {temp_error}", "")
+            return False
         
         try:
             # Prepare audio like in separate.py
+            self._write_to_console(f"  📄 Loading audio from temp file...", "")
             mix = prepare_mix_logic(temp_audio_file)
             if mix is None:
                 self._write_to_console("❌ Failed to load audio for Demucs processing", "")
                 return False
 
-            self._write_to_console(f"  Loaded audio shape: {mix.shape}", "")
+            self._write_to_console(f"  ✓ Loaded audio shape: {mix.shape}", "")
 
             # Load model based on version like in separate.py lines 819-833
             try:
+                self._write_to_console(f"  🤖 Loading Demucs model (version: {self.model_data.demucs_version})...", "")
+                
                 if self.model_data.demucs_version == ac.DEMUCS_V1:
+                    self._write_to_console(f"  Loading V1 model...", "")
                     if str(self.model_data.model_path).endswith(".gz"):
                         model_path = gzip.open(self.model_data.model_path, "rb")
                     else:
@@ -1526,11 +1645,14 @@ class ProcessingWorker(QObject):
                     demucs_model = klass(*args, **kwargs)
                     demucs_model.to(self.device_torch)
                     demucs_model.load_state_dict(state)
+                    self._write_to_console(f"  ✓ V1 model loaded", "")
                 elif self.model_data.demucs_version == ac.DEMUCS_V2:
+                    self._write_to_console(f"  Loading V2 model...", "")
                     # Load v2 model - using simplified approach for ensemble
                     demucs_model = torch.load(self.model_data.model_path, map_location='cpu')
                     demucs_model.to(self.device_torch)
                     demucs_model.eval()
+                    self._write_to_console(f"  ✓ V2 model loaded", "")
                 else:  # V3/V4
                     self._write_to_console(f"  Loading V3/V4 model from: {self.model_data.model_path}", "")
                     
@@ -1541,17 +1663,32 @@ class ProcessingWorker(QObject):
                     self._write_to_console(f"  Model name: {model_name}", "")
                     self._write_to_console(f"  Model dir: {model_dir}", "")
                     
+                    # Check if model directory exists and contains files
+                    if not model_dir.exists():
+                        self._write_to_console(f"❌ Model directory does not exist: {model_dir}", "")
+                        return False
+                    
+                    dir_contents = list(model_dir.iterdir())
+                    self._write_to_console(f"  Directory contents: {[f.name for f in dir_contents]}", "")
+                    
                     # Load the model using get_model exactly as in separate.py
+                    self._write_to_console(f"  Calling get_model(name={model_name}, repo={model_dir})...", "")
                     demucs_model = _gm(name=model_name, repo=model_dir)
                     
                     if demucs_model is None:
-                        raise Exception(f"Failed to load model {model_name} from {model_dir}")
+                        self._write_to_console(f"❌ get_model returned None for {model_name} from {model_dir}", "")
+                        return False
+                    
+                    self._write_to_console(f"  ✓ get_model succeeded, applying segments wrapper...", "")
                     
                     # Apply segments wrapper like in separate.py
-                    demucs_model = demucs_segments(self.model_data.segment, demucs_model)
+                    segment_value = getattr(self.model_data, 'segment', ac.DEFAULT)
+                    self._write_to_console(f"  Segment value: {segment_value}", "")
+                    demucs_model = demucs_segments(segment_value, demucs_model)
                     
                     demucs_model.to(self.device_torch)
                     demucs_model.eval()
+                    self._write_to_console(f"  ✓ V3/V4 model loaded and configured", "")
                     
                 self._write_to_console("  ✓ Model loaded successfully", "")
             except Exception as model_error:
@@ -1560,12 +1697,13 @@ class ProcessingWorker(QObject):
                 self._write_to_console(f"❌ Model loading traceback: {traceback.format_exc()}", "")
                 return False
 
-            self._write_to_console("  Running Demucs demixing...", "")
+            self._write_to_console("  🎯 Running Demucs demixing...", "")
 
             # Process audio like in demix_demucs method (lines 973-1020)
             org_mix = mix
             
             if getattr(self.model_data, 'is_pitch_change', False):
+                self._write_to_console(f"  🎵 Applying pitch change (semitones: {self.model_data.semitone_shift})...", "")
                 mix, sr_pitched = spec_utils.change_pitch_semitones(
                     mix, 44100, semitone_shift=-self.model_data.semitone_shift
                 )
@@ -1575,33 +1713,38 @@ class ProcessingWorker(QObject):
             ref = mix.mean(0)
             mix = (mix - ref.mean()) / ref.std()
             mix_infer = mix
+            
+            self._write_to_console(f"  📊 Audio preprocessing complete. Mix shape: {mix_infer.shape}", "")
 
             with torch.no_grad():
                 try:
+                    shifts = getattr(self.model_data, 'shifts', 1)
+                    overlap = getattr(self.model_data, 'overlap', 0.25)
+                    is_split_mode = getattr(self.model_data, 'is_split_mode', True)
+                    
+                    self._write_to_console(f"  🔄 Starting inference with params - shifts: {shifts}, overlap: {overlap}, split_mode: {is_split_mode}", "")
+                    
                     if self.model_data.demucs_version == ac.DEMUCS_V1:
+                        self._write_to_console(f"  Using V1 inference...", "")
                         sources = apply_model_v1(
                             demucs_model,
                             mix_infer.to(self.device_torch),
-                            getattr(self.model_data, 'shifts', 1),
-                            getattr(self.model_data, 'is_split_mode', True),
+                            shifts,
+                            is_split_mode,
                             set_progress_bar=self._set_progress_bar_callback
                         )
                     elif self.model_data.demucs_version == ac.DEMUCS_V2:
+                        self._write_to_console(f"  Using V2 inference...", "")
                         sources = apply_model_v2(
                             demucs_model,
                             mix_infer.to(self.device_torch),
-                            getattr(self.model_data, 'shifts', 1),
-                            getattr(self.model_data, 'is_split_mode', True),
-                            getattr(self.model_data, 'overlap', 0.25),
+                            shifts,
+                            is_split_mode,
+                            overlap,
                             set_progress_bar=self._set_progress_bar_callback
                         )
                     else:  # V3/V4
-                        shifts = getattr(self.model_data, 'shifts', 1)
-                        overlap = getattr(self.model_data, 'overlap', 0.25)
-                        is_split_mode = getattr(self.model_data, 'is_split_mode', True)
-                        
-                        self._write_to_console(f"  Inference params - shifts: {shifts}, overlap: {overlap}, split_mode: {is_split_mode}", "")
-                        
+                        self._write_to_console(f"  Using V3/V4 inference...", "")
                         sources = apply_model(
                             demucs_model,
                             mix_infer[None],
@@ -1623,6 +1766,7 @@ class ProcessingWorker(QObject):
 
             # Post-process like in separate.py
             try:
+                self._write_to_console(f"  🔧 Post-processing results...", "")
                 sources = (sources * ref.std() + ref.mean()).cpu().numpy()
                 self._write_to_console(f"  After denormalization: {sources.shape}", "")
                 
@@ -1642,16 +1786,17 @@ class ProcessingWorker(QObject):
                 return False
 
             if getattr(self.model_data, 'is_pitch_change', False):
+                self._write_to_console(f"  🎵 Applying pitch correction...", "")
                 sources = np.stack([
                     self._pitch_fix_demucs(stem, sr_pitched, org_mix) for stem in sources
                 ])
 
-            self._write_to_console(f"  Processed {len(sources)} source(s)", "")
+            self._write_to_console(f"  ✓ Processed {len(sources)} source(s)", "")
 
             # Map sources to stem names using demucs source map
             try:
                 demucs_source_map = self._get_demucs_source_map(len(sources))
-                self._write_to_console(f"  Source mapping for {len(sources)} sources: {demucs_source_map}", "")
+                self._write_to_console(f"  🗺️ Source mapping for {len(sources)} sources: {demucs_source_map}", "")
                 
                 # Create results dictionary matching expected format
                 results = {}
@@ -1669,7 +1814,7 @@ class ProcessingWorker(QObject):
 
                 # Store results temporarily for ensemble processing
                 self._temp_demucs_results = results
-                self._write_to_console(f"  ✓ Stored {len(results)} results: {list(results.keys())}", "")
+                self._write_to_console(f"  ✅ Stored {len(results)} results: {list(results.keys())}", "")
                 
             except Exception as mapping_error:
                 self._write_to_console(f"❌ Source mapping failed: {mapping_error}", "")
@@ -1688,6 +1833,13 @@ class ProcessingWorker(QObject):
                 del demucs_model
                 if hasattr(torch.cuda, 'empty_cache'):
                     torch.cuda.empty_cache()
+            # Remove temp file
+            try:
+                if 'temp_audio_file' in locals():
+                    os.unlink(temp_audio_file)
+                    self._write_to_console(f"  🗑️ Cleaned up temp file", "")
+            except:
+                pass
 
         return True
 
@@ -2043,7 +2195,7 @@ class ProcessingWorker(QObject):
     def _spectral_ensemble(
         self, outputs: List[np.ndarray], is_max: bool = True
     ) -> np.ndarray:
-        """Combine outputs using spectral ensemble (min/max magnitude) - simplified version."""
+        """Combine outputs using spectral ensemble (min/max magnitude) in frequency domain - following original UVR"""
         if not outputs:
             return None
 
@@ -2053,6 +2205,96 @@ class ProcessingWorker(QObject):
         for i, output in enumerate(outputs):
             self._write_to_console(f"    Input {i}: shape={output.shape}, dtype={output.dtype}", "")
 
+        try:
+            # Import required spectral utilities 
+            try:
+                from lib_v5 import spec_utils
+                self._write_to_console("  ✓ Imported spec_utils for proper spectral processing", "")
+            except ImportError:
+                self._write_to_console("  ⚠️ spec_utils not available, using simple magnitude comparison", "")
+                return self._simple_spectral_ensemble(outputs, is_max)
+
+            # Normalize all outputs to the same format: (2, N) for spectral processing
+            normalized_outputs = []
+            for i, output in enumerate(outputs):
+                if output.ndim == 1:
+                    # Convert mono to stereo: (N,) -> (2, N)
+                    normalized = np.array([output, output])
+                elif output.ndim == 2:
+                    if output.shape[1] == 2 and output.shape[0] > 2:
+                        # Convert (N, 2) to (2, N) 
+                        normalized = output.T
+                    elif output.shape[0] == 2:
+                        # Already (2, N)
+                        normalized = output
+                    else:
+                        # Default: transpose to get (2, N)
+                        normalized = output.T
+                else:
+                    self._write_to_console(f"    ❌ Invalid output {i} dimensions: {output.shape}", "")
+                    continue
+                    
+                normalized_outputs.append(normalized)
+                self._write_to_console(f"    Normalized {i}: {normalized.shape}", "")
+
+            if not normalized_outputs:
+                self._write_to_console("  ❌ No valid outputs after normalization", "")
+                return None
+
+            # Find the minimum length to align all outputs
+            min_length = min(output.shape[1] for output in normalized_outputs)
+            self._write_to_console(f"  Aligning to min length: {min_length}", "")
+
+            # Align all outputs to the same length and convert to spectrograms
+            spectrograms = []
+            for i, output in enumerate(normalized_outputs):
+                aligned = output[:, :min_length]
+                # Convert to spectrogram using STFT
+                spec = spec_utils.wave_to_spectrogram_old(aligned, 1024, 2048)
+                spectrograms.append(spec)
+                self._write_to_console(f"    Spectrogram {i}: {spec.shape}", "")
+
+            # Apply spectral ensemble in frequency domain
+            result_spec = spectrograms[0].copy()
+            
+            for i in range(1, len(spectrograms)):
+                current_spec = spectrograms[i]
+                
+                # Compare magnitudes in frequency domain
+                current_mag = np.abs(current_spec)
+                result_mag = np.abs(result_spec)
+                
+                if is_max:
+                    # Use spectrogram with maximum magnitude at each bin
+                    mask = current_mag >= result_mag
+                    result_spec = np.where(mask, current_spec, result_spec)
+                else:
+                    # Use spectrogram with minimum magnitude at each bin
+                    mask = current_mag <= result_mag
+                    result_spec = np.where(mask, current_spec, result_spec)
+
+            # Convert back to audio using ISTFT
+            result_audio = spec_utils.spectrogram_to_wave_old(result_spec, 1024)
+            
+            # Convert back to (N, 2) format
+            if result_audio.shape[0] == 2:
+                result_audio = result_audio.T
+
+            self._write_to_console(f"  ✓ Spectral ensemble result shape: {result_audio.shape}", "")
+            return result_audio
+
+        except Exception as e:
+            self._write_to_console(f"  ❌ Error in spectral ensemble: {e}", "")
+            import traceback
+            self._write_to_console(f"  ❌ Spectral traceback: {traceback.format_exc()}", "")
+            # Fallback to simple method
+            self._write_to_console("  🔄 Falling back to simple spectral ensemble", "")
+            return self._simple_spectral_ensemble(outputs, is_max)
+    
+    def _simple_spectral_ensemble(
+        self, outputs: List[np.ndarray], is_max: bool = True
+    ) -> np.ndarray:
+        """Simple spectral ensemble using magnitude comparison in time domain as fallback"""
         try:
             # Normalize all outputs to the same format: (N, 2) for stereo
             normalized_outputs = []
@@ -2078,15 +2320,12 @@ class ProcessingWorker(QObject):
                     continue
                     
                 normalized_outputs.append(normalized)
-                self._write_to_console(f"    Normalized {i}: {normalized.shape}", "")
 
             if not normalized_outputs:
-                self._write_to_console("  ❌ No valid outputs after normalization", "")
                 return None
 
             # Find the minimum length to align all outputs
             min_length = min(output.shape[0] for output in normalized_outputs)
-            self._write_to_console(f"  Aligning to min length: {min_length}", "")
 
             # Align all outputs to the same length
             aligned_outputs = []
@@ -2108,13 +2347,11 @@ class ProcessingWorker(QObject):
                     mask = np.abs(current) <= np.abs(result)
                     result = np.where(mask, current, result)
 
-            self._write_to_console(f"  ✓ Spectral ensemble result shape: {result.shape}", "")
             return result
 
         except Exception as e:
-            self._write_to_console(f"  ❌ Error in spectral ensemble: {e}", "")
-            # Fallback to average
-            self._write_to_console("  🔄 Falling back to average ensemble", "")
+            self._write_to_console(f"  ❌ Error in simple spectral ensemble: {e}", "")
+            # Ultimate fallback to average
             return self._average_ensemble(outputs)
 
     def _spec_to_wav_vr(self, spec: np.ndarray, is_v51_model: bool) -> np.ndarray:

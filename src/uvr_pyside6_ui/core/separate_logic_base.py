@@ -208,7 +208,11 @@ class SeparatorAttributesLogic:
             self.audio_file_path = None
             self.audio_file_base = "output"
 
-        if self.md.export_path:
+        # Use export_path from process_data if provided, otherwise use model's export_path
+        # This allows ensemble processing to use temporary directories
+        if process_data.get("export_path"):
+            self.export_path = Path(process_data["export_path"])
+        elif self.md.export_path:
             self.export_path = Path(self.md.export_path)
         else:
             self.export_path = Path(".")

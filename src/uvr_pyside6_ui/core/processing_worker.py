@@ -936,7 +936,13 @@ class ProcessingWorker(QObject):
         )
 
         # Check if we should save all individual outputs (equivalent to is_save_all_outputs_ensemble_var)
-        save_all_outputs = getattr(self.model_data, 'save_all_outputs', True)  # Default to True for now
+        # Default to False to only keep ensemble files (like original UVR when unchecked)
+        save_all_outputs = getattr(self.model_data, 'save_all_outputs', False)  
+        # Also check for the setting in the ensemble models or fallback settings
+        if hasattr(self.model_data, 'ensemble_models') and self.model_data.ensemble_models:
+            # Try to get from settings - this would come from UI configuration
+            save_all_outputs = getattr(self.model_data, 'is_save_all_outputs_ensemble', False)
+        
         self._write_to_console(f"🎯 Save all individual outputs: {save_all_outputs}", "")
 
         # Process each model in the ensemble
@@ -971,7 +977,8 @@ class ProcessingWorker(QObject):
                             )
                             
                             # Save individual model output with model name in filename (following UVR.py pattern)
-                            individual_output_filename = f"{ensemble_output_base}_{member_model_data.model_basename}_({stem_name}).wav"
+                            cleaned_model_name = self._clean_model_name_for_filename(member_model_data.model_basename)
+                            individual_output_filename = f"{ensemble_output_base}_{cleaned_model_name}_({stem_name}).wav"
                             individual_output_path = Path(self.model_data.export_path) / individual_output_filename
                             
                             try:
@@ -2593,6 +2600,59 @@ class ProcessingWorker(QObject):
             return source
         except:
             return source
+
+    def _clean_model_name_for_filename(self, model_basename: str) -> str:
+        """Clean model basename by removing version prefixes like 'v4 | ' or 'v3 | '"""
+        if not model_basename:
+            return "unknown_model"
+        
+        # Remove version prefixes commonly found in Demucs model names
+        version_prefixes = ["v1 | ", "v2 | ", "v3 | ", "v4 | ", "v5 | "]
+        cleaned_name = model_basename
+        
+        for prefix in version_prefixes:
+            if cleaned_name.startswith(prefix):
+                cleaned_name = cleaned_name[len(prefix):]
+                break
+        
+        return cleaned_name
+
+    def _align_spectrograms(
+        self, spec_list: List[np.ndarray]
+    ) -> Optional[List[np.ndarray]]:
+        """Aligns a list of spectrograms to a common shape by padding/trimming the time axis."""
+        if not spec_list:
+            return None
+
+        # Assuming all specs have same number of channels and frequency bins
+        # This should be ensured by consistent STFT params during their creation
+        ref_channels, ref_freq_bins, _ = spec_list[0].shape
+        max_time_frames = max(s.shape[2] for s in spec_list)
+
+        aligned_specs = []
+        for spec_to_align in spec_list:
+            if (
+                spec_to_align.shape[0] != ref_channels
+                or spec_to_align.shape[1] != ref_freq_bins
+            ):
+                self._write_to_console(
+                    "Warning: Spectrogram channel/frequency mismatch during alignment. Skipping.",
+                    "",
+                )
+                return None  # Critical mismatch
+
+            if spec_to_align.shape[2] < max_time_frames:
+                padding_time = max_time_frames - spec_to_align.shape[2]
+                padding = [(0, 0)] * spec_to_align.ndim
+                padding[2] = (0, padding_time)
+                aligned_spec = np.pad(spec_to_align, padding, mode="constant")
+            elif spec_to_align.shape[2] > max_time_frames:
+                aligned_spec = spec_to_align[:, :, :max_time_frames]
+            else:
+                aligned_spec = spec_to_align
+            aligned_specs.append(aligned_spec)
+
+        return aligned_specs
 
 
 class ProcessingThread(QThread):

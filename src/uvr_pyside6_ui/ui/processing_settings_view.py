@@ -149,7 +149,7 @@ class ProcessingSettingsView(QWidget):
         """Update the primary stem checkbox text with the actual stem name."""
         self.primary_stem_checkbox.setText(f"{stem_name} Only")
 
-    @Slot(str) 
+    @Slot(str)
     def set_secondary_stem_text(self, stem_name: str):
         """Update the secondary stem checkbox text with the actual stem name."""
         self.secondary_stem_checkbox.setText(f"{stem_name} Only")

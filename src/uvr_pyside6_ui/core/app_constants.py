@@ -64,11 +64,11 @@ FALLBACK_ONLINE_CATALOG = {  # Unchanged
 }
 
 ENSEMBLE_MAIN_STEM_OPTIONS = [
+    "4 Stem Ensemble",  # All 4 Demucs stems - moved to default
     "Vocals/Instrumental",
     "Other/No Other",
     "Drums/No Drums",
     "Bass/No Bass",
-    "4 Stem Ensemble",  # All 4 Demucs stems
     "Multi-stem Ensemble",  # All available stems from selected models
 ]  # Based on UVR.py's ENSEMBLE_MAIN_STEM
 

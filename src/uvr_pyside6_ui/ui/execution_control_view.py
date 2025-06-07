@@ -1,18 +1,22 @@
 """Execution control view for the UVR PySide6 application."""
 
-from PySide6.QtCore import QSize, Signal, Slot  # Import QSize
+from PySide6.QtCore import (  # Import QSize
+    QSize,
+    Qt,  # Import Qt
+    Signal,
+    Slot,
+)
 from PySide6.QtGui import QIcon  # Import QIcon
 from PySide6.QtWidgets import (
     QGroupBox,
+    QHBoxLayout,
     QLabel,
     QProgressBar,
     QPushButton,
     QTextEdit,
     QVBoxLayout,
     QWidget,
-    QHBoxLayout,
 )
-from PySide6.QtCore import Qt  # Import Qt
 
 from ..core.logger_utils import get_logger
 
@@ -68,7 +72,7 @@ class ExecutionControlView(QWidget):
         progress_bar_container = QWidget()
         progress_bar_layout = QHBoxLayout(progress_bar_container)
         progress_bar_layout.setContentsMargins(0, 0, 0, 0)
-        progress_bar_layout.setSpacing(8)
+        progress_bar_layout.setSpacing(3)  # Reduced from 8 to 3 for tighter spacing
 
         # Progress bar (no text inside)
         self.progress_bar = QProgressBar()
@@ -79,7 +83,9 @@ class ExecutionControlView(QWidget):
 
         # Percentage label beside the bar
         self.progress_percentage_label = QLabel("0%")
-        self.progress_percentage_label.setProperty("progressPercentage", True)  # For QSS styling
+        self.progress_percentage_label.setProperty(
+            "progressPercentage", True
+        )  # For QSS styling
         self.progress_percentage_label.setMinimumWidth(50)  # Fixed width for alignment
         self.progress_percentage_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         progress_bar_layout.addWidget(self.progress_percentage_label)

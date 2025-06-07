@@ -4,24 +4,28 @@ This replaces MockProcessingWorker with actual audio separation functionality.
 """
 
 import traceback
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import numpy as np
+import torch
+import librosa
 from PySide6.QtCore import QObject, QThread, Signal
 
 from . import app_constants as ac
 from .logger_utils import get_logger
 from .model_data import ModelData
-from .separate_demucs_logic import SeperateDemucsLogic
 from .separate_logic_base import (
     clear_gpu_cache_logic,
     prepare_mix_logic,
     write_audio_logic,
 )
-from .separate_mdx_logic import SeperateMDXLogic
-from .separate_mdxc_logic import SeperateMDXCLogic
-from .separate_vr_logic import SeperateVRLogic
+from .separate_demucs_logic import SeparateDemucsLogic
+from .separate_mdx_logic import SeparateMDXLogic
+from .separate_mdxc_logic import SeparateMDXCLogic
+from .separate_vr_logic import SeparateVRLogic
+
 
 logger = get_logger(__name__)
 
@@ -30,10 +34,6 @@ try:
 except ImportError as e:
     logger.warning(f"Warning: Could not import spec_utils: {e}")
     spec_utils = None
-
-# Check if the separation logic modules are available
-if not all([SeperateVRLogic, SeperateMDXLogic, SeperateMDXCLogic, SeperateDemucsLogic]):
-    logger.warning("Warning: Some separation logic modules not available.")
 
 # Import logic functions from base module
 try:
@@ -57,23 +57,53 @@ class ProcessingWorker(QObject):
         self.total_progress_steps = 100  # Will be set based on processing type
         self.original_mix_audio: Optional[np.ndarray] = None
 
+        # Initialize device based on model data settings
+        self.device = 'cpu'  # Default to CPU string like in separate.py
+        
         try:
             self.model_data = ModelData.from_settings_dict(settings_dict)
+            
+            # Initialize device following separate.py logic (lines 179-191)
+            if (hasattr(self.model_data, 'is_gpu_conversion') and 
+                self.model_data.is_gpu_conversion >= 0):
+                
+                # Check for MPS first (Apple Silicon)
+                if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+                    self.device = 'mps'
+                # Then check for CUDA
+                elif hasattr(torch, 'cuda') and torch.cuda.is_available():
+                    device_set = getattr(self.model_data, 'device_set', 'DEFAULT')
+                    if device_set != 'DEFAULT':
+                        self.device = f'cuda:{device_set}'
+                    else:
+                        self.device = 'cuda'
+                        
         except Exception as e:
             logger.error(f"Error creating ModelData: {e}\n{traceback.format_exc()}")
             self.model_data = None
+
+    @property
+    def device_torch(self):
+        """Convert device string to PyTorch device object when needed"""
+        return torch.device(self.device)
 
     def run(self):
         """Execute the audio processing task."""
         logger.info("ProcessingWorker started")
         try:
             # Initial progress (5%) - matching original UVR pattern
-            self._set_progress_bar_callback(0.05, "Loading model and preparing audio...")
-            
-            self.model_data = ModelData.from_settings_dict(self.settings_dict)
+            self._set_progress_bar_callback(
+                0.05, "Loading model and preparing audio..."
+            )
+
+            # Only create ModelData if it wasn't created in __init__
+            if self.model_data is None:
+                self.model_data = ModelData.from_settings_dict(self.settings_dict)
+                
             logger.info(f"Model: {self.model_data.model_basename}")
             logger.info(f"Method: {self.model_data.process_method}")
             logger.info(f"Audio file: {self.model_data.audio_file}")
+            logger.info(f"Device: {self.device}")
 
             # Load and prepare audio
             self.original_mix_audio = self._load_audio()
@@ -83,44 +113,57 @@ class ProcessingWorker(QObject):
 
             # Set expected progress steps based on method
             if self.model_data.process_method == ac.DEMUCS_ARCH_TYPE:
-                self.total_progress_steps = 50  # Approximate steps for Demucs processing
+                self.total_progress_steps = (
+                    50  # Approximate steps for Demucs processing
+                )
             elif self.model_data.process_method == ac.MDX_ARCH_TYPE:
                 self.total_progress_steps = 100  # More steps for MDX processing
             else:
-                self.total_progress_steps = 75   # VR processing steps
+                self.total_progress_steps = 75  # VR processing steps
 
             # Reset progress counter for processing phase
             self.progress_count = 0
-            
+
+            # Track processing success
+            processing_success = True
+            processing_message = "Processing completed successfully"
+
             # Process based on method
             if self.model_data.process_method == ac.VR_ARCH_TYPE:
-                self._process_vr_arch(self._create_process_data())
+                processing_success = self._process_vr_arch(self._create_process_data())
             elif self.model_data.process_method == ac.MDX_ARCH_TYPE:
                 if self.model_data.is_mdx_c:
                     logger.info("Processing with MDX-C")
                 else:
                     logger.info("Processing with MDX-Net")
-                self._process_mdx_net(self._create_process_data())
+                processing_success = self._process_mdx_net(self._create_process_data())
             elif self.model_data.process_method == ac.DEMUCS_ARCH_TYPE:
-                self._process_demucs(self._create_process_data())
+                processing_success = self._process_demucs(self._create_process_data())
             elif self.model_data.is_ensemble_mode:
+                # Ensemble processing handles its own completion signaling
                 self._process_ensemble(self.original_mix_audio)
+                return  # Don't emit completion signal here, ensemble handles it
             else:
                 self.processing_finished.emit(
-                    False, f"Unsupported processing method: {self.model_data.process_method}"
+                    False,
+                    f"Unsupported processing method: {self.model_data.process_method}",
                 )
                 return
 
-            # Final progress (95%) - matching original UVR pattern
-            self._set_progress_bar_callback(0.95, "Processing complete!")
-            
-            # Complete (100%)
-            self.progress_updated.emit(100, "Done")
-            self.processing_finished.emit(True, "Processing completed successfully")
+            # Only proceed with final completion if processing was successful
+            if processing_success:
+                # Final progress (95%) - matching original UVR pattern
+                self._set_progress_bar_callback(0.95, "Processing complete!")
+
+                # Complete (100%)
+                self.progress_updated.emit(100, "Done")
+                self.processing_finished.emit(True, processing_message)
+            # If processing failed, the individual method should have already emitted failure
 
         except Exception as e:
             logger.error(f"Processing error: {e}")
             import traceback
+
             logger.error(traceback.format_exc())
             self.processing_finished.emit(False, f"Processing failed: {str(e)}")
         finally:
@@ -128,12 +171,16 @@ class ProcessingWorker(QObject):
 
     def _load_audio(self) -> Optional[np.ndarray]:
         """Load and prepare audio file for processing."""
-        if not self.model_data.audio_file or not Path(self.model_data.audio_file).exists():
+        if (
+            not self.model_data.audio_file
+            or not Path(self.model_data.audio_file).exists()
+        ):
             logger.error(f"Audio file not found: {self.model_data.audio_file}")
             return None
-            
+
         try:
             from .separate_logic_base import prepare_mix_logic
+
             audio_data = prepare_mix_logic(str(self.model_data.audio_file))
             if audio_data is None:
                 logger.error("Failed to load audio data")
@@ -144,9 +191,9 @@ class ProcessingWorker(QObject):
 
     def _execute_separation_pipeline(
         self, method_name: str, process_data_initial: Dict[str, Any]
-    ):
+    ) -> bool:
         if not self._is_running:
-            return
+            return False
 
         primary_separator = self._get_separator_for_model(
             self.model_data, process_data_initial
@@ -156,7 +203,7 @@ class ProcessingWorker(QObject):
                 False,
                 f"Could not create separator for primary model {self.model_data.model_name}",
             )
-            return
+            return False
 
         self.progress_updated.emit(30, f"Running {method_name} separation...")
         primary_results = primary_separator.separate()
@@ -166,7 +213,7 @@ class ProcessingWorker(QObject):
                     False,
                     f"{method_name} primary separation failed to produce results.",
                 )
-            return
+            return False
 
         current_stems = primary_results.copy()
 
@@ -180,7 +227,7 @@ class ProcessingWorker(QObject):
                 if i >= len(self.model_data.secondary_model_4_stem_instances):
                     break
                 if not self._is_running:
-                    return
+                    return False
                 secondary_model_for_stem_obj = (
                     self.model_data.secondary_model_4_stem_instances[i]
                 )
@@ -310,7 +357,7 @@ class ProcessingWorker(QObject):
                 )
 
         if not self._is_running:
-            return
+            return False
 
         if (
             self.model_data.vocal_split_model
@@ -368,9 +415,9 @@ class ProcessingWorker(QObject):
             self.progress_updated.emit(
                 100, f"{method_name} processing pipeline complete!"
             )
-            self.processing_finished.emit(
-                True, f"Successfully processed using {method_name} pipeline."
-            )
+            return True
+        
+        return False
 
     def _create_process_data(
         self, input_audio_array_for_main_model: Optional[np.ndarray] = None
@@ -405,7 +452,7 @@ class ProcessingWorker(QObject):
         """Update progress following original UVR pattern: 5% start, 10-80% processing, 95% complete."""
         if not self._is_running:
             return
-            
+
         # Follow original UVR progress pattern from separate.py
         if current_step_fraction <= 0.05:
             # Initial progress (0-5%)
@@ -419,22 +466,23 @@ class ProcessingWorker(QObject):
             self.progress_count += 1
             base_progress = 10  # Start at 10%
             processing_range = 70  # 80% - 10% = 70% range for processing
-            
+
             # Calculate progress within the processing window
             if self.total_progress_steps > 0:
                 processing_progress = min(
-                    (self.progress_count / self.total_progress_steps) * processing_range,
-                    processing_range
+                    (self.progress_count / self.total_progress_steps)
+                    * processing_range,
+                    processing_range,
                 )
             else:
                 processing_progress = current_step_fraction * processing_range
-                
+
             progress_percent = int(base_progress + processing_progress)
-            
+
         # Ensure progress is within bounds
         progress_percent = min(max(progress_percent, 0), 100)
         self.progress_value = progress_percent
-        
+
         # Format message like original UVR
         if not message:
             if progress_percent < 10:
@@ -442,8 +490,8 @@ class ProcessingWorker(QObject):
             elif progress_percent >= 95:
                 message = "Finalizing..."
             else:
-                message = f"Processing... {progress_percent}%"
-        
+                message = "Processing..."  # Removed percentage from status message
+
         self.progress_updated.emit(progress_percent, message)
 
     def _write_to_console(self, message: str, base_text: str = ""):
@@ -463,13 +511,285 @@ class ProcessingWorker(QObject):
     def _process_iteration(self):
         pass
 
-    def _process_vr_arch(self, process_data: Dict[str, Any]):
-        self._execute_separation_pipeline(ac.VR_ARCH_TYPE, process_data)
+    def _process_vr_arch(self, process_data: Dict[str, Any]) -> bool:
+        """Process using VR (Vocal Remover) architecture - matches separate.py SeparateVR"""
+        try:
+            import math
+            import os
+            from lib_v5.vr_network import nets, nets_new
+            from lib_v5.vr_network.model_param_init import ModelParameters
+            from lib_v5 import spec_utils
+        except ImportError as e:
+            self.processing_finished.emit(False, f"Required VR modules not available: {e}")
+            return False
 
-    def _process_mdx_net(self, process_data: Dict[str, Any]):
-        self._execute_separation_pipeline(ac.MDX_ARCH_TYPE, process_data)
+        self._write_to_console(f"Loading VR model: {self.model_data.model_basename}", "")
+        
+        # Initialize device
+        device = self.device_torch
 
-    def _process_demucs(self, process_data: Dict[str, Any]):
+        # Determine model architecture based on file size
+        nn_arch_sizes = [31191, 33966, 56817, 123821, 123812, 129605, 218409, 537238, 537227]
+        vr_5_1_models = [56817, 218409]
+        model_size = math.ceil(os.stat(self.model_data.model_path).st_size / 1024)
+        nn_arch_size = min(nn_arch_sizes, key=lambda x: abs(x - model_size))
+
+        # Load model
+        if nn_arch_size in vr_5_1_models or self.model_data.is_vr_51_model:
+            model_run = nets_new.CascadedNet(
+                self.model_data.vr_model_param.param['bins'] * 2,
+                nn_arch_size,
+                nout=self.model_data.model_capacity[0],
+                nout_lstm=self.model_data.model_capacity[1]
+            )
+            is_vr_51_model = True
+        else:
+            model_run = nets.determine_model_capacity(
+                self.model_data.vr_model_param.param['bins'] * 2, nn_arch_size
+            )
+            is_vr_51_model = False
+
+        model_run.load_state_dict(torch.load(self.model_data.model_path, map_location='cpu'))
+        model_run.to(device)
+        model_run.eval()
+
+        self._write_to_console("Running VR inference...", "")
+
+        # Load and prepare audio mix
+        X_spec = self._loading_mix_vr()
+        if X_spec is None:
+            self.processing_finished.emit(False, "Failed to load audio for VR processing")
+            return False
+
+        # Run inference
+        y_spec, v_spec = self._inference_vr(X_spec, device, model_run, is_vr_51_model)
+        
+        if y_spec is None or v_spec is None:
+            self.processing_finished.emit(False, "VR inference failed")
+            return False
+
+        # Convert to audio and save
+        primary_audio = self._spec_to_wav_vr(y_spec, is_vr_51_model).T
+        secondary_audio = self._spec_to_wav_vr(v_spec, is_vr_51_model).T
+
+        # Resample if needed
+        if self.model_data.model_samplerate != 44100:
+            primary_audio = librosa.resample(
+                primary_audio.T, 
+                orig_sr=self.model_data.model_samplerate, 
+                target_sr=44100
+            ).T
+            secondary_audio = librosa.resample(
+                secondary_audio.T, 
+                orig_sr=self.model_data.model_samplerate, 
+                target_sr=44100
+            ).T
+
+        # Save results
+        if not self.model_data.is_secondary_stem_only:
+            primary_path = os.path.join(self.model_data.export_path, f'{Path(self.model_data.audio_file).stem}_({self.model_data.primary_stem}).wav')
+            self._write_stem_file(primary_path, primary_audio, self.model_data.primary_stem)
+
+        if not self.model_data.is_primary_stem_only:
+            secondary_path = os.path.join(self.model_data.export_path, f'{Path(self.model_data.audio_file).stem}_({self.model_data.secondary_stem}).wav')
+            self._write_stem_file(secondary_path, secondary_audio, self.model_data.secondary_stem)
+
+        del model_run
+        if hasattr(torch.cuda, 'empty_cache'):
+            torch.cuda.empty_cache()
+
+        return True
+
+    def _process_mdx_net(self, process_data: Dict[str, Any]) -> bool:
+        """Process using MDX architecture - matches separate.py SeparateMDX/SeparateMDXC"""
+        if self.model_data.is_mdx_c:
+            return self._process_mdx_c()
+        else:
+            return self._process_mdx_regular()
+
+    def _process_mdx_regular(self) -> bool:
+        """Process using regular MDX - matches separate.py SeparateMDX"""
+        try:
+            import lib_v5.mdxnet as MdxnetSet
+            from lib_v5.tfc_tdf_v3 import STFT
+            from lib_v5 import spec_utils
+            from onnx import load
+            from onnx2pytorch import ConvertModel
+            import onnxruntime as ort
+        except ImportError as e:
+            self.processing_finished.emit(False, f"Required MDX modules not available: {e}")
+            return False
+
+        self._write_to_console(f"Loading MDX model: {self.model_data.model_basename}", "")
+
+        # Load model
+        if self.model_data.is_mdx_ckpt:
+            model_params = torch.load(self.model_data.model_path, map_location=lambda storage, loc: storage)['hyper_parameters']
+            dim_c, hop_length = model_params['dim_c'], model_params['hop_length']
+            separator = MdxnetSet.ConvTDFNet(**model_params)
+            model_run = separator.load_from_checkpoint(self.model_data.model_path).to(self.device_torch).eval()
+        else:
+            dim_c, hop_length = 4, 1024
+            if self.model_data.mdx_segment_size == self.model_data.mdx_dim_t_set and self.device != 'mps':
+                providers = ['CUDAExecutionProvider', 'CPUExecutionProvider'] if self.device.startswith('cuda') else ['CPUExecutionProvider']
+                ort_session = ort.InferenceSession(self.model_data.model_path, providers=providers)
+                model_run = lambda spek: ort_session.run(None, {'input': spek.cpu().numpy()})[0]
+            else:
+                model_run = ConvertModel(load(self.model_data.model_path))
+                model_run.to(self.device_torch).eval()
+
+        # Load audio
+        mix = prepare_mix_logic(self.model_data.audio_file)
+        if mix is None:
+            self.processing_finished.emit(False, "Failed to load audio for MDX processing")
+            return False
+
+        # Ensure correct audio format for MDX processing - should be (2, N) like in separate.py
+        if mix.ndim == 1:
+            # Convert mono to stereo: (N,) -> (2, N)
+            mix = np.asfortranarray([mix, mix])
+        elif mix.ndim == 2:
+            if mix.shape[0] > mix.shape[1]:
+                # If shape is (N, 2), transpose to (2, N)
+                mix = mix.T
+            # If already (2, N), keep as is
+        
+        self._write_to_console(f"Audio shape for MDX processing: {mix.shape}", "")
+
+        self._write_to_console("Running MDX demixing...", "")
+
+        # Run separation
+        source = self._demix_mdx(mix, model_run, hop_length, dim_c)
+        if source is None:
+            self.processing_finished.emit(False, "MDX demixing failed")
+            return False
+
+        # Process results and save
+        if not self.model_data.is_secondary_stem_only:
+            primary_path = os.path.join(self.model_data.export_path, f'{Path(self.model_data.audio_file).stem}_({self.model_data.primary_stem}).wav')
+            primary_audio = source.T
+            self._write_stem_file(primary_path, primary_audio, self.model_data.primary_stem)
+
+        if not self.model_data.is_primary_stem_only:
+            secondary_path = os.path.join(self.model_data.export_path, f'{Path(self.model_data.audio_file).stem}_({self.model_data.secondary_stem}).wav')
+            raw_mix = mix.T if hasattr(mix, 'T') else mix
+            if self.model_data.is_invert_spec:
+                from lib_v5 import spec_utils
+                secondary_audio = spec_utils.invert_stem(raw_mix, source.T)
+            else:
+                secondary_audio = raw_mix - source.T
+            self._write_stem_file(secondary_path, secondary_audio, self.model_data.secondary_stem)
+
+        if hasattr(torch.cuda, 'empty_cache'):
+            torch.cuda.empty_cache()
+
+        return True
+
+    def _process_mdx_c(self) -> bool:
+        """Process using MDX-C - matches separate.py SeparateMDXC"""
+        try:
+            from lib_v5.tfc_tdf_v3 import TFC_TDF_net
+            from lib_v5 import spec_utils
+        except ImportError as e:
+            self.processing_finished.emit(False, f"Required MDX-C modules not available: {e}")
+            return False
+
+        self._write_to_console(f"Loading MDX-C model: {self.model_data.model_basename}", "")
+
+        # Load model
+        model = TFC_TDF_net(self.model_data.mdx_c_configs, device=self.device_torch)
+        model.load_state_dict(torch.load(self.model_data.model_path, map_location='cpu'))
+        model.to(self.device_torch).eval()
+
+        # Load audio
+        mix = prepare_mix_logic(self.model_data.audio_file)
+        if mix is None:
+            self.processing_finished.emit(False, "Failed to load audio for MDX-C processing")
+            return False
+
+        # Ensure correct audio format for MDX-C processing - should be (2, N) like in separate.py
+        if mix.ndim == 1:
+            # Convert mono to stereo: (N,) -> (2, N)
+            mix = np.asfortranarray([mix, mix])
+        elif mix.ndim == 2:
+            if mix.shape[0] > mix.shape[1]:
+                # If shape is (N, 2), transpose to (2, N)
+                mix = mix.T
+            # If already (2, N), keep as is
+        
+        self._write_to_console(f"Audio shape for MDX-C processing: {mix.shape}", "")
+
+        self._write_to_console("Running MDX-C demixing...", "")
+
+        # Run separation
+        sources = self._demix_mdx_c(mix, model)
+        if sources is None:
+            self.processing_finished.emit(False, "MDX-C demixing failed")
+            return False
+
+        # Save results
+        stem_list = [self.model_data.mdx_c_configs.training.target_instrument] if self.model_data.mdx_c_configs.training.target_instrument else [i for i in self.model_data.mdx_c_configs.training.instruments]
+
+        if len(stem_list) == 1:
+            source_primary = sources
+        else:
+            # Handle stem selection for multi-stem models
+            if isinstance(sources, dict):
+                # Log available stems for debugging
+                self._write_to_console(f"Available stems: {list(sources.keys())}", "")
+                self._write_to_console(f"Requested stem: {self.model_data.mdxnet_stem_select}", "")
+                
+                # Handle special cases
+                if self.model_data.mdxnet_stem_select == 'All Stems' or self.model_data.mdxnet_stem_select not in sources:
+                    # If 'All Stems' or invalid selection, use the primary stem (usually vocals)
+                    # Try common primary stem names in order of preference
+                    primary_stem_candidates = [self.model_data.primary_stem, 'vocals', 'vocal', 'Vocals', 'Vocal']
+                    source_primary = None
+                    
+                    for candidate in primary_stem_candidates:
+                        if candidate in sources:
+                            source_primary = sources[candidate]
+                            self._write_to_console(f"Using primary stem: {candidate}", "")
+                            break
+                    
+                    # If no primary stem found, use the first available stem
+                    if source_primary is None and sources:
+                        first_stem = list(sources.keys())[0]
+                        source_primary = sources[first_stem]
+                        self._write_to_console(f"Using first available stem: {first_stem}", "")
+                    elif source_primary is None:
+                        self.processing_finished.emit(False, "No stems found in MDX-C output")
+                        return False
+                else:
+                    # Use the specifically requested stem
+                    source_primary = sources[self.model_data.mdxnet_stem_select]
+            else:
+                source_primary = sources
+
+        if not self.model_data.is_secondary_stem_only:
+            primary_path = os.path.join(self.model_data.export_path, f'{Path(self.model_data.audio_file).stem}_({self.model_data.primary_stem}).wav')
+            primary_audio = source_primary.T if hasattr(source_primary, 'T') else source_primary
+            self._write_stem_file(primary_path, primary_audio, self.model_data.primary_stem)
+
+        if not self.model_data.is_primary_stem_only:
+            secondary_path = os.path.join(self.model_data.export_path, f'{Path(self.model_data.audio_file).stem}_({self.model_data.secondary_stem}).wav')
+            if isinstance(sources, dict) and len(stem_list) >= 2:
+                secondary_audio = sources[self.model_data.secondary_stem].T
+            else:
+                raw_mix = mix.T if hasattr(mix, 'T') else mix
+                if self.model_data.is_invert_spec:
+                    secondary_audio = spec_utils.invert_stem(raw_mix, primary_audio)
+                else:
+                    secondary_audio = raw_mix - primary_audio
+            self._write_stem_file(secondary_path, secondary_audio, self.model_data.secondary_stem)
+
+        del model
+        if hasattr(torch.cuda, 'empty_cache'):
+            torch.cuda.empty_cache()
+
+        return True
+
+    def _process_demucs(self, process_data: Dict[str, Any]) -> bool:
         logger.info("Starting Demucs processing")
         logger.info(f"Model path: {self.model_data.model_path}")
         logger.info(f"Model basename: {self.model_data.model_basename}")
@@ -496,7 +816,7 @@ class ProcessingWorker(QObject):
             else:
                 logger.info(f"Model directory does not exist: {model_dir}")
 
-        self._execute_separation_pipeline(ac.DEMUCS_ARCH_TYPE, process_data)
+        return self._execute_separation_pipeline(ac.DEMUCS_ARCH_TYPE, process_data)
 
     def _align_spectrograms(
         self, spec_list: List[np.ndarray]
@@ -536,24 +856,32 @@ class ProcessingWorker(QObject):
         return aligned_specs
 
     def _process_ensemble(self, initial_input_audio: np.ndarray):
-        self._write_to_console("====== ENTERING _process_ensemble ======", "")
+        self._write_to_console("====== STARTING ENSEMBLE PROCESSING ======", "")
         if not self.model_data or not self.model_data.ensemble_models:
             self.processing_finished.emit(
                 False, "Ensemble not configured or no models in ensemble."
             )
             return
 
+        # Check minimum models for ensemble
+        num_models = len(self.model_data.ensemble_models)
+        if num_models < 2:
+            error_msg = f"Ensemble requires at least 2 models, but only {num_models} model(s) selected"
+            if num_models == 1:
+                error_msg += f": '{self.model_data.ensemble_models[0].model_basename}'"
+            self._write_to_console(f"❌ {error_msg}", "")
+            self.processing_finished.emit(False, f"Ensemble failed: {error_msg}")
+            return
+
         self.progress_updated.emit(
             10, f"Starting Ensemble: {self.model_data.model_basename}..."
         )
         self._write_to_console(
-            f"Starting ensemble with {len(self.model_data.ensemble_models)} models",
-            "",
+            f"Starting ensemble with {num_models} models", ""
         )
 
         # Store all outputs from ensemble models
         all_outputs: Dict[str, List[np.ndarray]] = {}
-        num_models = len(self.model_data.ensemble_models)
 
         ensemble_output_base = (
             Path(self.model_data.audio_file).stem
@@ -562,6 +890,7 @@ class ProcessingWorker(QObject):
         )
 
         # Process each model in the ensemble
+        successful_models = 0
         for i, member_model_data in enumerate(self.model_data.ensemble_models):
             if not self._is_running:
                 return
@@ -570,57 +899,53 @@ class ProcessingWorker(QObject):
                 f"Ensemble: Processing model {i+1}/{num_models} ({member_model_data.model_basename})...",
             )
 
-            member_process_data = self._create_process_data_for_chained_model(
-                member_model_data,
-                initial_input_audio,
-                is_ensemble_run=True,
-                ensemble_audio_file_base=ensemble_output_base,
-            )
-            member_separator = self._get_separator_for_model(
-                member_model_data, member_process_data
-            )
+            # Process individual model directly
+            member_results = self._process_individual_model(member_model_data, initial_input_audio)
 
-            if not member_separator:
-                self._write_to_console(
-                    f"Skipping ensemble member {member_model_data.model_basename}: Could not create separator.",
-                    "",
-                )
-                continue
-
-            member_results = member_separator.separate()
             if member_results and self._is_running:
+                successful_models += 1
                 self._write_to_console(
-                    f"Model {member_model_data.model_basename} produced stems: {list(member_results.keys())}",
-                    "",
+                    f"✓ {member_model_data.model_basename} completed successfully", ""
+                )
+                self._write_to_console(
+                    f"  Produced stems: {list(member_results.keys())}", ""
                 )
 
                 # Store outputs by stem name
                 for stem_name, stem_audio in member_results.items():
                     if stem_audio is not None and stem_audio.size > 0:
                         self._write_to_console(
-                            f"{stem_name} shape: {stem_audio.shape}", ""
+                            f"  {stem_name} shape: {stem_audio.shape}", ""
                         )
                         if stem_name not in all_outputs:
                             all_outputs[stem_name] = []
                         all_outputs[stem_name].append(stem_audio)
                     else:
                         self._write_to_console(
-                            f"{stem_name} is None or empty, skipping", ""
+                            f"  {stem_name} is None or empty, skipping", ""
                         )
             elif self._is_running:
                 self._write_to_console(
-                    f"Ensemble member {member_model_data.model_basename} produced no results.",
-                    "",
+                    f"❌ {member_model_data.model_basename} failed to produce results", ""
                 )
 
             if clear_gpu_cache_logic:
                 clear_gpu_cache_logic()
 
-        if not self._is_running or not all_outputs:
-            if self._is_running:
-                self.processing_finished.emit(
-                    False, "Ensemble processing failed: No results from members."
-                )
+        if not self._is_running:
+            return
+
+        # Check if we have enough successful models
+        if successful_models < 2:
+            error_msg = f"Ensemble requires at least 2 successful models, but only {successful_models} out of {num_models} models produced results"
+            self._write_to_console(f"❌ {error_msg}", "")
+            self.processing_finished.emit(False, f"Ensemble failed: {error_msg}")
+            return
+
+        if not all_outputs:
+            self.processing_finished.emit(
+                False, "Ensemble processing failed: No results from any members."
+            )
             return
 
         self.progress_updated.emit(90, "Combining ensemble results...")
@@ -640,22 +965,58 @@ class ProcessingWorker(QObject):
         self._write_to_console(f"Ensemble type: {self.model_data.ensemble_type}", "")
 
         # Process each available stem
+        stems_saved = 0
         for stem_name in available_stems:
             if not self._is_running:
                 return
 
-            stem_outputs = all_outputs[stem_name]
-            if len(stem_outputs) < 2:
-                self._write_to_console(
-                    f"Only {len(stem_outputs)} outputs for {stem_name}, skipping ensemble",
-                    "",
-                )
+            # Check if we should save this stem based on user settings
+            should_save_stem = True
+            if getattr(self.model_data, 'is_primary_stem_only', False):
+                # Only save primary stem
+                primary_stem = getattr(self.model_data, 'ensemble_primary_stem', None)
+                
+                # If primary stem is not set, try to infer from ensemble main stem pair
+                if not primary_stem:
+                    main_stem_pair = getattr(self.model_data, 'ensemble_main_stem_pair', '')
+                    if '/' in main_stem_pair:
+                        primary_stem = main_stem_pair.split('/')[0].strip()
+                        self._write_to_console(f"🔍 Inferred primary stem from pair '{main_stem_pair}': {primary_stem}", "")
+                
+                if primary_stem and stem_name != primary_stem:
+                    self._write_to_console(f"⏭️ Skipping {stem_name} (primary stem only mode, primary: {primary_stem})", "")
+                    should_save_stem = False
+            elif getattr(self.model_data, 'is_secondary_stem_only', False):
+                # Only save secondary stem 
+                secondary_stem = getattr(self.model_data, 'ensemble_secondary_stem', None)
+                
+                # If secondary stem is not set, try to infer from ensemble main stem pair
+                if not secondary_stem:
+                    main_stem_pair = getattr(self.model_data, 'ensemble_main_stem_pair', '')
+                    if '/' in main_stem_pair:
+                        secondary_stem = main_stem_pair.split('/')[1].strip()
+                        # Handle "No X" cases by mapping to appropriate stem
+                        if secondary_stem.startswith('No '):
+                            secondary_stem = ac.INST_STEM  # Default to instrumental for "No X" cases
+                        self._write_to_console(f"🔍 Inferred secondary stem from pair '{main_stem_pair}': {secondary_stem}", "")
+                
+                if secondary_stem and stem_name != secondary_stem:
+                    self._write_to_console(f"⏭️ Skipping {stem_name} (secondary stem only mode, secondary: {secondary_stem})", "")
+                    should_save_stem = False
+            
+            if not should_save_stem:
                 continue
 
+            stem_outputs = all_outputs[stem_name]
             self._write_to_console(
-                f"Processing stem: {stem_name} with {len(stem_outputs)} outputs",
-                "",
+                f"Processing stem: {stem_name} with {len(stem_outputs)} outputs", ""
             )
+            
+            if len(stem_outputs) < 2:
+                self._write_to_console(
+                    f"⚠️ Only {len(stem_outputs)} outputs for {stem_name}, need at least 2 for ensemble - skipping", ""
+                )
+                continue
 
             # Apply ensemble algorithm
             ensembled_audio = self._combine_ensemble_outputs(
@@ -664,54 +1025,913 @@ class ProcessingWorker(QObject):
 
             if ensembled_audio is not None and ensembled_audio.size > 0:
                 self._write_to_console(
-                    f"Ensembled {stem_name} shape: {ensembled_audio.shape}", ""
+                    f"✓ Successfully ensembled {stem_name} - shape: {ensembled_audio.shape}", ""
                 )
 
-                # Save the ensembled result
-                save_md = ModelData(
-                    save_format=self.model_data.save_format,
-                    wav_type_set=self.model_data.wav_type_set,
-                    mp3_bit_set=self.model_data.mp3_bit_set,
-                    is_normalization=self.model_data.is_normalization,
-                )
-                samplerate_to_save = (
-                    self.model_data.ensemble_models[0].model_samplerate
-                    if self.model_data.ensemble_models
-                    else ac.DEFAULT_SAMPLE_RATE
-                )
+                # Save the ensembled result - use direct soundfile for simplicity
+                try:
+                    samplerate_to_save = 44100  # Use standard sample rate for ensemble output
+                    self._write_to_console(f"✓ Sample rate: {samplerate_to_save}", "")
 
-                # Ensure proper audio format for writing
-                if ensembled_audio.ndim == 1:
-                    ensembled_audio = np.asfortranarray(
-                        [ensembled_audio, ensembled_audio]
+                    # Ensure proper audio format for writing - soundfile expects (N, 2) format
+                    if ensembled_audio.ndim == 1:
+                        # Convert mono to stereo: (N,) -> (N, 2)
+                        ensembled_audio_final = np.column_stack([ensembled_audio, ensembled_audio])
+                    elif ensembled_audio.ndim == 2:
+                        if ensembled_audio.shape[0] == 2:
+                            # Convert (2, N) -> (N, 2)
+                            ensembled_audio_final = ensembled_audio.T
+                        else:
+                            # Already (N, 2) or similar
+                            ensembled_audio_final = ensembled_audio
+                    else:
+                        self._write_to_console(f"❌ Invalid audio dimensions: {ensembled_audio.shape}", "")
+                        continue
+
+                    # Get save format from model data or default to WAV
+                    save_format = getattr(self.model_data, 'save_format', 'WAV').upper()
+                    file_ext = save_format.lower()
+                    
+                    output_path = (
+                        Path(self.model_data.export_path)
+                        / f"{ensemble_output_base}_({stem_name}_Ensemble).{file_ext}"
                     )
-                if (
-                    ensembled_audio.shape[0] < ensembled_audio.shape[1]
-                    and ensembled_audio.ndim == 2
-                ):
-                    ensembled_audio = ensembled_audio.T
 
-                output_path = (
-                    Path(self.model_data.export_path)
-                    / f"{ensemble_output_base}_({stem_name}_Ensemble).{save_md.save_format.lower()}"
-                )
+                    self._write_to_console(
+                        f"Saving ensemble {stem_name} to: {output_path}", ""
+                    )
+                    self._write_to_console(f"Final audio shape: {ensembled_audio_final.shape}, dtype: {ensembled_audio_final.dtype}", "")
 
-                write_audio_logic(
-                    stem_path_str=str(output_path),
-                    stem_source=ensembled_audio,
-                    samplerate=samplerate_to_save,
-                    model_data=save_md,
-                    stem_name=f"{stem_name} (Ensemble)",
-                    process_data=self._create_process_data(),
-                )
+                    # Validate parameters
+                    if not isinstance(ensembled_audio_final, np.ndarray):
+                        raise ValueError(f"Invalid audio data type: {type(ensembled_audio_final)}")
+                    if ensembled_audio_final.size == 0:
+                        raise ValueError("Audio data is empty")
+                    if not isinstance(samplerate_to_save, int) or samplerate_to_save <= 0:
+                        raise ValueError(f"Invalid sample rate: {samplerate_to_save}")
+                    
+                    self._write_to_console(f"✓ All parameters validated successfully", "")
+                    
+                    # Use soundfile directly for ensemble save
+                    import soundfile as sf
+                    
+                    # Apply normalization if enabled
+                    if getattr(self.model_data, 'is_normalization', False):
+                        max_val = np.abs(ensembled_audio_final).max()
+                        if max_val > 0:
+                            ensembled_audio_final = ensembled_audio_final / max_val
+                    
+                    # Determine subtype for WAV files
+                    subtype = None
+                    if save_format == 'WAV':
+                        wav_type = getattr(self.model_data, 'wav_type_set', 'PCM_16')
+                        if wav_type == 'PCM_16':
+                            subtype = 'PCM_16'
+                        elif wav_type == 'PCM_24':
+                            subtype = 'PCM_24'
+                        elif wav_type == 'FLOAT':
+                            subtype = 'FLOAT'
+                        else:
+                            subtype = 'PCM_16'  # Default
+                    
+                    # Save the file
+                    sf.write(str(output_path), ensembled_audio_final, samplerate_to_save, subtype=subtype)
+                    
+                    self._write_to_console(
+                        f"✓ Successfully saved ensemble {stem_name} to {output_path.name}", ""
+                    )
+                    stems_saved += 1
+                        
+                except Exception as save_error:
+                    self._write_to_console(
+                        f"❌ Error saving ensemble {stem_name}: {save_error}", ""
+                    )
+                    # Add more detailed error information
+                    import traceback
+                    self._write_to_console(f"❌ Save error details: {traceback.format_exc()}", "")
             else:
                 self._write_to_console(
-                    f"Failed to ensemble {stem_name}: empty result", ""
+                    f"❌ Failed to ensemble {stem_name}: empty or invalid result", ""
                 )
 
         if self._is_running:
-            self.progress_updated.emit(100, "Ensemble processing complete!")
-            self.processing_finished.emit(True, "Successfully processed ensemble.")
+            total_available = len(available_stems)
+            combinable_stems = sum(1 for stem in available_stems if len(all_outputs[stem]) >= 2)
+            
+            self._write_to_console(
+                f"====== ENSEMBLE SUMMARY ======", ""
+            )
+            self._write_to_console(
+                f"Models processed: {successful_models}/{num_models}", ""
+            )
+            self._write_to_console(
+                f"Stems found: {total_available}", ""
+            )
+            self._write_to_console(
+                f"Stems combinable: {combinable_stems}", ""
+            )
+            self._write_to_console(
+                f"Stems saved: {stems_saved}", ""
+            )
+            
+            if stems_saved > 0:
+                self.progress_updated.emit(100, "Ensemble processing complete!")
+                self.processing_finished.emit(True, f"✓ Ensemble completed successfully - saved {stems_saved} stem(s)")
+            else:
+                error_msg = "❌ Ensemble failed - no outputs were saved"
+                if total_available == 0:
+                    error_msg += " (no stems produced by member models)"
+                elif combinable_stems == 0:
+                    error_msg += f" (need at least 2 outputs per stem for ensembling, but all {total_available} stems had insufficient outputs)"
+                else:
+                    error_msg += " (unknown error during save)"
+                self._write_to_console(error_msg, "")
+                self.processing_finished.emit(False, error_msg)
+
+    def _process_individual_model(self, model_data: ModelData, input_audio: np.ndarray) -> Optional[Dict[str, np.ndarray]]:
+        """Process a single model and return its results"""
+        try:
+            # Store current model data temporarily
+            original_model_data = self.model_data
+            self.model_data = model_data
+            
+            self._write_to_console(f"🔄 Processing model: {model_data.model_basename}", "")
+            self._write_to_console(f"  Method: {model_data.process_method}", "")
+            self._write_to_console(f"  Input audio shape: {input_audio.shape}", "")
+            
+            # Ensure input audio is in correct format (2, N) for processing
+            if input_audio.ndim == 1:
+                # Convert mono to stereo
+                processed_audio = np.asfortranarray([input_audio, input_audio])
+            elif input_audio.ndim == 2:
+                if input_audio.shape[0] > input_audio.shape[1]:
+                    # If shape is (N, 2), transpose to (2, N)
+                    processed_audio = input_audio.T
+                else:
+                    # Already (2, N)
+                    processed_audio = input_audio
+            else:
+                self._write_to_console(f"❌ Invalid input audio dimensions: {input_audio.shape}", "")
+                return None
+                
+            self._write_to_console(f"  Processed audio shape: {processed_audio.shape}", "")
+            
+            # Process based on method
+            success = False
+            if model_data.process_method == ac.VR_ARCH_TYPE:
+                success = self._process_vr_arch_direct(processed_audio)
+            elif model_data.process_method == ac.MDX_ARCH_TYPE:
+                if model_data.is_mdx_c:
+                    success = self._process_mdx_c_direct(processed_audio)
+                else:
+                    success = self._process_mdx_regular_direct(processed_audio)
+            elif model_data.process_method == ac.DEMUCS_ARCH_TYPE:
+                success = self._process_demucs_direct(processed_audio)
+            else:
+                self._write_to_console(f"❌ Unsupported method: {model_data.process_method}", "")
+                return None
+                
+            self._write_to_console(f"  Processing success: {success}", "")
+                
+            # Restore original model data
+            self.model_data = original_model_data
+            
+            if success:
+                # Return the processed stems
+                results = {}
+                if hasattr(self, '_temp_primary_result'):
+                    results[model_data.primary_stem] = self._temp_primary_result
+                    self._write_to_console(f"  ✓ Primary stem ({model_data.primary_stem}): {self._temp_primary_result.shape}", "")
+                    delattr(self, '_temp_primary_result')
+                if hasattr(self, '_temp_secondary_result'):
+                    results[model_data.secondary_stem] = self._temp_secondary_result
+                    self._write_to_console(f"  ✓ Secondary stem ({model_data.secondary_stem}): {self._temp_secondary_result.shape}", "")
+                    delattr(self, '_temp_secondary_result')
+                if hasattr(self, '_temp_demucs_results'):
+                    # For Demucs, return all stems from the results dictionary
+                    for stem_name, stem_audio in self._temp_demucs_results.items():
+                        self._write_to_console(f"  ✓ Demucs stem ({stem_name}): {stem_audio.shape}", "")
+                    results.update(self._temp_demucs_results)
+                    delattr(self, '_temp_demucs_results')
+                    
+                self._write_to_console(f"  📋 Final results: {list(results.keys())}", "")
+                return results
+            else:
+                self._write_to_console(f"  ❌ Processing failed for {model_data.model_basename}", "")
+                return None
+                
+        except Exception as e:
+            self._write_to_console(f"❌ Error processing {model_data.model_basename}: {e}", "")
+            import traceback
+            self._write_to_console(f"❌ Traceback: {traceback.format_exc()}", "")
+            # Restore original model data
+            if 'original_model_data' in locals():
+                self.model_data = original_model_data
+            return None
+
+    def _process_vr_arch_direct(self, input_audio: np.ndarray) -> bool:
+        """Process VR model directly for ensemble - returns audio in memory"""
+        try:
+            import math
+            import os
+            from lib_v5.vr_network import nets, nets_new
+            from lib_v5 import spec_utils
+        except ImportError:
+            self._write_to_console("❌ Required VR modules not available", "")
+            return False
+
+        try:
+            # Save input audio to temporary file for processing
+            temp_audio_file = self._save_temp_audio(input_audio)
+            
+            self._write_to_console(f"  Loading VR model: {self.model_data.model_basename}", "")
+            
+            # Initialize device
+            device = self.device_torch
+            
+            # Determine model architecture based on file size
+            nn_arch_sizes = [31191, 33966, 56817, 123821, 123812, 129605, 218409, 537238, 537227]
+            vr_5_1_models = [56817, 218409]
+            model_size = math.ceil(os.stat(self.model_data.model_path).st_size / 1024)
+            nn_arch_size = min(nn_arch_sizes, key=lambda x: abs(x - model_size))
+
+            # Load model
+            if nn_arch_size in vr_5_1_models or self.model_data.is_vr_51_model:
+                model_run = nets_new.CascadedNet(
+                    self.model_data.vr_model_param.param['bins'] * 2,
+                    nn_arch_size,
+                    nout=self.model_data.model_capacity[0],
+                    nout_lstm=self.model_data.model_capacity[1]
+                )
+                is_vr_51_model = True
+            else:
+                model_run = nets.determine_model_capacity(
+                    self.model_data.vr_model_param.param['bins'] * 2, nn_arch_size
+                )
+                is_vr_51_model = False
+
+            model_run.load_state_dict(torch.load(self.model_data.model_path, map_location='cpu'))
+            model_run.to(device)
+            model_run.eval()
+
+            # Set temp audio file for loading_mix_vr
+            original_audio_file = self.model_data.audio_file
+            self.model_data.audio_file = temp_audio_file
+
+            # Load and prepare audio mix
+            X_spec = self._loading_mix_vr()
+            if X_spec is None:
+                self._write_to_console("❌ Failed to load audio for VR processing", "")
+                return False
+
+            # Run inference
+            y_spec, v_spec = self._inference_vr(X_spec, device, model_run, is_vr_51_model)
+            
+            if y_spec is None or v_spec is None:
+                self._write_to_console("❌ VR inference failed", "")
+                return False
+
+            # Convert to audio
+            primary_audio = self._spec_to_wav_vr(y_spec, is_vr_51_model).T
+            secondary_audio = self._spec_to_wav_vr(v_spec, is_vr_51_model).T
+
+            # Resample if needed
+            if self.model_data.model_samplerate != 44100:
+                primary_audio = librosa.resample(
+                    primary_audio.T, 
+                    orig_sr=self.model_data.model_samplerate, 
+                    target_sr=44100
+                ).T
+                secondary_audio = librosa.resample(
+                    secondary_audio.T, 
+                    orig_sr=self.model_data.model_samplerate, 
+                    target_sr=44100
+                ).T
+
+            # Store results temporarily
+            self._temp_primary_result = primary_audio
+            self._temp_secondary_result = secondary_audio
+
+            # Restore original audio file
+            self.model_data.audio_file = original_audio_file
+            
+            # Cleanup
+            del model_run
+            if hasattr(torch.cuda, 'empty_cache'):
+                torch.cuda.empty_cache()
+            
+            # Remove temp file
+            try:
+                os.unlink(temp_audio_file)
+            except:
+                pass
+
+            return True
+            
+        except Exception as e:
+            self._write_to_console(f"❌ VR processing error: {e}", "")
+            import traceback
+            self._write_to_console(f"❌ VR traceback: {traceback.format_exc()}", "")
+            return False
+
+    def _process_mdx_regular_direct(self, input_audio: np.ndarray) -> bool:
+        """Process regular MDX model directly for ensemble"""
+        try:
+            import lib_v5.mdxnet as MdxnetSet
+            from lib_v5.tfc_tdf_v3 import STFT
+            from lib_v5 import spec_utils
+            from onnx import load
+            from onnx2pytorch import ConvertModel
+            import onnxruntime as ort
+        except ImportError:
+            self._write_to_console("❌ Required MDX modules not available", "")
+            return False
+
+        try:
+            self._write_to_console(f"  Loading MDX model: {self.model_data.model_basename}", "")
+            
+            # Load model (same as before)
+            if self.model_data.is_mdx_ckpt:
+                model_params = torch.load(self.model_data.model_path, map_location=lambda storage, loc: storage)['hyper_parameters']
+                dim_c, hop_length = model_params['dim_c'], model_params['hop_length']
+                separator = MdxnetSet.ConvTDFNet(**model_params)
+                model_run = separator.load_from_checkpoint(self.model_data.model_path).to(self.device_torch).eval()
+            else:
+                dim_c, hop_length = 4, 1024
+                if self.model_data.mdx_segment_size == self.model_data.mdx_dim_t_set and self.device != 'mps':
+                    providers = ['CUDAExecutionProvider', 'CPUExecutionProvider'] if self.device.startswith('cuda') else ['CPUExecutionProvider']
+                    ort_session = ort.InferenceSession(self.model_data.model_path, providers=providers)
+                    model_run = lambda spek: ort_session.run(None, {'input': spek.cpu().numpy()})[0]
+                else:
+                    model_run = ConvertModel(load(self.model_data.model_path))
+                    model_run.to(self.device_torch).eval()
+
+            # Use input audio directly - ensure it's in (2, N) format
+            mix = input_audio
+            self._write_to_console(f"  Input audio shape: {mix.shape}", "")
+
+            # Run separation
+            source = self._demix_mdx(mix, model_run, hop_length, dim_c)
+            if source is None:
+                self._write_to_console("❌ MDX demixing failed", "")
+                return False
+
+            # Store results
+            self._temp_primary_result = source.T
+            raw_mix = mix.T if hasattr(mix, 'T') else mix
+            if self.model_data.is_invert_spec:
+                secondary_audio = spec_utils.invert_stem(raw_mix, source.T)
+            else:
+                secondary_audio = raw_mix - source.T
+            self._temp_secondary_result = secondary_audio
+
+            if hasattr(torch.cuda, 'empty_cache'):
+                torch.cuda.empty_cache()
+
+            return True
+            
+        except Exception as e:
+            self._write_to_console(f"❌ MDX processing error: {e}", "")
+            import traceback
+            self._write_to_console(f"❌ MDX traceback: {traceback.format_exc()}", "")
+            return False
+
+    def _process_mdx_c_direct(self, input_audio: np.ndarray) -> bool:
+        """Process MDX-C model directly for ensemble"""
+        try:
+            from lib_v5.tfc_tdf_v3 import TFC_TDF_net
+            from lib_v5 import spec_utils
+        except ImportError:
+            self._write_to_console("❌ Required MDX-C modules not available", "")
+            return False
+
+        try:
+            self._write_to_console(f"  Loading MDX-C model: {self.model_data.model_basename}", "")
+            
+            # Load model
+            model = TFC_TDF_net(self.model_data.mdx_c_configs, device=self.device_torch)
+            model.load_state_dict(torch.load(self.model_data.model_path, map_location='cpu'))
+            model.to(self.device_torch).eval()
+
+            # Use input audio directly - ensure it's in (2, N) format
+            mix = input_audio
+            self._write_to_console(f"  Input audio shape: {mix.shape}", "")
+
+            # Run separation
+            sources = self._demix_mdx_c(mix, model)
+            if sources is None:
+                self._write_to_console("❌ MDX-C demixing failed", "")
+                return False
+
+            # Store results
+            stem_list = [self.model_data.mdx_c_configs.training.target_instrument] if self.model_data.mdx_c_configs.training.target_instrument else [i for i in self.model_data.mdx_c_configs.training.instruments]
+
+            if len(stem_list) == 1:
+                source_primary = sources
+            else:
+                # Handle stem selection for multi-stem models
+                if isinstance(sources, dict):
+                    # Log available stems for debugging
+                    self._write_to_console(f"  Available stems: {list(sources.keys())}", "")
+                    self._write_to_console(f"  Requested stem: {self.model_data.mdxnet_stem_select}", "")
+                    
+                    # Handle special cases
+                    if self.model_data.mdxnet_stem_select == 'All Stems' or self.model_data.mdxnet_stem_select not in sources:
+                        # If 'All Stems' or invalid selection, use the primary stem (usually vocals)
+                        # Try common primary stem names in order of preference
+                        primary_stem_candidates = [self.model_data.primary_stem, 'vocals', 'vocal', 'Vocals', 'Vocal']
+                        source_primary = None
+                        
+                        for candidate in primary_stem_candidates:
+                            if candidate in sources:
+                                source_primary = sources[candidate]
+                                self._write_to_console(f"  Using primary stem: {candidate}", "")
+                                break
+                        
+                        # If no primary stem found, use the first available stem
+                        if source_primary is None and sources:
+                            first_stem = list(sources.keys())[0]
+                            source_primary = sources[first_stem]
+                            self._write_to_console(f"  Using first available stem: {first_stem}", "")
+                        elif source_primary is None:
+                            self._write_to_console("❌ No stems found in MDX-C output", "")
+                            return False
+                    else:
+                        # Use the specifically requested stem
+                        source_primary = sources[self.model_data.mdxnet_stem_select]
+                else:
+                    source_primary = sources
+
+            self._temp_primary_result = source_primary.T if hasattr(source_primary, 'T') else source_primary
+
+            if isinstance(sources, dict) and len(stem_list) >= 2:
+                secondary_audio = sources[self.model_data.secondary_stem].T
+            else:
+                raw_mix = mix.T if hasattr(mix, 'T') else mix
+                if self.model_data.is_invert_spec:
+                    secondary_audio = spec_utils.invert_stem(raw_mix, self._temp_primary_result)
+                else:
+                    secondary_audio = raw_mix - self._temp_primary_result
+            self._temp_secondary_result = secondary_audio
+
+            del model
+            if hasattr(torch.cuda, 'empty_cache'):
+                torch.cuda.empty_cache()
+
+            return True
+            
+        except Exception as e:
+            self._write_to_console(f"❌ MDX-C processing error: {e}", "")
+            import traceback
+            self._write_to_console(f"❌ MDX-C traceback: {traceback.format_exc()}", "")
+            return False
+
+    def _process_demucs_direct(self, input_audio: np.ndarray) -> bool:
+        """Process Demucs model directly for ensemble"""
+        try:
+            import gzip
+            import os
+            from pathlib import Path
+            from demucs.apply import apply_model, demucs_segments
+            from demucs.utils import apply_model_v1, apply_model_v2
+            from demucs.pretrained import get_model as _gm
+            from demucs.demucs import HDemucs
+            from lib_v5 import spec_utils
+        except ImportError as e:
+            self._write_to_console(f"❌ Required Demucs modules not available: {e}", "")
+            return False
+
+        self._write_to_console(f"  Loading Demucs model: {self.model_data.model_basename}", "")
+
+        # Save input audio to temporary file for processing
+        temp_audio_file = self._save_temp_audio(input_audio)
+        
+        try:
+            # Prepare audio like in separate.py
+            mix = prepare_mix_logic(temp_audio_file)
+            if mix is None:
+                self._write_to_console("❌ Failed to load audio for Demucs processing", "")
+                return False
+
+            self._write_to_console(f"  Loaded audio shape: {mix.shape}", "")
+
+            # Load model based on version like in separate.py lines 819-833
+            try:
+                if self.model_data.demucs_version == ac.DEMUCS_V1:
+                    if str(self.model_data.model_path).endswith(".gz"):
+                        model_path = gzip.open(self.model_data.model_path, "rb")
+                    else:
+                        model_path = self.model_data.model_path
+                    klass, args, kwargs, state = torch.load(model_path)
+                    demucs_model = klass(*args, **kwargs)
+                    demucs_model.to(self.device_torch)
+                    demucs_model.load_state_dict(state)
+                elif self.model_data.demucs_version == ac.DEMUCS_V2:
+                    # Load v2 model - using simplified approach for ensemble
+                    demucs_model = torch.load(self.model_data.model_path, map_location='cpu')
+                    demucs_model.to(self.device_torch)
+                    demucs_model.eval()
+                else:  # V3/V4
+                    self._write_to_console(f"  Loading V3/V4 model from: {self.model_data.model_path}", "")
+                    
+                    # For V3/V4, load using get_model exactly like in separate.py
+                    model_name = os.path.splitext(os.path.basename(self.model_data.model_path))[0]
+                    model_dir = Path(os.path.dirname(self.model_data.model_path))
+                    
+                    self._write_to_console(f"  Model name: {model_name}", "")
+                    self._write_to_console(f"  Model dir: {model_dir}", "")
+                    
+                    # Load the model using get_model exactly as in separate.py
+                    demucs_model = _gm(name=model_name, repo=model_dir)
+                    
+                    if demucs_model is None:
+                        raise Exception(f"Failed to load model {model_name} from {model_dir}")
+                    
+                    # Apply segments wrapper like in separate.py
+                    demucs_model = demucs_segments(self.model_data.segment, demucs_model)
+                    
+                    demucs_model.to(self.device_torch)
+                    demucs_model.eval()
+                    
+                self._write_to_console("  ✓ Model loaded successfully", "")
+            except Exception as model_error:
+                self._write_to_console(f"❌ Failed to load Demucs model: {model_error}", "")
+                import traceback
+                self._write_to_console(f"❌ Model loading traceback: {traceback.format_exc()}", "")
+                return False
+
+            self._write_to_console("  Running Demucs demixing...", "")
+
+            # Process audio like in demix_demucs method (lines 973-1020)
+            org_mix = mix
+            
+            if getattr(self.model_data, 'is_pitch_change', False):
+                mix, sr_pitched = spec_utils.change_pitch_semitones(
+                    mix, 44100, semitone_shift=-self.model_data.semitone_shift
+                )
+
+            processed = {}
+            mix = torch.tensor(mix, dtype=torch.float32)
+            ref = mix.mean(0)
+            mix = (mix - ref.mean()) / ref.std()
+            mix_infer = mix
+
+            with torch.no_grad():
+                try:
+                    if self.model_data.demucs_version == ac.DEMUCS_V1:
+                        sources = apply_model_v1(
+                            demucs_model,
+                            mix_infer.to(self.device_torch),
+                            getattr(self.model_data, 'shifts', 1),
+                            getattr(self.model_data, 'is_split_mode', True),
+                            set_progress_bar=self._set_progress_bar_callback
+                        )
+                    elif self.model_data.demucs_version == ac.DEMUCS_V2:
+                        sources = apply_model_v2(
+                            demucs_model,
+                            mix_infer.to(self.device_torch),
+                            getattr(self.model_data, 'shifts', 1),
+                            getattr(self.model_data, 'is_split_mode', True),
+                            getattr(self.model_data, 'overlap', 0.25),
+                            set_progress_bar=self._set_progress_bar_callback
+                        )
+                    else:  # V3/V4
+                        shifts = getattr(self.model_data, 'shifts', 1)
+                        overlap = getattr(self.model_data, 'overlap', 0.25)
+                        is_split_mode = getattr(self.model_data, 'is_split_mode', True)
+                        
+                        self._write_to_console(f"  Inference params - shifts: {shifts}, overlap: {overlap}, split_mode: {is_split_mode}", "")
+                        
+                        sources = apply_model(
+                            demucs_model,
+                            mix_infer[None],
+                            shifts,
+                            is_split_mode,
+                            overlap,
+                            static_shifts=1 if shifts == 0 else shifts,
+                            set_progress_bar=self._set_progress_bar_callback,
+                            device=self.device_torch
+                        )[0]
+                        
+                    self._write_to_console("  ✓ Demucs inference completed", "")
+                    self._write_to_console(f"  Raw sources shape: {sources.shape if hasattr(sources, 'shape') else type(sources)}", "")
+                except Exception as inference_error:
+                    self._write_to_console(f"❌ Demucs inference failed: {inference_error}", "")
+                    import traceback
+                    self._write_to_console(f"❌ Inference traceback: {traceback.format_exc()}", "")
+                    return False
+
+            # Post-process like in separate.py
+            try:
+                sources = (sources * ref.std() + ref.mean()).cpu().numpy()
+                self._write_to_console(f"  After denormalization: {sources.shape}", "")
+                
+                sources[[0, 1]] = sources[[1, 0]]  # Swap first two channels
+                self._write_to_console(f"  After channel swap: {sources.shape}", "")
+                
+                processed[mix] = sources[:, :, 0:None].copy()
+                sources = list(processed.values())
+                sources = [s[:, :, 0:None] for s in sources]
+                sources = np.concatenate(sources, axis=-1)
+                
+                self._write_to_console(f"  Final processed sources shape: {sources.shape}", "")
+            except Exception as postprocess_error:
+                self._write_to_console(f"❌ Post-processing failed: {postprocess_error}", "")
+                import traceback
+                self._write_to_console(f"❌ Post-processing traceback: {traceback.format_exc()}", "")
+                return False
+
+            if getattr(self.model_data, 'is_pitch_change', False):
+                sources = np.stack([
+                    self._pitch_fix_demucs(stem, sr_pitched, org_mix) for stem in sources
+                ])
+
+            self._write_to_console(f"  Processed {len(sources)} source(s)", "")
+
+            # Map sources to stem names using demucs source map
+            try:
+                demucs_source_map = self._get_demucs_source_map(len(sources))
+                self._write_to_console(f"  Source mapping for {len(sources)} sources: {demucs_source_map}", "")
+                
+                # Create results dictionary matching expected format
+                results = {}
+                for stem_name, stem_idx in demucs_source_map.items():
+                    if stem_idx < len(sources):
+                        stem_audio = sources[stem_idx].T  # Transpose to match expected format
+                        results[stem_name] = stem_audio
+                        self._write_to_console(f"    ✓ {stem_name}: {stem_audio.shape}", "")
+                    else:
+                        self._write_to_console(f"    ⚠️ {stem_name}: index {stem_idx} >= {len(sources)}", "")
+
+                if not results:
+                    self._write_to_console("❌ No valid results after source mapping", "")
+                    return False
+
+                # Store results temporarily for ensemble processing
+                self._temp_demucs_results = results
+                self._write_to_console(f"  ✓ Stored {len(results)} results: {list(results.keys())}", "")
+                
+            except Exception as mapping_error:
+                self._write_to_console(f"❌ Source mapping failed: {mapping_error}", "")
+                import traceback
+                self._write_to_console(f"❌ Mapping traceback: {traceback.format_exc()}", "")
+                return False
+
+        except Exception as e:
+            self._write_to_console(f"❌ Demucs processing failed: {e}", "")
+            import traceback
+            self._write_to_console(f"❌ Full traceback: {traceback.format_exc()}", "")
+            return False
+        finally:
+            # Clean up like in separate.py
+            if 'demucs_model' in locals():
+                del demucs_model
+                if hasattr(torch.cuda, 'empty_cache'):
+                    torch.cuda.empty_cache()
+
+        return True
+
+    def _save_temp_audio(self, audio: np.ndarray) -> str:
+        """Save audio array to a temporary file"""
+        import tempfile
+        import soundfile as sf
+        
+        try:
+            with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
+                # Ensure audio is in correct format for saving
+                if audio.ndim == 1:
+                    # Mono audio
+                    sf.write(f.name, audio, 44100)
+                elif audio.ndim == 2:
+                    if audio.shape[0] == 2:
+                        # (2, N) format - transpose to (N, 2) for soundfile
+                        sf.write(f.name, audio.T, 44100)
+                    else:
+                        # (N, 2) format - use as is
+                        sf.write(f.name, audio, 44100)
+                return f.name
+        except Exception as e:
+            self._write_to_console(f"❌ Error saving temp audio: {e}", "")
+            # Fallback: try with simple format
+            with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
+                if audio.ndim == 2 and audio.shape[0] == 2:
+                    sf.write(f.name, audio.T, 44100)
+                else:
+                    sf.write(f.name, audio, 44100)
+                return f.name
+
+    def _get_separator_for_model(
+        self, model_data_obj: ModelData, process_data_dict: Dict[str, Any]
+    ) -> Optional[Any]:
+        if not model_data_obj or not model_data_obj.model_status:
+            self._write_to_console(
+                f"Cannot create separator: ModelData for {model_data_obj.model_name if model_data_obj else 'unknown'} is invalid or missing.",
+                "",
+            )
+            return None
+        if process_data_dict.get("input_audio_array") is not None:
+            process_data_dict["audio_file"] = None
+        elif model_data_obj == self.model_data:
+            process_data_dict["audio_file"] = self.model_data.audio_file
+            process_data_dict["input_audio_array"] = None
+        if model_data_obj.process_method == ac.VR_ARCH_TYPE:
+            return SeparateVRLogic(
+                model_data=model_data_obj, process_data=process_data_dict
+            )
+        elif model_data_obj.process_method == ac.MDX_ARCH_TYPE:
+            if model_data_obj.is_mdx_c:
+                return SeparateMDXCLogic(
+                    model_data=model_data_obj, process_data=process_data_dict
+                )
+            else:
+                return SeparateMDXLogic(
+                    model_data=model_data_obj, process_data=process_data_dict
+                )
+        elif model_data_obj.process_method == ac.DEMUCS_ARCH_TYPE:
+            return SeparateDemucsLogic(
+                model_data=model_data_obj, process_data=process_data_dict
+            )
+        self._write_to_console(
+            f"Unknown process method for separator: {model_data_obj.process_method}", ""
+        )
+        return None
+
+    def stop(self):
+        self._is_running = False
+
+    def _write_stem_file(self, stem_path: str, stem_audio: np.ndarray, stem_name: str):
+        """Write stem audio to file using write_audio_logic"""
+        try:
+            if write_audio_logic:
+                write_audio_logic(
+                    stem_path_str=stem_path,
+                    stem_source=stem_audio,
+                    samplerate=44100,
+                    model_data=self.model_data,
+                    stem_name=stem_name,
+                    process_data=self._create_process_data(),
+                )
+                self._write_to_console(f"Saved {stem_name} to {Path(stem_path).name}", "")
+            else:
+                # Fallback using soundfile
+                import soundfile as sf
+                sf.write(stem_path, stem_audio, 44100)
+                self._write_to_console(f"Saved {stem_name} to {Path(stem_path).name}", "")
+        except Exception as e:
+            self._write_to_console(f"Error saving {stem_name}: {e}", "")
+
+    def _loading_mix_vr(self) -> Optional[np.ndarray]:
+        """Load audio mix for VR processing - matches separate.py loading_mix"""
+        try:
+            from lib_v5 import spec_utils
+            import librosa
+            import audioread
+        except ImportError:
+            return None
+
+        X_wave = {}
+        X_spec_s = {}
+        mp = self.model_data.vr_model_param
+        bands_n = len(mp.param['band'])
+        audio_file = self.model_data.audio_file
+        is_mp3 = audio_file.endswith('.mp3') if isinstance(audio_file, str) else False
+
+        for d in range(bands_n, 0, -1):
+            bp = mp.param['band'][d]
+            wav_resolution = 'polyphase'
+
+            if d == bands_n:  # high-end band
+                X_wave[d], _ = librosa.load(
+                    audio_file, 
+                    sr=bp['sr'], 
+                    mono=False, 
+                    dtype=np.float32, 
+                    res_type=wav_resolution
+                )
+                
+                if not np.any(X_wave[d]) and is_mp3:
+                    try:
+                        with audioread.audio_open(audio_file) as f:
+                            track_length = int(f.duration)
+                        X_wave[d], _ = librosa.load(
+                            audio_file, 
+                            sr=bp['sr'], 
+                            mono=False, 
+                            dtype=np.float32, 
+                            res_type=wav_resolution, 
+                            duration=track_length
+                        )
+                    except:
+                        pass
+
+                if X_wave[d].ndim == 1:
+                    X_wave[d] = np.asarray([X_wave[d], X_wave[d]])
+            else:  # lower bands
+                X_wave[d] = librosa.resample(
+                    X_wave[d+1], 
+                    orig_sr=mp.param['band'][d+1]['sr'], 
+                    target_sr=bp['sr'], 
+                    res_type=wav_resolution
+                )
+                
+            X_spec_s[d] = spec_utils.wave_to_spectrogram(X_wave[d], bp['hl'], bp['n_fft'], mp, band=d, is_v51_model=self.model_data.is_vr_51_model)
+
+            if d == bands_n and self.model_data.is_high_end_process not in [False, 'none', 'None']:
+                self.input_high_end_h = (bp['n_fft']//2 - bp['crop_stop']) + (mp.param['pre_filter_stop'] - mp.param['pre_filter_start'])
+                self.input_high_end = X_spec_s[d][:, bp['n_fft']//2-self.input_high_end_h:bp['n_fft']//2, :]
+
+        X_spec = spec_utils.combine_spectrograms(X_spec_s, mp, is_v51_model=self.model_data.is_vr_51_model)
+        
+        del X_wave, X_spec_s
+        return X_spec
+
+    def _inference_vr(self, X_spec: np.ndarray, device, model_run, is_vr_51_model: bool):
+        """VR inference - matches separate.py inference_vr"""
+        try:
+            from lib_v5 import spec_utils
+        except ImportError:
+            return None, None
+
+        def _execute(X_mag_pad, roi_size):
+            X_dataset = []
+            patches = (X_mag_pad.shape[2] - 2 * model_run.offset) // roi_size
+            total_iterations = patches // self.model_data.batch_size if not self.model_data.is_tta else (patches // self.model_data.batch_size) * 2
+            
+            for i in range(patches):
+                start = i * roi_size
+                X_mag_window = X_mag_pad[:, :, start:start + self.model_data.window_size]
+                X_dataset.append(X_mag_window)
+
+            X_dataset = np.asarray(X_dataset)
+            model_run.eval()
+            
+            with torch.no_grad():
+                mask = []
+                for i in range(0, patches, self.model_data.batch_size):
+                    self.progress_value += 1
+                    if self.progress_value >= total_iterations:
+                        self.progress_value = total_iterations
+                    self._set_progress_bar_callback(0.1 + (0.8/total_iterations*self.progress_value), "Processing...")
+                    
+                    X_batch = X_dataset[i: i + self.model_data.batch_size]
+                    X_batch = torch.from_numpy(X_batch).to(device)
+                    pred = model_run.predict_mask(X_batch)
+                    
+                    if not pred.size()[3] > 0:
+                        raise Exception("Window size error")
+                    
+                    pred = pred.detach().cpu().numpy()
+                    pred = np.concatenate(pred, axis=2)
+                    mask.append(pred)
+                
+                if len(mask) == 0:
+                    raise Exception("Window size error")
+                
+                mask = np.concatenate(mask, axis=2)
+            return mask
+
+        def postprocess(mask, X_mag, X_phase):
+            # Create proper aggressiveness dictionary structure like in separate.py
+            mp = self.model_data.vr_model_param
+            aggressiveness = {
+                'value': self.model_data.aggression_setting,
+                'split_bin': mp.param['band'][1]['crop_stop'],
+                'aggr_correction': mp.param.get('aggr_correction')
+            }
+            
+            # Apply aggressiveness adjustment
+            if aggressiveness and aggressiveness['value'] != 0.04:
+                mask = spec_utils.adjust_aggr(mask, False, aggressiveness)
+
+            if self.model_data.is_post_process:
+                mask = spec_utils.merge_artifacts(mask, thres=self.model_data.post_process_threshold)
+
+            y_spec = mask * X_mag * np.exp(1.j * X_phase)
+            v_spec = (1 - mask) * X_mag * np.exp(1.j * X_phase)
+        
+            return y_spec, v_spec
+        
+        X_mag, X_phase = spec_utils.preprocess(X_spec)
+        n_frame = X_mag.shape[2]
+        pad_l, pad_r, roi_size = spec_utils.make_padding(n_frame, self.model_data.window_size, model_run.offset)
+        X_mag_pad = np.pad(X_mag, ((0, 0), (0, 0), (pad_l, pad_r)), mode='constant')
+        X_mag_pad /= X_mag_pad.max()
+        
+        mask = _execute(X_mag_pad, roi_size)
+        
+        if self.model_data.is_tta:
+            pad_l += roi_size // 2
+            pad_r += roi_size // 2
+            X_mag_pad = np.pad(X_mag, ((0, 0), (0, 0), (pad_l, pad_r)), mode='constant')
+            X_mag_pad /= X_mag_pad.max()
+            mask_tta = _execute(X_mag_pad, roi_size)
+            mask_tta = mask_tta[:, :, roi_size // 2:]
+            mask = (mask[:, :, :n_frame] + mask_tta[:, :, :n_frame]) * 0.5
+        else:
+            mask = mask[:, :, :n_frame]
+
+        y_spec, v_spec = postprocess(mask, X_mag, X_phase)
+        return y_spec, v_spec
 
     def _combine_ensemble_outputs(
         self, outputs: List[np.ndarray], algorithm: str
@@ -729,7 +1949,21 @@ class ProcessingWorker(QObject):
             self._write_to_console(f"Output {i} shape: {output.shape}", "")
 
         try:
-            if algorithm == ac.AVERAGE_ENSEMBLE:
+            # Parse complex algorithm strings like "Max Spec/Min Spec"
+            if "/" in algorithm:
+                # For primary/secondary algorithms, use first part (primary)
+                primary_algorithm = algorithm.split("/")[0].strip()
+                self._write_to_console(f"Using primary algorithm: {primary_algorithm}", "")
+                algorithm = primary_algorithm
+            
+            # Map algorithm names to internal constants
+            if algorithm == "Max Spec":
+                return self._spectral_ensemble(outputs, is_max=True)
+            elif algorithm == "Min Spec":
+                return self._spectral_ensemble(outputs, is_max=False)
+            elif algorithm == "Average":
+                return self._average_ensemble(outputs)
+            elif algorithm == ac.AVERAGE_ENSEMBLE:
                 return self._average_ensemble(outputs)
             elif algorithm == ac.MAX_SPEC_ENSEMBLE:
                 return self._spectral_ensemble(outputs, is_max=True)
@@ -742,187 +1976,386 @@ class ProcessingWorker(QObject):
                 return self._average_ensemble(outputs)
         except Exception as e:
             self._write_to_console(f"Error during ensemble combination: {e}", "")
-            return None
+            # Fallback to average
+            return self._average_ensemble(outputs)
 
     def _average_ensemble(self, outputs: List[np.ndarray]) -> np.ndarray:
         """Combine outputs using averaging (similar to spec_utils.average_audio)."""
         if not outputs:
             return None
 
+        self._write_to_console(f"  Averaging {len(outputs)} outputs", "")
+        
+        # Log input shapes for debugging
+        for i, output in enumerate(outputs):
+            self._write_to_console(f"    Input {i}: shape={output.shape}, dtype={output.dtype}", "")
+
+        # Normalize all outputs to the same format: (N, 2) for stereo
+        normalized_outputs = []
+        for i, output in enumerate(outputs):
+            if output.ndim == 1:
+                # Convert mono to stereo
+                normalized = np.column_stack([output, output])
+            elif output.ndim == 2:
+                if output.shape[0] == 2 and output.shape[1] > 2:
+                    # Convert (2, N) to (N, 2)
+                    normalized = output.T
+                elif output.shape[1] == 2:
+                    # Already (N, 2)
+                    normalized = output
+                elif output.shape[0] > output.shape[1]:
+                    # Likely (N, 2) but check
+                    normalized = output
+                else:
+                    # Default: assume (2, N) and transpose
+                    normalized = output.T
+            else:
+                self._write_to_console(f"    ❌ Invalid output {i} dimensions: {output.shape}", "")
+                continue
+                
+            normalized_outputs.append(normalized)
+            self._write_to_console(f"    Normalized {i}: {normalized.shape}", "")
+
+        if not normalized_outputs:
+            self._write_to_console("  ❌ No valid outputs after normalization", "")
+            return None
+
         # Find the minimum length to align all outputs
-        min_length = min(
-            output.shape[-1] for output in outputs
-        )  # Use last dimension (time)
-        self._write_to_console(f"Aligning outputs to min length: {min_length}", "")
+        min_length = min(output.shape[0] for output in normalized_outputs)
+        self._write_to_console(f"  Aligning to min length: {min_length}", "")
 
         # Align all outputs to the same length
         aligned_outputs = []
-        for output in outputs:
-            if output.ndim == 1:
-                aligned = output[:min_length]
-            elif output.ndim == 2:
-                aligned = output[:, :min_length]
-            else:
-                aligned = output  # Keep as is for higher dimensions
+        for output in normalized_outputs:
+            aligned = output[:min_length, :]
             aligned_outputs.append(aligned)
 
         # Stack and average
-        stacked = np.stack(aligned_outputs, axis=0)
-        averaged = np.mean(stacked, axis=0)
-
-        self._write_to_console(f"Averaged result shape: {averaged.shape}", "")
-        return averaged
+        try:
+            stacked = np.stack(aligned_outputs, axis=0)
+            averaged = np.mean(stacked, axis=0)
+            self._write_to_console(f"  ✓ Averaged result shape: {averaged.shape}", "")
+            return averaged
+        except Exception as e:
+            self._write_to_console(f"  ❌ Error during averaging: {e}", "")
+            return None
 
     def _spectral_ensemble(
         self, outputs: List[np.ndarray], is_max: bool = True
     ) -> np.ndarray:
-        """Combine outputs using spectral ensemble (min/max magnitude)."""
-        if not outputs or not spec_utils:
+        """Combine outputs using spectral ensemble (min/max magnitude) - simplified version."""
+        if not outputs:
             return None
+
+        self._write_to_console(f"  Spectral ensemble ({'max' if is_max else 'min'}) with {len(outputs)} outputs", "")
+        
+        # Log input shapes for debugging
+        for i, output in enumerate(outputs):
+            self._write_to_console(f"    Input {i}: shape={output.shape}, dtype={output.dtype}", "")
 
         try:
-            # Convert audio to spectrograms
-            spectrograms = []
-            for output in outputs:
-                # Ensure audio is in the right format for spectrogram conversion
-                if output.ndim == 2 and output.shape[0] < output.shape[1]:
-                    audio_for_spec = output.T  # Transpose if needed
+            # Normalize all outputs to the same format: (N, 2) for stereo
+            normalized_outputs = []
+            for i, output in enumerate(outputs):
+                if output.ndim == 1:
+                    # Convert mono to stereo
+                    normalized = np.column_stack([output, output])
+                elif output.ndim == 2:
+                    if output.shape[0] == 2 and output.shape[1] > 2:
+                        # Convert (2, N) to (N, 2)
+                        normalized = output.T
+                    elif output.shape[1] == 2:
+                        # Already (N, 2)
+                        normalized = output
+                    elif output.shape[0] > output.shape[1]:
+                        # Likely (N, 2) but check
+                        normalized = output
+                    else:
+                        # Default: assume (2, N) and transpose
+                        normalized = output.T
                 else:
-                    audio_for_spec = output
+                    self._write_to_console(f"    ❌ Invalid output {i} dimensions: {output.shape}", "")
+                    continue
+                    
+                normalized_outputs.append(normalized)
+                self._write_to_console(f"    Normalized {i}: {normalized.shape}", "")
 
-                if audio_for_spec.ndim == 1:
-                    audio_for_spec = np.asfortranarray([audio_for_spec, audio_for_spec])
-
-                spec = spec_utils.wave_to_spectrogram_old(
-                    audio_for_spec, hop_length=1024, n_fft=2048
-                )
-                spectrograms.append(spec)
-
-            # Align spectrograms to same shape
-            aligned_spectrograms = self._align_spectrograms(spectrograms)
-            if not aligned_spectrograms:
-                self._write_to_console(
-                    "Failed to align spectrograms for spectral ensemble", ""
-                )
+            if not normalized_outputs:
+                self._write_to_console("  ❌ No valid outputs after normalization", "")
                 return None
 
-            # Apply spectral ensemble algorithm (similar to spec_utils.ensembling)
-            result_spec = aligned_spectrograms[0]
-            for i in range(1, len(aligned_spectrograms)):
+            # Find the minimum length to align all outputs
+            min_length = min(output.shape[0] for output in normalized_outputs)
+            self._write_to_console(f"  Aligning to min length: {min_length}", "")
+
+            # Align all outputs to the same length
+            aligned_outputs = []
+            for output in normalized_outputs:
+                aligned = output[:min_length, :]
+                aligned_outputs.append(aligned)
+
+            # Apply simple spectral ensemble by comparing magnitudes
+            result = aligned_outputs[0].copy()
+            
+            for i in range(1, len(aligned_outputs)):
+                current = aligned_outputs[i]
                 if is_max:
-                    result_spec = np.where(
-                        np.abs(aligned_spectrograms[i]) >= np.abs(result_spec),
-                        aligned_spectrograms[i],
-                        result_spec,
-                    )
+                    # Use maximum magnitude
+                    mask = np.abs(current) >= np.abs(result)
+                    result = np.where(mask, current, result)
                 else:
-                    result_spec = np.where(
-                        np.abs(aligned_spectrograms[i]) <= np.abs(result_spec),
-                        aligned_spectrograms[i],
-                        result_spec,
-                    )
+                    # Use minimum magnitude
+                    mask = np.abs(current) <= np.abs(result)
+                    result = np.where(mask, current, result)
 
-            # Convert back to audio
-            result_audio = spec_utils.spectrogram_to_wave_old(
-                result_spec, hop_length=1024
-            )
-            if result_audio.ndim == 2:
-                result_audio = result_audio.T  # Transpose back if needed
-
-            self._write_to_console(
-                f"Spectral ensemble result shape: {result_audio.shape}", ""
-            )
-            return result_audio
+            self._write_to_console(f"  ✓ Spectral ensemble result shape: {result.shape}", "")
+            return result
 
         except Exception as e:
-            self._write_to_console(f"Error in spectral ensemble: {e}", "")
-            return None
+            self._write_to_console(f"  ❌ Error in spectral ensemble: {e}", "")
+            # Fallback to average
+            self._write_to_console("  🔄 Falling back to average ensemble", "")
+            return self._average_ensemble(outputs)
 
-    def _create_process_data_for_chained_model(
-        self,
-        chained_model_data: ModelData,
-        input_audio_array: np.ndarray,
-        is_vocal_split: bool = False,
-        is_pre_proc: bool = False,
-        is_ensemble_run: bool = False,
-        ensemble_audio_file_base: Optional[str] = None,
-        for_demucs_sub_stem: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        original_audio_base = (
-            Path(self.model_data.audio_file).stem
-            if self.model_data.audio_file and not is_ensemble_run
-            else ensemble_audio_file_base or "output"
-        )
+    def _spec_to_wav_vr(self, spec: np.ndarray, is_v51_model: bool) -> np.ndarray:
+        """Convert spectrogram to audio - matches separate.py spec_to_wav"""
+        try:
+            from lib_v5 import spec_utils
+        except ImportError:
+            return np.array([])
 
-        if is_pre_proc:
-            chained_output_base = f"{original_audio_base}_(PreProcessedWith_{chained_model_data.model_basename})"
-        elif is_ensemble_run:
-            chained_output_base = (
-                f"{original_audio_base}_ens_member_{chained_model_data.model_basename}"
-            )
-        elif for_demucs_sub_stem:
-            chained_output_base = f"{original_audio_base}_{self.model_data.model_basename}_{for_demucs_sub_stem}_then_{chained_model_data.model_basename}"
+        mp = self.model_data.vr_model_param
+        
+        # Handle both boolean and string values for high_end_process
+        high_end_process = self.model_data.is_high_end_process
+        is_mirroring = False
+        
+        if isinstance(high_end_process, str) and high_end_process.startswith('mirroring'):
+            is_mirroring = True
+        elif high_end_process is True:  # Handle boolean True as mirroring
+            is_mirroring = True
+            
+        if (is_mirroring and 
+            hasattr(self, 'input_high_end') and self.input_high_end is not None and 
+            hasattr(self, 'input_high_end_h')):
+            # Use string value for mirroring function 
+            mirroring_process = high_end_process if isinstance(high_end_process, str) else 'mirroring'
+            input_high_end_ = spec_utils.mirroring(mirroring_process, spec, self.input_high_end, mp)
+            wav = spec_utils.cmb_spectrogram_to_wave(spec, mp, self.input_high_end_h, input_high_end_, is_v51_model=is_v51_model)       
         else:
-            chained_output_base = f"{original_audio_base}_{self.model_data.model_basename}_then_{chained_model_data.model_basename}"
+            wav = spec_utils.cmb_spectrogram_to_wave(spec, mp, is_v51_model=is_v51_model)
+            
+        return wav
 
-        return {
-            "audio_file": None,
-            "input_audio_array": input_audio_array,
-            "audio_file_base": chained_output_base,
-            "export_path": self.model_data.export_path,
-            "set_progress_bar": self._set_progress_bar_callback,
-            "write_to_console": self._write_to_console,
-            "cached_source_callback": self._cached_source_callback,
-            "cached_model_source_holder": self._cached_model_source_holder,
-            "is_4_stem_ensemble": False,
-            "list_all_models": [
-                self.model_data.model_basename,
-                chained_model_data.model_basename,
-            ],
-            "process_iteration": self._process_iteration,
-            "_is_running_check": lambda: self._is_running,
-            "is_ensemble_master": False,
-            "is_vocal_split_model_call": is_vocal_split,
-        }
-
-    def _get_separator_for_model(
-        self, model_data_obj: ModelData, process_data_dict: Dict[str, Any]
-    ) -> Optional[Any]:
-        if not model_data_obj or not model_data_obj.model_status:
-            self._write_to_console(
-                f"Cannot create separator: ModelData for {model_data_obj.model_name if model_data_obj else 'unknown'} is invalid or missing.",
-                "",
-            )
+    def _demix_mdx(self, mix: np.ndarray, model_run, hop_length: int, dim_c: int) -> Optional[np.ndarray]:
+        """MDX demixing - matches separate.py demix"""
+        try:
+            from lib_v5.tfc_tdf_v3 import STFT
+            from lib_v5 import spec_utils
+        except ImportError:
             return None
-        if process_data_dict.get("input_audio_array") is not None:
-            process_data_dict["audio_file"] = None
-        elif model_data_obj == self.model_data:
-            process_data_dict["audio_file"] = self.model_data.audio_file
-            process_data_dict["input_audio_array"] = None
-        if model_data_obj.process_method == ac.VR_ARCH_TYPE:
-            return SeperateVRLogic(
-                model_data=model_data_obj, process_data=process_data_dict
-            )
-        elif model_data_obj.process_method == ac.MDX_ARCH_TYPE:
-            if model_data_obj.is_mdx_c:
-                return SeperateMDXCLogic(
-                    model_data=model_data_obj, process_data=process_data_dict
-                )
-            else:
-                return SeperateMDXLogic(
-                    model_data=model_data_obj, process_data=process_data_dict
-                )
-        elif model_data_obj.process_method == ac.DEMUCS_ARCH_TYPE:
-            return SeperateDemucsLogic(
-                model_data=model_data_obj, process_data=process_data_dict
-            )
-        self._write_to_console(
-            f"Unknown process method for separator: {model_data_obj.process_method}", ""
-        )
-        return None
 
-    def stop(self):
-        self._is_running = False
+        # Initialize settings
+        n_fft = self.model_data.mdx_n_fft_scale_set
+        n_bins = n_fft // 2 + 1
+        trim = n_fft // 2
+        chunk_size = hop_length * (self.model_data.mdx_segment_size - 1)
+        gen_size = chunk_size - 2 * trim
+        stft = STFT(n_fft, hop_length, self.model_data.mdx_dim_f_set, self.device_torch)
+
+        org_mix = mix
+        tar_waves_ = []
+
+        if self.model_data.is_pitch_change:
+            mix, sr_pitched = spec_utils.change_pitch_semitones(mix, 44100, semitone_shift=-self.model_data.semitone_shift)
+
+        pad = gen_size + trim - ((mix.shape[-1]) % gen_size)
+        mixture = np.concatenate((np.zeros((2, trim), dtype='float32'), mix, np.zeros((2, pad), dtype='float32')), 1)
+
+        overlap = self.model_data.overlap_mdx if self.model_data.overlap_mdx != ac.DEFAULT else 0.25
+        step = chunk_size - n_fft if overlap == ac.DEFAULT else int((1 - overlap) * chunk_size)
+        result = np.zeros((1, 2, mixture.shape[-1]), dtype=np.float32)
+        divider = np.zeros((1, 2, mixture.shape[-1]), dtype=np.float32)
+        total_chunks = (mixture.shape[-1] + step - 1) // step
+
+        for i in range(0, mixture.shape[-1], step):
+            start = i
+            end = min(i + chunk_size, mixture.shape[-1])
+            chunk_size_actual = end - start
+
+            if overlap == 0:
+                window = None
+            else:
+                window = np.hanning(chunk_size_actual)
+                window = np.tile(window[None, None, :], (1, 2, 1))
+
+            mix_part_ = mixture[:, start:end]
+            if end != i + chunk_size:
+                pad_size = (i + chunk_size) - end
+                mix_part_ = np.concatenate((mix_part_, np.zeros((2, pad_size), dtype='float32')), axis=-1)
+
+            mix_part = torch.tensor([mix_part_], dtype=torch.float32).to(self.device_torch)
+            
+            with torch.no_grad():
+                self.progress_value += 1
+                self._set_progress_bar_callback(0.1 + (0.8 * self.progress_value / total_chunks), "Processing...")
+
+                # Run model
+                spek = stft(mix_part.to(self.device_torch))
+                spek[:, :, :3, :] *= 0 
+
+                if self.model_data.is_mdx_ckpt or callable(model_run):
+                    if hasattr(model_run, '__call__') and not hasattr(model_run, 'parameters'):
+                        # ONNX model
+                        spec_pred = model_run(spek.cpu().numpy())
+                        tar_waves = stft.inverse(torch.tensor(spec_pred).to(self.device_torch))
+                    else:
+                        # PyTorch model
+                        spec_pred = model_run(spek)
+                        tar_waves = stft.inverse(spec_pred)
+                else:
+                    spec_pred = model_run(spek)
+                    tar_waves = stft.inverse(spec_pred)
+
+                tar_waves = tar_waves.cpu().detach().numpy()
+                
+                if window is not None:
+                    tar_waves[..., :chunk_size_actual] *= window 
+                    divider[..., start:end] += window
+                else:
+                    divider[..., start:end] += 1
+
+                result[..., start:end] += tar_waves[..., :end-start]
+            
+        tar_waves = result / divider
+        tar_waves = tar_waves[:, :, trim:-trim]
+        tar_waves = tar_waves[:, :, :mix.shape[-1]]
+        
+        source = tar_waves[0, :, :]
+
+        if self.model_data.is_pitch_change:
+            source = self._pitch_fix_mdx(source, sr_pitched, org_mix)
+
+        source = source * self.model_data.compensate
+
+        return source
+
+    def _demix_mdx_c(self, mix: np.ndarray, model) -> Optional[np.ndarray]:
+        """MDX-C demixing - matches separate.py demix for MDX-C"""
+        try:
+            from lib_v5 import spec_utils
+        except ImportError:
+            return None
+
+        org_mix = mix
+        if self.model_data.is_pitch_change:
+            mix, sr_pitched = spec_utils.change_pitch_semitones(mix, 44100, semitone_shift=-self.model_data.semitone_shift)
+
+        mix = torch.tensor(mix, dtype=torch.float32)
+
+        try:
+            S = model.num_target_instruments
+        except Exception:
+            S = model.module.num_target_instruments
+
+        mdx_segment_size = self.model_data.mdx_c_configs.inference.dim_t if self.model_data.is_mdx_c_seg_def else self.model_data.mdx_segment_size
+        batch_size = self.model_data.mdx_batch_size
+        chunk_size = self.model_data.mdx_c_configs.audio.hop_length * (mdx_segment_size - 1)
+        
+        # Ensure overlap is an integer (convert from string if necessary)
+        overlap = self.model_data.overlap_mdx23
+        if isinstance(overlap, str):
+            try:
+                overlap = int(overlap)
+            except ValueError:
+                # Default overlap value if conversion fails
+                overlap = 4
+        elif overlap is None:
+            overlap = 4
+
+        hop_size = chunk_size // overlap
+        mix_shape = mix.shape[1]
+        pad_size = hop_size - (mix_shape - chunk_size) % hop_size
+        mix = torch.cat([torch.zeros(2, chunk_size - hop_size), mix, torch.zeros(2, pad_size + chunk_size - hop_size)], 1)
+
+        chunks = mix.unfold(1, chunk_size, hop_size).transpose(0, 1)
+        batches = [chunks[i : i + batch_size] for i in range(0, len(chunks), batch_size)]
+        
+        X = torch.zeros(S, *mix.shape) if S > 1 else torch.zeros_like(mix)
+        X = X.to(self.device_torch)
+
+        with torch.no_grad():
+            cnt = 0
+            for batch in batches:
+                self.progress_value += 1
+                self._set_progress_bar_callback(0.1 + (0.8 * self.progress_value / len(batches)), "Processing...")
+                
+                x = model(batch.to(self.device_torch))
+                
+                for w in x:
+                    X[..., cnt * hop_size : cnt * hop_size + chunk_size] += w
+                    cnt += 1
+
+        estimated_sources = X[..., chunk_size - hop_size:-(pad_size + chunk_size - hop_size)] / overlap
+        del X
+
+        if S > 1:
+            sources = {k: v for k, v in zip(self.model_data.mdx_c_configs.training.instruments, estimated_sources.cpu().detach().numpy())}
+            del estimated_sources
+            
+            if self.model_data.is_pitch_change:
+                sources = {k: self._pitch_fix_mdx(v, sr_pitched, org_mix) for k, v in sources.items()}
+                            
+            return sources
+        else:
+            est_s = estimated_sources.cpu().detach().numpy()
+            del estimated_sources
+            return self._pitch_fix_mdx(est_s, sr_pitched, org_mix) if self.model_data.is_pitch_change else est_s
+
+    def _pitch_fix_mdx(self, source: np.ndarray, sr_pitched: int, org_mix: np.ndarray) -> np.ndarray:
+        """Apply pitch correction for MDX - matches separate.py pitch_fix"""
+        try:
+            from lib_v5 import spec_utils
+            source = spec_utils.change_pitch_semitones(source, sr_pitched, semitone_shift=self.model_data.semitone_shift)[0]
+            source = spec_utils.match_array_shapes(source, org_mix)
+            return source
+        except:
+            return source
+
+    def _get_demucs_source_map(self, num_sources: int) -> dict:
+        """Get Demucs source mapping based on number of sources"""
+        if num_sources == 2:
+            return {ac.VOCAL_STEM: 1, ac.INST_STEM: 0}
+        elif num_sources == 6:
+            return {
+                ac.VOCAL_STEM: 4,
+                ac.INST_STEM: 3,
+                ac.BASS_STEM: 0,
+                ac.DRUM_STEM: 1,
+                ac.OTHER_STEM: 2,
+                ac.GUITAR_STEM: 5,
+                ac.PIANO_STEM: 5  # Same as guitar for 6-stem
+            }
+        else:  # 4 sources
+            return {
+                ac.VOCAL_STEM: 3,
+                ac.INST_STEM: 2,
+                ac.BASS_STEM: 0,
+                ac.DRUM_STEM: 1,
+                ac.OTHER_STEM: 2
+            }
+
+    def _pitch_fix_demucs(self, source: np.ndarray, sr_pitched: int, org_mix: np.ndarray) -> np.ndarray:
+        """Apply pitch correction for Demucs - matches separate.py pitch_fix"""
+        try:
+            from lib_v5 import spec_utils
+            source = spec_utils.change_pitch_semitones(
+                source, sr_pitched, semitone_shift=self.model_data.semitone_shift
+            )[0]
+            source = spec_utils.match_array_shapes(source, org_mix)
+            return source
+        except:
+            return source
 
 
 class ProcessingThread(QThread):

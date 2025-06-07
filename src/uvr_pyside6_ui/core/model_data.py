@@ -433,7 +433,6 @@ class ModelData:
                 _is_secondary_model_instance,
                 _is_pre_proc_model_instance,
                 _is_vocal_split_model_instance,
-                _is_ensemble_member,
             ]
         ):
             init_kwargs["is_primary_stem_only"] = settings.get(
@@ -442,9 +441,13 @@ class ModelData:
             init_kwargs["is_secondary_stem_only"] = settings.get(
                 "is_secondary_stem_only_Demucs", False
             )
-        elif (
-            not _is_ensemble_member
-        ):  # For non-ensemble members, or non-Demucs primary models
+        elif not any(
+            [
+                _is_secondary_model_instance,
+                _is_pre_proc_model_instance,
+                _is_vocal_split_model_instance,
+            ]
+        ):  # For non-Demucs models (VR, MDX) and ensemble members
             init_kwargs["is_primary_stem_only"] = settings.get(
                 "is_primary_stem_only", False
             )
@@ -550,8 +553,6 @@ class ModelData:
                     _model_name_override=sec_name,
                     _process_method_override=sec_proc,
                     _is_secondary_model_instance=True,
-                    _primary_model_primary_stem_only=instance.is_primary_stem_only,
-                    _primary_model_secondary_stem_only=instance.is_secondary_stem_only,
                 )
                 if (
                     instance.secondary_model
@@ -955,6 +956,10 @@ class ModelData:
             self.is_multi_stem_ensemble = is_multi
             self.is_4_stem_ensemble = is_multi
 
+            # Extract ensemble master's stem-only settings to pass to members
+            ensemble_primary_stem_only = settings.get("is_primary_stem_only", False)
+            ensemble_secondary_stem_only = settings.get("is_secondary_stem_only", False)
+
             self.ensemble_models = []
             for model_config in ensemble_data.get("models", []):
                 model_full_name = model_config.get("model_name")
@@ -962,6 +967,32 @@ class ModelData:
                     continue
                 member_settings = settings.copy()
                 member_settings.update(model_config.get("settings", {}))
+
+                # Determine model process method to pass appropriate stem-only keys
+                if "==" in model_full_name:
+                    model_process_method, _, _ = model_full_name.partition("==")
+                else:
+                    # Fallback: try to determine from model name
+                    model_process_method = self._determine_model_process_method(
+                        model_full_name
+                    )
+
+                # Pass ensemble stem-only settings to members using appropriate keys
+                if model_process_method == ac.DEMUCS_ARCH_TYPE:
+                    # Demucs members need Demucs-specific keys
+                    member_settings["is_primary_stem_only_Demucs"] = (
+                        ensemble_primary_stem_only
+                    )
+                    member_settings["is_secondary_stem_only_Demucs"] = (
+                        ensemble_secondary_stem_only
+                    )
+                else:
+                    # Other methods use generic keys
+                    member_settings["is_primary_stem_only"] = ensemble_primary_stem_only
+                    member_settings["is_secondary_stem_only"] = (
+                        ensemble_secondary_stem_only
+                    )
+
                 member_model_data = ModelData.from_settings_dict(
                     member_settings,
                     _model_name_override=model_full_name,
@@ -1262,6 +1293,10 @@ class ModelData:
                 stem_pair == ac.ENSEMBLE_MAIN_STEM_OPTIONS[5]
             )  # "Multi-stem Ensemble"
 
+            # Extract ensemble master's stem-only settings to pass to members
+            ensemble_primary_stem_only = settings.get("is_primary_stem_only", False)
+            ensemble_secondary_stem_only = settings.get("is_secondary_stem_only", False)
+
             # Create ModelData instances for each selected model
             self.ensemble_models = []
             selected_models = settings.get("ensemble_selected_models", [])
@@ -1277,6 +1312,24 @@ class ModelData:
                     # Create member settings dict for this model
                     member_settings = settings.copy()
                     member_settings["chosen_process_method"] = model_process_method
+
+                    # Pass ensemble stem-only settings to members using appropriate keys
+                    if model_process_method == ac.DEMUCS_ARCH_TYPE:
+                        # Demucs members need Demucs-specific keys
+                        member_settings["is_primary_stem_only_Demucs"] = (
+                            ensemble_primary_stem_only
+                        )
+                        member_settings["is_secondary_stem_only_Demucs"] = (
+                            ensemble_secondary_stem_only
+                        )
+                    else:
+                        # Other methods use generic keys
+                        member_settings["is_primary_stem_only"] = (
+                            ensemble_primary_stem_only
+                        )
+                        member_settings["is_secondary_stem_only"] = (
+                            ensemble_secondary_stem_only
+                        )
 
                     # Create ModelData instance for ensemble member
                     member_model_data = ModelData.from_settings_dict(

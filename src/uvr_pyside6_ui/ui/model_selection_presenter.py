@@ -9,7 +9,9 @@ class ModelSelectionPresenter(QObject):
     """Manage user interactions for selecting processing methods and models."""
 
     request_show_download_center = Signal(str)  # Emits originating_method
-    model_changed = Signal(str, str, str, str)  # method, model, primary_stem, secondary_stem
+    model_changed = Signal(
+        str, str, str, str
+    )  # method, model, primary_stem, secondary_stem
 
     def __init__(self, view, adapter):
         super().__init__()
@@ -35,7 +37,9 @@ class ModelSelectionPresenter(QObject):
 
     def connect_demucs_stem_changes(self, demucs_presenter):
         """Connect to Demucs stem selection changes."""
-        if hasattr(demucs_presenter, 'view') and hasattr(demucs_presenter.view, 'stems_changed'):
+        if hasattr(demucs_presenter, "view") and hasattr(
+            demucs_presenter.view, "stems_changed"
+        ):
             demucs_presenter.view.stems_changed.connect(self._handle_demucs_stem_change)
 
     @Slot(str)
@@ -133,25 +137,25 @@ class ModelSelectionPresenter(QObject):
         try:
             # Get model info from adapter
             model_info = self.adapter.get_model_info(model_name, method)
-            
+
             if method == ac.DEMUCS_MODELS_KEY:
                 # For Demucs, check the currently selected stem in the Demucs view
                 # Try to get current stem selection from Demucs presenter
-                demucs_presenter = getattr(self, '_demucs_presenter', None)
-                if demucs_presenter and hasattr(demucs_presenter, 'view'):
+                demucs_presenter = getattr(self, "_demucs_presenter", None)
+                if demucs_presenter and hasattr(demucs_presenter, "view"):
                     current_stem = demucs_presenter.view.stem_combo.currentText()
                     return self._get_demucs_stems_for_selection(current_stem)
                 # Default fallback for Demucs
                 return ac.VOCAL_STEM, ac.INST_STEM
-                
+
             elif method == ac.VR_ARCH_MODELS_KEY:
-                if model_info and hasattr(model_info, 'primary_stem'):
-                    primary = getattr(model_info, 'primary_stem', ac.VOCAL_STEM)
+                if model_info and hasattr(model_info, "primary_stem"):
+                    primary = getattr(model_info, "primary_stem", ac.VOCAL_STEM)
                     secondary = ac.secondary_stem(primary)
                     return primary, secondary
             elif method == ac.MDX_NET_MODELS_KEY:
-                if model_info and hasattr(model_info, 'mdx_model_stems'):
-                    stems = getattr(model_info, 'mdx_model_stems', [])
+                if model_info and hasattr(model_info, "mdx_model_stems"):
+                    stems = getattr(model_info, "mdx_model_stems", [])
                     if stems:
                         primary = stems[0] if stems else ac.VOCAL_STEM
                         secondary = ac.secondary_stem(primary)
@@ -164,7 +168,7 @@ class ModelSelectionPresenter(QObject):
         except Exception as e:
             # If we can't get model info, use defaults
             pass
-        
+
         # Default fallback
         return ac.VOCAL_STEM, ac.INST_STEM
 
@@ -172,7 +176,9 @@ class ModelSelectionPresenter(QObject):
     def _handle_demucs_stem_change(self, stem_selection: str):
         """Handle changes in Demucs stem selection."""
         if self._current_method == ac.DEMUCS_MODELS_KEY and self._current_model:
-            primary_stem, secondary_stem = self._get_demucs_stems_for_selection(stem_selection)
+            primary_stem, secondary_stem = self._get_demucs_stems_for_selection(
+                stem_selection
+            )
             self.model_changed.emit(
                 self._current_method, self._current_model, primary_stem, secondary_stem
             )

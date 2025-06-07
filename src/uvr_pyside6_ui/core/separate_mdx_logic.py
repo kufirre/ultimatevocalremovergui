@@ -40,7 +40,7 @@ except ImportError:
     vr_denoiser_logic = None
 
 
-class SeperateMDXLogic(SeparatorAttributesLogic):
+class SeparateMDXLogic(SeparatorAttributesLogic):
     """MDX separator implementation."""
 
     def __init__(self, model_data: ModelData, process_data: Dict[str, Any]):

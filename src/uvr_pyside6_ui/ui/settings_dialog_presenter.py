@@ -198,9 +198,7 @@ class SettingsDialogPresenter(QObject):
             self.view.set_vr_models(["Could not load catalog"])
             self.view.set_mdx_models(["Could not load catalog"])
             self.view.set_demucs_models(["Could not load catalog"])
-            self.view.dc_progress_info_label.setText(
-                "Could not load download catalog"
-            )
+            self.view.dc_progress_info_label.setText("Could not load download catalog")
 
     def _get_filtered_downloadable_models(self, ui_model_type: str) -> dict:
         """Get downloadable models filtered to exclude already downloaded ones."""

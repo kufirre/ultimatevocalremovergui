@@ -90,13 +90,13 @@ class MainWindowView(QMainWindow):
         self.presenters[ac.ENSEMBLE_PRESENTER_KEY] = EnsembleSettingsPresenter(
             view=self.ensemble_view, adapter=self.adapter
         )
-        
+
         # Processing Settings (create first so we can connect to it)
         self.processing_settings_view = ProcessingSettingsView()
         self.presenters[ac.PROCESSING_SETTINGS_PRESENTER_KEY] = (
             ProcessingSettingsPresenter(view=self.processing_settings_view)
         )
-        
+
         # Model Selection
         self.model_selection_view = ModelSelectionView()
         self.presenters[ac.MODEL_SELECTION_PRESENTER_KEY] = ModelSelectionPresenter(
@@ -106,12 +106,17 @@ class MainWindowView(QMainWindow):
             ac.MODEL_SELECTION_PRESENTER_KEY
         ].request_show_download_center.connect(self._open_download_center_tab)
         # self.adapter.download_finished.connect(self.presenters[ac.MODEL_SELECTION_PRESENTER_KEY]._on_model_downloaded_elsewhere) # Removed, ModelSelectionPresenter now uses model_download_completed
-        
+
         # Connect model changes to processing settings updates
         self.presenters[ac.MODEL_SELECTION_PRESENTER_KEY].model_changed.connect(
             self.presenters[ac.PROCESSING_SETTINGS_PRESENTER_KEY].handle_model_change
         )
-        
+
+        # Connect ensemble stem pair changes to processing settings updates
+        self.ensemble_view.main_stem_pair_changed.connect(
+            self.presenters[ac.PROCESSING_SETTINGS_PRESENTER_KEY].handle_ensemble_stem_pair_change
+        )
+
         # Connect Demucs stem changes to model selection presenter
         self.presenters[ac.MODEL_SELECTION_PRESENTER_KEY].connect_demucs_stem_changes(
             self.presenters[ac.DEMUCS_PRESENTER_KEY]
@@ -120,7 +125,7 @@ class MainWindowView(QMainWindow):
         self.presenters[ac.MODEL_SELECTION_PRESENTER_KEY]._demucs_presenter = (
             self.presenters[ac.DEMUCS_PRESENTER_KEY]
         )
-        
+
         self.model_selection_view.add_settings_panel("VR Arch", self.vr_arch_view)
         self.model_selection_view.add_settings_panel("MDX-Net", self.mdx_net_view)
         self.model_selection_view.add_settings_panel("Demucs", self.demucs_view)
@@ -166,6 +171,12 @@ class MainWindowView(QMainWindow):
                 )
         else:
             self.presenters[ac.MODEL_SELECTION_PRESENTER_KEY].handle_method_change("")
+
+        # Trigger initial ensemble stem pair change to update processing settings checkboxes
+        # This must happen after all connections are established
+        current_stem_pair = self.ensemble_view.stem_pair_combo.currentText()
+        if current_stem_pair:
+            self.presenters[ac.PROCESSING_SETTINGS_PRESENTER_KEY].handle_ensemble_stem_pair_change(current_stem_pair)
 
         # Debug print removed
 

@@ -50,31 +50,41 @@ class ExecutionControlPresenter(QObject):
                 "output_path": output_path,
             }
         )
-        
+
         # Add general processing settings, but map stem-only keys based on method
         internal_method_name = model_details.get("chosen_process_method")
-        
+
         # Map stem-only keys to method-specific keys
         if internal_method_name == ac.DEMUCS_ARCH_TYPE:
             # For Demucs, use Demucs-specific keys
-            all_settings.update({
-                "use_gpu": settings.get("use_gpu", False),
-                "normalize": settings.get("normalize", False),
-                "output_format": settings.get("output_format", "WAV"),
-                "sample_mode": settings.get("sample_mode", False),
-                "is_primary_stem_only_Demucs": settings.get("primary_stem_only", False),
-                "is_secondary_stem_only_Demucs": settings.get("secondary_stem_only", False),
-            })
+            all_settings.update(
+                {
+                    "use_gpu": settings.get("use_gpu", False),
+                    "normalize": settings.get("normalize", False),
+                    "output_format": settings.get("output_format", "WAV"),
+                    "sample_mode": settings.get("sample_mode", False),
+                    "is_primary_stem_only_Demucs": settings.get(
+                        "primary_stem_only", False
+                    ),
+                    "is_secondary_stem_only_Demucs": settings.get(
+                        "secondary_stem_only", False
+                    ),
+                }
+            )
         else:
             # For other methods, use generic keys
-            all_settings.update({
-                "use_gpu": settings.get("use_gpu", False),
-                "normalize": settings.get("normalize", False),
-                "output_format": settings.get("output_format", "WAV"),
-                "sample_mode": settings.get("sample_mode", False),
-                "is_primary_stem_only": settings.get("primary_stem_only", False),
-                "is_secondary_stem_only": settings.get("secondary_stem_only", False),
-            })
+            all_settings.update(
+                {
+                    "use_gpu": settings.get("use_gpu", False),
+                    "normalize": settings.get("normalize", False),
+                    "output_format": settings.get("output_format", "WAV"),
+                    "sample_mode": settings.get("sample_mode", False),
+                    "is_primary_stem_only": settings.get("primary_stem_only", False),
+                    "is_secondary_stem_only": settings.get(
+                        "secondary_stem_only", False
+                    ),
+                }
+            )
 
         # Add specific model settings based on selection
         # Map internal method name back to UI key for presenter lookup
@@ -118,8 +128,17 @@ class ExecutionControlPresenter(QObject):
 
             # Log collected settings
             self.view.append_log_message(ac.MSG_SETTINGS_HEADER)
+            
+            # Filter out unnecessary keys for cleaner logging
+            keys_to_skip = {
+                "ensemble_model",  # Usually empty or not needed in debug
+                "chosen_process_method",  # Already shown as method
+                "vr_model", "mdx_net_model", "demucs_model"  # Already shown as model name
+            }
+            
             for k, v in settings_dict.items():
-                self.view.append_log_message(f"  {k}: {v}")
+                if k not in keys_to_skip and v:  # Skip empty values too
+                    self.view.append_log_message(f"  {k}: {v}")
             self.view.append_log_message(ac.MSG_SETTINGS_FOOTER)
 
             if not settings_dict.get("input_paths") or not settings_dict.get(

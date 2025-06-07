@@ -33,7 +33,7 @@ except ImportError:
     vr_denoiser_logic = None
 
 
-class SeperateMDXCLogic(SeparatorAttributesLogic):
+class SeparateMDXCLogic(SeparatorAttributesLogic):
     """MDX-C separator implementation."""
 
     def __init__(self, model_data: ModelData, process_data: Dict[str, Any]):
@@ -112,9 +112,9 @@ class SeperateMDXCLogic(SeparatorAttributesLogic):
         ]
 
         estimated_sources_tensor = (
-            torch.zeros(num_target_instruments, *mix_tensor.shape, device=self.device)
+            torch.zeros(num_target_instruments, *mix_tensor_padded.shape, device=self.device)
             if num_target_instruments > 1
-            else torch.zeros_like(mix_tensor)
+            else torch.zeros_like(mix_tensor_padded)
         )
 
         self.progress_value = 0
@@ -135,16 +135,17 @@ class SeperateMDXCLogic(SeparatorAttributesLogic):
                     start_frame = cnt * hop_size
                     end_frame = start_frame + chunk_size_mdxc
 
-                    # Fix for tensor size mismatch - ensure we don't exceed tensor bounds
-                    actual_end_frame = min(
-                        end_frame, estimated_sources_tensor.shape[-1]
-                    )
+                    # Ensure we don't exceed tensor bounds (using padded tensor size)
+                    max_frames = estimated_sources_tensor.shape[-1]
+                    actual_end_frame = min(end_frame, max_frames)
                     actual_chunk_size = actual_end_frame - start_frame
 
+                    # Skip invalid chunks but don't warn for end-of-audio edge cases
                     if actual_chunk_size <= 0:
-                        logger.warning(
-                            f"Skipping chunk with invalid size: {actual_chunk_size}"
-                        )
+                        if start_frame < max_frames:  # Only warn if not expected end condition
+                            logger.warning(
+                                f"Skipping chunk with invalid size: {actual_chunk_size} (start: {start_frame}, end: {end_frame}, max: {max_frames})"
+                            )
                         cnt += 1
                         continue
 
@@ -257,9 +258,7 @@ class SeperateMDXCLogic(SeparatorAttributesLogic):
     def separate(self) -> Optional[Dict[str, np.ndarray]]:
         """Main MDX-C separation method."""
         if not TFC_TDF_net or not self.md.mdx_c_configs:
-            logger.error(
-                "MDX-C dependencies (TFC_TDF_net/configs) not available."
-            )
+            logger.error("MDX-C dependencies (TFC_TDF_net/configs) not available.")
             return None
 
         md = self.md

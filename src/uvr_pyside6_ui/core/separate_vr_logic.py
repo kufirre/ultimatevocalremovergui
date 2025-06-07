@@ -30,7 +30,7 @@ except ImportError as e:
     spec_utils, nets_vr, nets_new_vr, ModelParameters = None, None, None, None
 
 
-class SeperateVRLogic(SeparatorAttributesLogic):
+class SeparateVRLogic(SeparatorAttributesLogic):
     """VR (Vocal Remover) separator implementation."""
 
     def __init__(self, model_data: ModelData, process_data: Dict[str, Any]):

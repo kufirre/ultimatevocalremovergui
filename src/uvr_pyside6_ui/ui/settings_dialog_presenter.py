@@ -493,65 +493,28 @@ class SettingsDialogPresenter(QObject):
         dialog.exec()
 
     def _show_demucs_advanced_settings(self):
-        """Show Demucs advanced settings dialog."""
-        from PySide6.QtWidgets import (
-            QComboBox,
-            QDialog,
-            QFormLayout,
-            QHBoxLayout,
-            QPushButton,
-            QSpinBox,
-            QVBoxLayout,
-        )
-
-        dialog = QDialog(self.view)
-        dialog.setWindowTitle("Advanced Demucs Options")
-        dialog.resize(400, 300)
-
-        layout = QVBoxLayout(dialog)
-
-        # Demucs-specific settings
-        form_layout = QFormLayout()
-
-        # Shifts
-        shifts_spin = QSpinBox()
-        shifts_spin.setRange(0, 20)
-        shifts_spin.setValue(1)
-        form_layout.addRow("Shifts:", shifts_spin)
-
-        # Overlap
-        overlap_spin = QSpinBox()
-        overlap_spin.setRange(0, 16)
-        overlap_spin.setValue(8)
-        form_layout.addRow("Overlap:", overlap_spin)
-
-        # Segment size
-        segment_combo = QComboBox()
-        segment_combo.addItems(["256", "512", "1024"])
-        segment_combo.setCurrentText("512")
-        form_layout.addRow("Segment Size:", segment_combo)
-
-        # Stems
-        stems_combo = QComboBox()
-        stems_combo.addItems(["2", "4"])
-        stems_combo.setCurrentText("4")
-        form_layout.addRow("Stems:", stems_combo)
-
-        layout.addLayout(form_layout)
-
-        # Buttons
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
-
-        ok_btn = QPushButton("OK")
-        cancel_btn = QPushButton("Cancel")
-        ok_btn.clicked.connect(dialog.accept)
-        cancel_btn.clicked.connect(dialog.reject)
-
-        button_layout.addWidget(ok_btn)
-        button_layout.addWidget(cancel_btn)
-        layout.addLayout(button_layout)
-
+        """Show comprehensive Demucs advanced settings dialog."""
+        from .demucs_advanced_dialog import DemucsAdvancedDialog
+        
+        # Get current Demucs settings from the main window if available
+        current_settings = {}
+        try:
+            # Try to get current settings from the main UI's Demucs presenter
+            if hasattr(self, '_main_window_ref') and self._main_window_ref:
+                # This would need to be connected properly to the main window
+                pass
+        except Exception as e:
+            logger.debug(f"Could not get current Demucs settings: {e}")
+        
+        dialog = DemucsAdvancedDialog(current_settings, self.view)
+        
+        # Connect to handle settings updates
+        def on_settings_updated(settings):
+            logger.info("Demucs advanced settings updated")
+            # Here we would update the main UI's Demucs presenter with new settings
+            # This would need proper integration with the main application
+            
+        dialog.settings_updated.connect(on_settings_updated)
         dialog.exec()
 
     def _show_ensemble_settings(self):

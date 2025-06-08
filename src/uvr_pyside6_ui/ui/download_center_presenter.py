@@ -1,23 +1,18 @@
-"""Presenter for the settings and download center dialogs."""
+"""Presenter for the download center functionality."""
 
 import base64
 import json
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QStandardPaths, QTimer, Slot
+from PySide6.QtCore import QObject, QTimer, Slot
 from PySide6.QtWidgets import (
     QCheckBox,
     QGroupBox,
     QMessageBox,
-    QWidget,
 )
 
-from uvr_pyside6_ui.core import app_constants as ac
 from uvr_pyside6_ui.core.logger_utils import get_logger
 from uvr_pyside6_ui.core.uvr_core_adapter import UVRCoreAdapter
-
-from .settings_dialog_view import SettingsDialogView
-from .download_center_presenter import DownloadCenterPresenter
 
 logger = get_logger(__name__)
 
@@ -61,20 +56,26 @@ def vip_downloads(password, link_type=VIP_REPO):
         return NO_CODE
 
 
-class SettingsDialogPresenter(QObject):
-    """Handle user preferences and model downloads."""
+class DownloadCenterPresenter(QObject):
+    """Handle model downloads and VIP functionality."""
 
-    def __init__(self, adapter: UVRCoreAdapter, parent_qt_object: QObject = None):
+    def __init__(self, adapter: UVRCoreAdapter, settings_file_path: Path, parent_qt_object: QObject = None):
         super().__init__(parent_qt_object)
-        self.view: SettingsDialogView | None = None
+        self.view = None
         self.adapter = adapter
-        self._settings_file_path = self._get_settings_file_path()
-        self._current_settings = self._load_settings_from_store()
+        self._settings_file_path = settings_file_path
+        self._full_online_catalog: dict = {}
+        self._is_download_in_progress = False
+        self._last_progress_percentage = -1  # Track last progress to throttle updates
+        self._decoded_vip_link: str | None = None
         
-        # Create download center presenter with settings file path
-        self.download_center_presenter = DownloadCenterPresenter(
-            adapter, self._settings_file_path, self
-        )
+        # Check if VIP is already activated and set up adapter
+        self._check_vip_status()
+
+    def set_view(self, view):
+        """Set the download center view and connect signals."""
+        self.view = view
+        self._setup_view_connections()
 
     def _setup_view_connections(self):
         """Set up signal connections for the view."""
@@ -82,67 +83,73 @@ class SettingsDialogPresenter(QObject):
             return
 
         # Connect view signals
-        self.view.settings_saved.connect(self._save_settings_to_store)
-        self.view.advanced_settings_requested.connect(
-            self._handle_advanced_settings_request
-        )
-        
-        # Set up download center view if it exists
-        if hasattr(self.view, 'download_center_view') and self.view.download_center_view:
-            self.download_center_presenter.set_view(self.view.download_center_view)
+        self.view.download_button_clicked.connect(self._on_dc_download_button_clicked)
+        self.view.download_stop_requested.connect(self._on_dc_stop_button_clicked)
 
-    def _get_settings_file_path(self) -> Path:
-        """Determines the path for the settings JSON file."""
-        # Using QStandardPaths for platform-agnostic config location
-        config_dir = Path(
-            QStandardPaths.writableLocation(QStandardPaths.AppConfigLocation)
-        )
-        config_dir.mkdir(parents=True, exist_ok=True)
-        return config_dir / ac.APP_SETTINGS_FILENAME
+        # Connect download center action buttons
+        if hasattr(self.view, "dc_refresh_btn"):
+            self.view.dc_refresh_btn.clicked.connect(self._on_refresh_models)
+        if hasattr(self.view, "dc_key_btn"):
+            self.view.dc_key_btn.clicked.connect(self._on_vip_access)
+        if hasattr(self.view, "dc_manual_btn"):
+            self.view.dc_manual_btn.clicked.connect(self._on_manual_download)
 
-    def _load_settings_from_store(self) -> dict:
-        default_settings = {
-            "check_updates": True,
-            "theme": "Default",
-            "default_output": str(Path.home() / "Music" / "UVR_Output"),
-            "models_dir": str(
-                Path.home() / "Documents" / "UVR_Models"
-            ),  # Default models dir
-        }
-        if self._settings_file_path.exists():
-            try:
-                with open(self._settings_file_path, encoding="utf-8") as f:
-                    loaded_settings = json.load(f)
-                    # Merge with defaults to ensure all keys are present
-                    default_settings.update(loaded_settings)
-                    return default_settings
-            except (OSError, json.JSONDecodeError) as e:
-                logger.warning(
-                    f"Error loading settings from {self._settings_file_path}: {e}. Using defaults."
-                )
-                return default_settings
-        return default_settings
+        # Connect adapter download signals
+        self.adapter.download_progress.connect(self._on_adapter_download_progress)
+        self.adapter.download_finished.connect(self._on_adapter_download_finished)
 
-    @Slot(dict)
-    def _save_settings_to_store(self, settings_data: dict):
-        self._current_settings.update(settings_data)
-        try:
-            with open(self._settings_file_path, "w", encoding="utf-8") as f:
-                json.dump(self._current_settings, f, indent=4)
-            if self.view:  # Update status if view is available
-                self.view.show_status_message("Settings saved.", 2000)
-            logger.info(f"Settings saved successfully to {self._settings_file_path}")
-        except OSError as e:
-            logger.error(f"Error saving settings to {self._settings_file_path}: {e}")
-            if self.view:
-                QMessageBox.warning(
-                    self.view, "Save Error", f"Could not save settings: {e}"
-                )
+    def populate_download_center(self, default_model_type: str | None = None):
+        """Populate the download center with available models."""
+        if not self.view:
+            return
 
-    def _populate_download_center_on_show(self, default_model_type: str | None = None):
-        """Populate download center using the dedicated presenter."""
-        if self.download_center_presenter:
-            self.download_center_presenter.populate_download_center(default_model_type)
+        if not isinstance(
+            self.adapter, UVRCoreAdapter
+        ):  # Should not happen with proper init
+            self.view.dc_progress_info_label.setText("Adapter unavailable.")
+            return
+
+        if not self._full_online_catalog:
+            self._full_online_catalog = self.adapter.get_online_catalog()
+
+        if self._full_online_catalog:
+            # Get downloadable models and filter out already downloaded ones
+            vr_models = self._get_filtered_downloadable_models("VR Architecture")
+            self.view.set_vr_models(
+                list(vr_models.keys()) if vr_models else ["No models available"]
+            )
+
+            mdx_models = self._get_filtered_downloadable_models("MDX-Net")
+            self.view.set_mdx_models(
+                list(mdx_models.keys()) if mdx_models else ["No models available"]
+            )
+
+            demucs_models = self._get_filtered_downloadable_models("Demucs")
+            self.view.set_demucs_models(
+                list(demucs_models.keys()) if demucs_models else ["No models available"]
+            )
+
+            # Set default selection if provided
+            if default_model_type:
+                if hasattr(self.view, "dc_architecture_combo"):
+                    if default_model_type == "VR Arch":
+                        self.view.dc_architecture_combo.setCurrentText("VR Architecture")
+                    elif default_model_type == "MDX-Net":
+                        self.view.dc_architecture_combo.setCurrentText("MDX-Net")
+                    elif default_model_type == "Demucs":
+                        self.view.dc_architecture_combo.setCurrentText("Demucs")
+                    self.view._populate_models_for_architecture()
+
+            # Initialize progress display to clean state
+            if not self._is_download_in_progress:
+                self.view.dc_progress_info_label.setText("Ready to download")
+                self.view.dc_progress_percent_label.setText("0%")
+                self.view.dc_progress_bar.setValue(0)
+        else:
+            self.view.set_vr_models(["Could not load catalog"])
+            self.view.set_mdx_models(["Could not load catalog"])
+            self.view.set_demucs_models(["Could not load catalog"])
+            self.view.dc_progress_info_label.setText("Could not load download catalog")
 
     def _get_filtered_downloadable_models(self, ui_model_type: str) -> dict:
         """Get downloadable models filtered to exclude already downloaded ones."""
@@ -344,416 +351,20 @@ class SettingsDialogPresenter(QObject):
 
         return all_models
 
-    def _get_vip_models(self, internal_type: str) -> dict:
-        """Get VIP-exclusive models for the specified type."""
-        # Removed fake VIP model placeholders
-        # Real VIP models would come from fetching the actual VIP repository
-        # using the decrypted VIP link
-        return {}
-
-    @Slot(str)
-    def _handle_advanced_settings_request(self, menu_text: str):
-        """Handle request to open advanced settings windows."""
-        logger.info(f"Advanced settings requested: {menu_text}")
-
-        if menu_text == "Advanced VR Options":
-            self._show_vr_advanced_settings()
-        elif menu_text == "Advanced MDX-Net Options":
-            self._show_mdx_advanced_settings()
-        elif menu_text == "Advanced Demucs Options":
-            self._show_demucs_advanced_settings()
-        elif menu_text == "Ensemble Customization Options":
-            self._show_ensemble_settings()
-        elif menu_text == "Audio Alignment Tool":
-            self._show_audio_alignment_tool()
-        elif menu_text == "Open Information Guide":
-            self._show_information_guide()
-        elif menu_text == "Open Error Log":
-            self._show_error_log()
-
-    def _show_vr_advanced_settings(self):
-        """Show VR Architecture advanced settings dialog."""
-        from PySide6.QtWidgets import (
-            QCheckBox,
-            QDialog,
-            QDoubleSpinBox,
-            QFormLayout,
-            QHBoxLayout,
-            QPushButton,
-            QSpinBox,
-            QVBoxLayout,
-        )
-
-        dialog = QDialog(self.view)
-        dialog.setWindowTitle("Advanced VR Options")
-        dialog.resize(400, 300)
-
-        layout = QVBoxLayout(dialog)
-
-        # VR-specific settings
-        form_layout = QFormLayout()
-
-        # Window size
-        window_size_spin = QSpinBox()
-        window_size_spin.setRange(512, 8192)
-        window_size_spin.setValue(512)
-        form_layout.addRow("Window Size:", window_size_spin)
-
-        # Aggression setting
-        aggression_spin = QDoubleSpinBox()
-        aggression_spin.setRange(0.1, 50.0)
-        aggression_spin.setValue(5.0)
-        aggression_spin.setSingleStep(0.1)
-        form_layout.addRow("Aggression:", aggression_spin)
-
-        # High-end process
-        high_end_check = QCheckBox("Enable High-End Process")
-        form_layout.addRow(high_end_check)
-
-        # Post-process
-        post_process_check = QCheckBox("Enable Post-Process")
-        form_layout.addRow(post_process_check)
-
-        layout.addLayout(form_layout)
-
-        # Buttons
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
-
-        ok_btn = QPushButton("OK")
-        cancel_btn = QPushButton("Cancel")
-        ok_btn.clicked.connect(dialog.accept)
-        cancel_btn.clicked.connect(dialog.reject)
-
-        button_layout.addWidget(ok_btn)
-        button_layout.addWidget(cancel_btn)
-        layout.addLayout(button_layout)
-
-        dialog.exec()
-
-    def _show_mdx_advanced_settings(self):
-        """Show MDX-Net advanced settings dialog."""
-        from PySide6.QtWidgets import (
-            QCheckBox,
-            QComboBox,
-            QDialog,
-            QFormLayout,
-            QHBoxLayout,
-            QPushButton,
-            QSpinBox,
-            QVBoxLayout,
-        )
-
-        dialog = QDialog(self.view)
-        dialog.setWindowTitle("Advanced MDX-Net Options")
-        dialog.resize(400, 300)
-
-        layout = QVBoxLayout(dialog)
-
-        # MDX-specific settings
-        form_layout = QFormLayout()
-
-        # Overlap
-        overlap_spin = QSpinBox()
-        overlap_spin.setRange(0, 16)
-        overlap_spin.setValue(8)
-        form_layout.addRow("Overlap:", overlap_spin)
-
-        # Shifts
-        shifts_spin = QSpinBox()
-        shifts_spin.setRange(0, 20)
-        shifts_spin.setValue(2)
-        form_layout.addRow("Shifts:", shifts_spin)
-
-        # Segment size
-        segment_combo = QComboBox()
-        segment_combo.addItems(["256", "512", "1024"])
-        segment_combo.setCurrentText("256")
-        form_layout.addRow("Segment Size:", segment_combo)
-
-        # Denoise
-        denoise_check = QCheckBox("Enable Denoise")
-        form_layout.addRow(denoise_check)
-
-        layout.addLayout(form_layout)
-
-        # Buttons
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
-
-        ok_btn = QPushButton("OK")
-        cancel_btn = QPushButton("Cancel")
-        ok_btn.clicked.connect(dialog.accept)
-        cancel_btn.clicked.connect(dialog.reject)
-
-        button_layout.addWidget(ok_btn)
-        button_layout.addWidget(cancel_btn)
-        layout.addLayout(button_layout)
-
-        dialog.exec()
-
-    def _show_demucs_advanced_settings(self):
-        """Show Demucs advanced settings dialog."""
-        from PySide6.QtWidgets import (
-            QComboBox,
-            QDialog,
-            QFormLayout,
-            QHBoxLayout,
-            QPushButton,
-            QSpinBox,
-            QVBoxLayout,
-        )
-
-        dialog = QDialog(self.view)
-        dialog.setWindowTitle("Advanced Demucs Options")
-        dialog.resize(400, 300)
-
-        layout = QVBoxLayout(dialog)
-
-        # Demucs-specific settings
-        form_layout = QFormLayout()
-
-        # Shifts
-        shifts_spin = QSpinBox()
-        shifts_spin.setRange(0, 20)
-        shifts_spin.setValue(1)
-        form_layout.addRow("Shifts:", shifts_spin)
-
-        # Overlap
-        overlap_spin = QSpinBox()
-        overlap_spin.setRange(0, 16)
-        overlap_spin.setValue(8)
-        form_layout.addRow("Overlap:", overlap_spin)
-
-        # Segment size
-        segment_combo = QComboBox()
-        segment_combo.addItems(["256", "512", "1024"])
-        segment_combo.setCurrentText("512")
-        form_layout.addRow("Segment Size:", segment_combo)
-
-        # Stems
-        stems_combo = QComboBox()
-        stems_combo.addItems(["2", "4"])
-        stems_combo.setCurrentText("4")
-        form_layout.addRow("Stems:", stems_combo)
-
-        layout.addLayout(form_layout)
-
-        # Buttons
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
-
-        ok_btn = QPushButton("OK")
-        cancel_btn = QPushButton("Cancel")
-        ok_btn.clicked.connect(dialog.accept)
-        cancel_btn.clicked.connect(dialog.reject)
-
-        button_layout.addWidget(ok_btn)
-        button_layout.addWidget(cancel_btn)
-        layout.addLayout(button_layout)
-
-        dialog.exec()
-
-    def _show_ensemble_settings(self):
-        """Show ensemble customization dialog."""
-        from PySide6.QtWidgets import (
-            QDialog,
-            QHBoxLayout,
-            QLabel,
-            QListWidget,
-            QPushButton,
-            QVBoxLayout,
-        )
-
-        dialog = QDialog(self.view)
-        dialog.setWindowTitle("Ensemble Customization")
-        dialog.resize(500, 400)
-
-        layout = QVBoxLayout(dialog)
-
-        label = QLabel("Configure ensemble model combinations:")
-        layout.addWidget(label)
-
-        # Model list
-        model_list = QListWidget()
-        model_list.addItems(
-            [
-                "VR Architecture Model 1",
-                "MDX-Net Model 1",
-                "Demucs Model 1",
-                "VR Architecture Model 2",
-            ]
-        )
-        layout.addWidget(model_list)
-
-        # Buttons
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
-
-        ok_btn = QPushButton("OK")
-        cancel_btn = QPushButton("Cancel")
-        ok_btn.clicked.connect(dialog.accept)
-        cancel_btn.clicked.connect(dialog.reject)
-
-        button_layout.addWidget(ok_btn)
-        button_layout.addWidget(cancel_btn)
-        layout.addLayout(button_layout)
-
-        dialog.exec()
-
-    def _show_audio_alignment_tool(self):
-        """Show audio alignment tool."""
-        from PySide6.QtWidgets import (
-            QDialog,
-            QHBoxLayout,
-            QLabel,
-            QPushButton,
-            QTextEdit,
-            QVBoxLayout,
-        )
-
-        dialog = QDialog(self.view)
-        dialog.setWindowTitle("Audio Alignment Tool")
-        dialog.resize(500, 300)
-
-        layout = QVBoxLayout(dialog)
-
-        label = QLabel("Audio Alignment and Synchronization Tool")
-        layout.addWidget(label)
-
-        text_edit = QTextEdit()
-        text_edit.setPlainText(
-            "This tool helps align audio tracks for better separation results.\n\nFeatures:\n- Automatic alignment detection\n- Manual alignment adjustment\n- Phase correction"
-        )
-        text_edit.setReadOnly(True)
-        layout.addWidget(text_edit)
-
-        # Buttons
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
-
-        close_btn = QPushButton("Close")
-        close_btn.clicked.connect(dialog.accept)
-        button_layout.addWidget(close_btn)
-        layout.addLayout(button_layout)
-
-        dialog.exec()
-
-    def _show_information_guide(self):
-        """Show information guide."""
-        from PySide6.QtWidgets import (
-            QDialog,
-            QHBoxLayout,
-            QLabel,
-            QPushButton,
-            QTextEdit,
-            QVBoxLayout,
-        )
-
-        dialog = QDialog(self.view)
-        dialog.setWindowTitle("Information Guide")
-        dialog.resize(600, 500)
-
-        layout = QVBoxLayout(dialog)
-
-        label = QLabel("Ultimate Vocal Remover - User Guide")
-        label.setStyleSheet("font-weight: bold; font-size: 14px;")
-        layout.addWidget(label)
-
-        text_edit = QTextEdit()
-        text_edit.setPlainText(
-            """Welcome to Ultimate Vocal Remover!
-
-This application uses AI models to separate audio sources from mixed recordings.
-
-Key Features:
-- VR Architecture: Advanced vocal removal using deep learning
-- MDX-Net: High-quality source separation
-- Demucs: Multi-stem separation (vocals, drums, bass, other)
-- Ensemble Mode: Combine multiple models for better results
-
-Getting Started:
-1. Select your audio file
-2. Choose a model type and specific model
-3. Configure processing options
-4. Click 'Start Processing'
-
-Tips:
-- VR models work best for vocal isolation
-- MDX-Net provides good quality separation
-- Demucs can separate into 4 stems
-- Try different models to find what works best for your audio
-
-For more information, visit the project documentation."""
-        )
-        text_edit.setReadOnly(True)
-        layout.addWidget(text_edit)
-
-        # Buttons
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
-
-        close_btn = QPushButton("Close")
-        close_btn.clicked.connect(dialog.accept)
-        button_layout.addWidget(close_btn)
-        layout.addLayout(button_layout)
-
-        dialog.exec()
-
-    def _show_error_log(self):
-        """Show error log."""
-        from PySide6.QtWidgets import (
-            QDialog,
-            QHBoxLayout,
-            QLabel,
-            QPushButton,
-            QTextEdit,
-            QVBoxLayout,
-        )
-
-        dialog = QDialog(self.view)
-        dialog.setWindowTitle("Error Log")
-        dialog.resize(600, 400)
-
-        layout = QVBoxLayout(dialog)
-
-        label = QLabel("Application Error Log")
-        label.setStyleSheet("font-weight: bold;")
-        layout.addWidget(label)
-
-        text_edit = QTextEdit()
-        # In a real implementation, this would read from actual log files
-        text_edit.setPlainText(
-            "No errors recorded in this session.\n\nThis log shows application errors and warnings to help diagnose issues."
-        )
-        text_edit.setReadOnly(True)
-        layout.addWidget(text_edit)
-
-        # Buttons
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
-
-        clear_btn = QPushButton("Clear Log")
-        close_btn = QPushButton("Close")
-        clear_btn.clicked.connect(lambda: text_edit.clear())
-        close_btn.clicked.connect(dialog.accept)
-
-        button_layout.addWidget(clear_btn)
-        button_layout.addWidget(close_btn)
-        layout.addLayout(button_layout)
-
-        dialog.exec()
-
     @Slot()
     def _on_dc_stop_button_clicked(self) -> None:
         """Handle stop download button clicks."""
         logger.info("Stop download requested")
         # TODO: Implement download cancellation in adapter
-        self.view.show_status_message("Download stopped", 3000)
+        if self.view:
+            self.view.show_status_message("Download stopped", 3000)
 
     @Slot()
     def _on_dc_download_button_clicked(self) -> None:
         """Handle download button clicks from the download center."""
+        if not self.view:
+            return
+
         model_type = self.view.get_selected_model_type()
         model_name = self.view.get_selected_model()
 
@@ -788,27 +399,48 @@ For more information, visit the project documentation."""
                 if model_name in vip_enhanced_models:
                     download_target_info = vip_enhanced_models[model_name]
                     logger.info(f"Found VIP model in enhanced catalog: {model_name}")
+                    logger.debug(f"VIP model info format: {type(download_target_info)} - {download_target_info}")
 
-                    # Special handling for MDX23C VIP models
-                    if (
-                        isinstance(download_target_info, dict)
-                        and len(download_target_info) == 1
-                    ):
-                        # MDX23C format: {'MDX23C_D1581.ckpt': 'model_2_stem_061321.yaml'}
-                        # We should download the .ckpt file, not the .yaml file
-                        for ckpt_file, yaml_file in download_target_info.items():
-                            if ckpt_file.endswith(".ckpt"):
-                                # Convert to format expected by adapter: download the .ckpt file
-                                download_target_info = ckpt_file
-                                logger.info(
-                                    f"Converted MDX23C VIP model format: {ckpt_file}"
-                                )
-                                break
+                    # Special handling for different VIP model formats
+                    if isinstance(download_target_info, dict):
+                        if len(download_target_info) == 1:
+                            # MDX23C format: {'MDX23C_D1581.ckpt': 'model_2_stem_061321.yaml'}
+                            # We should download the .ckpt file, not the .yaml file
+                            for ckpt_file, yaml_file in download_target_info.items():
+                                if ckpt_file.endswith(".ckpt"):
+                                    # Convert to format expected by adapter: download the .ckpt file
+                                    download_target_info = ckpt_file
+                                    logger.info(
+                                        f"Converted MDX23C VIP model format: {ckpt_file}"
+                                    )
+                                    break
+                        else:
+                            # Complex VIP model format - extract the actual model filename
+                            # Look for common model file extensions
+                            for key, value in download_target_info.items():
+                                if key.endswith(('.onnx', '.pth', '.ckpt')):
+                                    download_target_info = key
+                                    logger.info(f"Extracted VIP model filename: {key}")
+                                    break
+                            else:
+                                # If no direct file found, use the first value that looks like a filename
+                                if download_target_info:
+                                    first_key = list(download_target_info.keys())[0]
+                                    download_target_info = first_key
+                                    logger.info(f"Using first VIP model key: {first_key}")
+                    elif isinstance(download_target_info, str):
+                        # Simple string format - extract just the filename if it has model prefix
+                        if ":" in download_target_info:
+                            # Format like "MDX-Net Model VIP: UVR-MDX-NET_Main_406"
+                            actual_filename = download_target_info.split(":")[-1].strip()
+                            download_target_info = actual_filename
+                            logger.info(f"Extracted filename from VIP string: {actual_filename}")
+                    
+                    logger.info(f"Final VIP download target: {download_target_info}")
 
             if not download_target_info:
-                self.view.show_status_message(
-                    f"Model '{model_name}' not found in catalog", 3000
-                )
+                error_msg = f"Model not found in catalog"
+                self.view.show_status_message(error_msg, 3000)
                 logger.error(
                     f"Model '{model_name}' not found in any catalog for {internal_model_type}"
                 )
@@ -830,7 +462,10 @@ For more information, visit the project documentation."""
         except Exception as e:
             logger.error(f"Error starting download: {e}")
             self.view.set_download_in_progress_state(False)
-            self.view.show_status_message(f"{str(e)}", 5000)
+            # Show brief error in UI, full details in log
+            error_msg = "Download failed to start"
+            self.view.show_status_message(error_msg, 5000)
+            self.view.dc_progress_info_label.setText("❌ " + error_msg)
 
     @Slot(str, int)
     def _on_adapter_download_progress(self, model_name: str, percentage: int):
@@ -838,7 +473,6 @@ For more information, visit the project documentation."""
         if (
             self.view
             and self.view.isVisible()
-            and self.view.tab_widget.currentIndex() == 2  # Download Center tab
         ):
             # Update progress info label
             self.view.dc_progress_info_label.setText(f"Downloading {model_name}...")
@@ -874,9 +508,7 @@ For more information, visit the project documentation."""
                 self.view.dc_progress_bar.setValue(100)
 
                 # Refresh the model lists to remove the downloaded model
-                QTimer.singleShot(
-                    1000, lambda: self._populate_download_center_on_show()
-                )
+                QTimer.singleShot(1000, lambda: self.populate_download_center())
 
                 # Reset after delay to show completion
                 QTimer.singleShot(3000, lambda: self._reset_download_progress_display())
@@ -887,17 +519,15 @@ For more information, visit the project documentation."""
                     f"Download completed for {model_type_ui_name}, triggering main UI refresh"
                 )
 
-                # NOTE: The adapter already emits model_download_completed signal automatically
-                # in its _on_download_finished method when success=True
-                # So the main UI should already be getting the refresh signal
-
             else:
-                # Error - show error with better formatting
-                self.view.dc_progress_info_label.setText(
-                    f"❌ Download failed: {message}"
-                )
+                # Error - show brief error in UI, full details in log
+                brief_error = "Download failed"
+                self.view.dc_progress_info_label.setText(f"❌ {brief_error}")
                 self.view.dc_progress_percent_label.setText("Failed")
                 self.view.dc_progress_bar.setValue(0)
+                
+                # Log full error details
+                logger.error(f"Download failed for {model_display_name}: {message}")
 
                 # Reset after longer delay for error message
                 QTimer.singleShot(5000, lambda: self._reset_download_progress_display())
@@ -913,18 +543,20 @@ For more information, visit the project documentation."""
     def _on_refresh_models(self):
         """Handle refresh models button click."""
         logger.info("Refreshing model catalog")
-        self.view.dc_progress_info_label.setText("Refreshing model catalog...")
+        if self.view:
+            self.view.dc_progress_info_label.setText("Refreshing model catalog...")
 
         # Clear cached catalog to force refresh
         self._full_online_catalog = {}
 
         # Repopulate with fresh data
-        self._populate_download_center_on_show()
+        self.populate_download_center()
 
-        self.view.dc_progress_info_label.setText("Model catalog refreshed")
-        QTimer.singleShot(
-            2000, lambda: self.view.dc_progress_info_label.setText("Ready to download")
-        )
+        if self.view:
+            self.view.dc_progress_info_label.setText("Model catalog refreshed")
+            QTimer.singleShot(
+                2000, lambda: self.view.dc_progress_info_label.setText("Ready to download")
+            )
 
     @Slot()
     def _on_vip_access(self):
@@ -1058,8 +690,12 @@ Enter your VIP access code below to unlock these features."""
             )
             self.vip_status_label.setStyleSheet("color: #27ae60; font-weight: bold;")
 
-            # Save VIP status (in a real implementation)
+            # Save VIP status and set VIP link in adapter
             self._save_vip_status(vip_code)
+            self._decoded_vip_link = decoded_vip_link
+            
+            # Set VIP link in the adapter for URL construction
+            self.adapter.set_vip_link(decoded_vip_link)
 
             # Show success message
             QMessageBox.information(
@@ -1072,7 +708,7 @@ Enter your VIP access code below to unlock these features."""
 
             # Refresh model catalog to show VIP models
             self._full_online_catalog = {}  # Clear cache
-            self._populate_download_center_on_show()
+            self.populate_download_center()
 
             dialog.accept()
 
@@ -1152,11 +788,20 @@ Valid VIP codes are encrypted and provided by the UVR development team."""
                 "activation_date": "2025-01-05",  # In real implementation, use current date
             }
 
-            # In a real implementation, this would be encrypted and saved securely
-            self._current_settings.update(vip_settings)
+            # Load current settings
+            current_settings = {}
+            if self._settings_file_path.exists():
+                try:
+                    with open(self._settings_file_path, encoding="utf-8") as f:
+                        current_settings = json.load(f)
+                except (OSError, json.JSONDecodeError):
+                    pass
+
+            # Update with VIP settings
+            current_settings.update(vip_settings)
 
             with open(self._settings_file_path, "w", encoding="utf-8") as f:
-                json.dump(self._current_settings, f, indent=4)
+                json.dump(current_settings, f, indent=4)
 
             logger.info("VIP access activated and saved to settings")
 
@@ -1239,36 +884,20 @@ Valid VIP codes are encrypted and provided by the UVR development team."""
 
         dialog.exec()
 
-    @Slot()
-    def show_dialog(
-        self, exec_dialog: bool = True, default_model_type: str | None = None
-    ) -> None:
-        """Display the settings dialog, optionally modal."""
-        if not self.view:
-            parent_widget = (
-                self.parent() if isinstance(self.parent(), QWidget) else None
-            )
-            self.view = SettingsDialogView(parent=parent_widget)
-            self._setup_view_connections()
-
-        settings_to_load = self._load_settings_from_store()
-        self.view.load_settings(settings_to_load)
-
-        # Pass default_model_type to setup function
-        self._populate_download_center_on_show(default_model_type=default_model_type)
-
-        if exec_dialog:
-            result = self.view.exec()
-        else:
-            if not self.view.isVisible():
-                self.view.show()
-            self.view.activateWindow()
-            self.view.raise_()
-
     def _check_vip_status(self):
-        """Check if user has valid VIP access"""
-        vip_code = self._current_settings.get("vip_code", "")
-        if vip_code:
-            decoded_link = vip_downloads(vip_code)
-            return decoded_link != NO_CODE
+        """Check if user has valid VIP access and set VIP link in adapter"""
+        try:
+            if self._settings_file_path.exists():
+                with open(self._settings_file_path, encoding="utf-8") as f:
+                    settings = json.load(f)
+                    vip_code = settings.get("vip_code", "")
+                    if vip_code:
+                        decoded_link = vip_downloads(vip_code)
+                        if decoded_link != NO_CODE:
+                            self._decoded_vip_link = decoded_link
+                            # Set VIP link in the adapter for URL construction
+                            self.adapter.set_vip_link(decoded_link)
+                            return True
+        except (OSError, json.JSONDecodeError):
+            pass
         return False

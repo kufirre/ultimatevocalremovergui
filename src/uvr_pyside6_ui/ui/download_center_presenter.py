@@ -36,7 +36,7 @@ NO_CODE = "incorrect_code"
 
 
 def vip_downloads(password, link_type=VIP_REPO):
-    """Attempts to decrypt VIP model link with given input code - matches original UVR.py"""
+    """Attempts to decrypt VIP model link with given input code"""
     if not CRYPTO_AVAILABLE:
         return NO_CODE
 

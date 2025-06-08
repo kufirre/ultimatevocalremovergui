@@ -41,7 +41,7 @@ NO_CODE = "incorrect_code"
 
 
 def vip_downloads(password, link_type=VIP_REPO):
-    """Attempts to decrypt VIP model link with given input code - matches original UVR.py"""
+    """Attempts to decrypt VIP model link with given input codex"""
     if not CRYPTO_AVAILABLE:
         return NO_CODE
 
@@ -1048,7 +1048,6 @@ Enter your VIP access code below to unlock these features."""
             self.vip_status_label.setStyleSheet("color: #e74c3c;")
             return
 
-        # Use the same cryptographic verification as original UVR.py
         decoded_vip_link = vip_downloads(vip_code)
 
         if decoded_vip_link != NO_CODE:

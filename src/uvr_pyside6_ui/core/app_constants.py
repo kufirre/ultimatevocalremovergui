@@ -70,7 +70,7 @@ ENSEMBLE_MAIN_STEM_OPTIONS = [
     "Drums/No Drums",
     "Bass/No Bass",
     "Multi-stem Ensemble",  # All available stems from selected models
-]  # Based on UVR.py's ENSEMBLE_MAIN_STEM
+]
 
 ENSEMBLE_ALGORITHM_OPTIONS = [
     "Max Spec/Min Spec",
@@ -82,7 +82,7 @@ ENSEMBLE_ALGORITHM_OPTIONS = [
     "Average/Max Spec",
     "Average/Min Spec",
     "Average/Average",
-]  # Based on UVR.py's ENSEMBLE_TYPE
+]
 # For 4-Stem ensemble, UVR.py just uses Max Spec, Min Spec, Average directly. We can handle this in presenter.
 ENSEMBLE_ALGORITHM_4_STEM_OPTIONS = ["Max Spec", "Min Spec", "Average"]
 

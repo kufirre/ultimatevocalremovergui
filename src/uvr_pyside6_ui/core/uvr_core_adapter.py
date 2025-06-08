@@ -47,6 +47,7 @@ class UVRCoreAdapter(QObject):
         self.processing_thread: ProcessingThread | None = None
         self._online_catalog_data_cache: dict | None = None
         self.download_manager = DownloadManager()
+        self._vip_link: str | None = None
 
         # Connect download manager signals to our signals
         self.download_manager.download_progress.connect(self.download_progress)
@@ -64,6 +65,15 @@ class UVRCoreAdapter(QObject):
             pass
         self.processing_thread = None
         # print("Processing thread has finished and reference cleared.")
+
+    def set_vip_link(self, vip_link: str | None):
+        """Set the VIP download link for premium models."""
+        self._vip_link = vip_link
+        logger.info(f"VIP link {'set' if vip_link else 'cleared'}")
+
+    def _is_vip_model(self, model_display_name: str) -> bool:
+        """Check if a model is a VIP model based on its display name."""
+        return "VIP" in model_display_name
 
     def _get_project_models_dir(self) -> Path | None:
         try:
@@ -114,7 +124,7 @@ class UVRCoreAdapter(QObject):
         )
 
     def _construct_full_url(
-        self, path_or_url: str, model_type: str, is_config: bool = False
+        self, path_or_url: str, model_type: str, is_config: bool = False, model_display_name: str = ""
     ) -> str:
         """Constructs a full URL if a relative path/filename is given."""
         if path_or_url.startswith("http://") or path_or_url.startswith("https://"):
@@ -122,7 +132,12 @@ class UVRCoreAdapter(QObject):
 
         # Determine appropriate base URL
         base_url_to_use = ac.MODEL_REPO_URL_BASE  # Default base
-        if model_type == ac.DEMUCS_MODELS_KEY:
+        
+        # Check if this is a VIP model and we have a VIP link
+        if self._is_vip_model(model_display_name) and self._vip_link:
+            base_url_to_use = self._vip_link
+            logger.debug(f"Using VIP repository for model: {model_display_name}")
+        elif model_type == ac.DEMUCS_MODELS_KEY:
             if is_config and path_or_url.endswith(
                 ".yaml"
             ):  # Demucs .yaml configs often from facebookresearch
@@ -387,6 +402,7 @@ class UVRCoreAdapter(QObject):
                     url_or_path_in_dict,
                     model_type_ui_name,
                     is_config=file_name_in_dict.endswith(".yaml"),
+                    model_display_name=model_display_name,
                 )
 
                 # Pass the original model display name to preserve v3/v4 context
@@ -464,10 +480,11 @@ class UVRCoreAdapter(QObject):
                     raw_model_url_str,
                     model_type_ui_name,
                     is_config=raw_model_url_str.endswith(".yaml"),
+                    model_display_name=model_display_name,
                 )
             if raw_config_url_str:
                 config_url = self._construct_full_url(
-                    raw_config_url_str, model_type_ui_name, is_config=True
+                    raw_config_url_str, model_type_ui_name, is_config=True, model_display_name=model_display_name
                 )
 
             if model_url and model_url.endswith(".yaml") and model_url == config_url:

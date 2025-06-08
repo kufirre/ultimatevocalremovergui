@@ -76,7 +76,7 @@ class SettingsDialogView(QDialog):
         menu_label.setStyleSheet("font-weight: bold;")
         general_layout.addWidget(menu_label)
 
-        # Main menu dropdown - matches original UVR options exactly
+        # Main menu dropdown
         self.main_menu_combo = QComboBox()
         self.main_menu_combo.addItems(
             [

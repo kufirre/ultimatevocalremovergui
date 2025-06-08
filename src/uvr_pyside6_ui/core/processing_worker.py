@@ -57,6 +57,15 @@ class ProcessingWorker(QObject):
         self.progress_count = 0  # Track incremental progress steps
         self.total_progress_steps = 100  # Will be set based on processing type
         self.original_mix_audio: Optional[np.ndarray] = None
+        
+        # Multi-file progress tracking (following UVR.py pattern)
+        self._multi_file_context = {
+            'total_files': 1,
+            'current_file': 1,
+            'file_progress_start': 0,
+            'file_progress_range': 100,
+            'is_multi_file': False
+        }
 
         # Initialize device based on model data settings
         self.device = 'cpu'  # Default to CPU string like in separate.py
@@ -92,7 +101,7 @@ class ProcessingWorker(QObject):
         """Execute the audio processing task."""
         logger.info("ProcessingWorker started")
         try:
-            # Initial progress (5%) - matching original UVR pattern
+            # Initial progress (5%)
             self._set_progress_bar_callback(
                 0.05, "Loading model and preparing audio..."
             )
@@ -163,11 +172,11 @@ class ProcessingWorker(QObject):
 
             # Only proceed with final completion if processing was successful
             if processing_success:
-                # Final progress (95%) - matching original UVR pattern
+                # Final progress (95%)
                 self._set_progress_bar_callback(0.95, "Processing complete!")
 
                 # Complete (100%)
-                self.progress_updated.emit(100, "Done")
+                self._emit_progress_update(100, "Done")
                 self.processing_finished.emit(True, processing_message)
             # If processing failed, the individual method should have already emitted failure
 
@@ -216,7 +225,7 @@ class ProcessingWorker(QObject):
             )
             return False
 
-        self.progress_updated.emit(30, f"Running {method_name} separation...")
+        self._emit_progress_update(30, f"Running {method_name} separation...")
         primary_results = primary_separator.separate()
         if not self._is_running or not primary_results:
             if self._is_running:
@@ -247,7 +256,7 @@ class ProcessingWorker(QObject):
                     secondary_model_for_stem_obj
                     and secondary_model_for_stem_obj.model_name != ac.NO_MODEL
                 ):
-                    self.progress_updated.emit(
+                    self._emit_progress_update(
                         70 + i * 5,
                         f"Processing Demucs {stem_name_to_refine} with secondary: {secondary_model_for_stem_obj.model_basename}...",
                     )
@@ -295,7 +304,7 @@ class ProcessingWorker(QObject):
             self.model_data.secondary_model
             and self.model_data.is_secondary_model_chain_activated
         ):
-            self.progress_updated.emit(
+            self._emit_progress_update(
                 70,
                 f"Processing with secondary model: {self.model_data.secondary_model.model_basename}...",
             )
@@ -374,7 +383,7 @@ class ProcessingWorker(QObject):
             self.model_data.vocal_split_model
             and self.model_data.is_vocal_split_model_activated
         ):
-            self.progress_updated.emit(
+            self._emit_progress_update(
                 85,
                 f"Processing with vocal splitter: {self.model_data.vocal_split_model.model_basename}...",
             )
@@ -423,7 +432,7 @@ class ProcessingWorker(QObject):
                 self._write_to_console("Vocal input for vocal splitter not found.", "")
 
         if self._is_running:
-            self.progress_updated.emit(
+            self._emit_progress_update(
                 100, f"{method_name} processing pipeline complete!"
             )
             return True
@@ -460,17 +469,20 @@ class ProcessingWorker(QObject):
     def _set_progress_bar_callback(
         self, current_step_fraction: float, message: Optional[str] = None
     ):
-        """Update progress following original UVR pattern: 5% start, 10-80% processing, 95% complete."""
+        """Update progress: 5% start, 10-80% processing, 95% complete.
+        
+        Ensures monotonous progress (only increments, never decreases).
+        """
         if not self._is_running:
             return
 
-        # Follow original UVR progress pattern from separate.py
+        # Calculate new progress
         if current_step_fraction <= 0.05:
             # Initial progress (0-5%)
-            progress_percent = int(current_step_fraction * 100)
+            new_progress = int(current_step_fraction * 100)
         elif current_step_fraction >= 0.95:
             # Final completion (95-100%)
-            progress_percent = int(current_step_fraction * 100)
+            new_progress = int(current_step_fraction * 100)
         else:
             # Incremental processing progress (10-80%)
             # This matches the pattern: 0.1 + (0.8/length * progress_value)
@@ -488,27 +500,104 @@ class ProcessingWorker(QObject):
             else:
                 processing_progress = current_step_fraction * processing_range
 
-            progress_percent = int(base_progress + processing_progress)
+            new_progress = int(base_progress + processing_progress)
 
         # Ensure progress is within bounds
-        progress_percent = min(max(progress_percent, 0), 100)
-        self.progress_value = progress_percent
+        new_progress = min(max(new_progress, 0), 100)
+        
+        # MONOTONOUS CONSTRAINT: Only allow progress to increase, never decrease
+        if new_progress > self.progress_value:
+            self.progress_value = new_progress
+        # If new_progress <= self.progress_value, keep current value (don't go backwards)
 
         # Format message like original UVR
         if not message:
-            if progress_percent < 10:
+            if self.progress_value < 10:
                 message = "Initializing..."
-            elif progress_percent >= 95:
+            elif self.progress_value >= 95:
                 message = "Finalizing..."
             else:
                 message = "Processing..."  # Removed percentage from status message
 
-        self.progress_updated.emit(progress_percent, message)
+        self.progress_updated.emit(self.progress_value, message)
+
+    def _setup_multi_file_progress(self, total_files: int, base_message: str):
+        """Setup progress tracking for multi-file operations (like Demucs models).
+
+        """
+        self._multi_file_context = {
+            'total_files': total_files,
+            'current_file': 1,
+            'file_progress_start': 0,
+            'file_progress_range': 100 // total_files if total_files > 1 else 100,
+            'is_multi_file': total_files > 1,
+            'base_message': base_message
+        }
+        logger.info(f"Setup multi-file progress: {total_files} files, {self._multi_file_context['file_progress_range']}% per file")
+
+    def _start_file_progress(self, file_number: int, file_name: str = ""):
+        """Start progress tracking for a specific file in multi-file operation."""
+        if self._multi_file_context['is_multi_file']:
+            self._multi_file_context['current_file'] = file_number
+            self._multi_file_context['file_progress_start'] = (file_number - 1) * self._multi_file_context['file_progress_range']
+            
+            # Create message following UVR.py pattern: "Downloading Item X/Y..."
+            base_msg = self._multi_file_context.get('base_message', 'Processing')
+            file_msg = f"{base_msg} {file_number}/{self._multi_file_context['total_files']}"
+            if file_name:
+                file_msg += f" ({file_name})"
+            file_msg += "..."
+            
+            start_progress = self._multi_file_context['file_progress_start']
+            self._emit_progress_update(start_progress, file_msg)
+            logger.info(f"Started file {file_number}/{self._multi_file_context['total_files']}: {file_name}")
+
+    def _emit_file_progress_update(self, file_progress: int, message: str = ""):
+        """Emit progress for current file, mapping to overall progress range."""
+        if not self._is_running:
+            return
+            
+        if self._multi_file_context['is_multi_file']:
+            # Map file progress (0-100) to the allocated range for this file
+            file_range = self._multi_file_context['file_progress_range']
+            file_start = self._multi_file_context['file_progress_start']
+            overall_progress = file_start + int((file_progress / 100) * file_range)
+            
+            # Create contextual message
+            if not message:
+                current_file = self._multi_file_context['current_file']
+                total_files = self._multi_file_context['total_files']
+                base_msg = self._multi_file_context.get('base_message', 'Processing')
+                message = f"{base_msg} {current_file}/{total_files}... {file_progress}%"
+        else:
+            # Single file - use progress directly
+            overall_progress = file_progress
+            
+        self._emit_progress_update(overall_progress, message)
+
+    def _emit_progress_update(self, new_progress: int, message: str):
+        """Emit progress update ensuring monotonous progression (only increments).
+        
+        """
+        if not self._is_running:
+            return
+        
+        # Ensure progress is within bounds
+        new_progress = min(max(new_progress, 0), 100)
+        
+        # MONOTONOUS CONSTRAINT: Only allow progress to increase, never decrease
+        if new_progress > self.progress_value:
+            self.progress_value = new_progress
+        # If new_progress <= self.progress_value, keep current value (don't go backwards)
+        
+        self.progress_updated.emit(self.progress_value, message)
 
     def _write_to_console(self, message: str, base_text: str = ""):
+        """Write console message without changing progress value (maintains monotonous progress)."""
         if not self._is_running:
             return
         full_message = f"{base_text}{message}" if base_text else message
+        # Only emit message update, don't change progress value
         self.progress_updated.emit(self.progress_value, full_message)
 
     def _cached_source_callback(self, process_method: str, model_name: str = None):
@@ -884,7 +973,7 @@ class ProcessingWorker(QObject):
             self.processing_finished.emit(False, f"Ensemble failed: {error_msg}")
             return
 
-        self.progress_updated.emit(
+        self._emit_progress_update(
             10, f"Starting Ensemble: {self.model_data.model_basename}..."
         )
         self._write_to_console(
@@ -958,7 +1047,7 @@ class ProcessingWorker(QObject):
         for i, member_model_data in enumerate(self.model_data.ensemble_models):
             if not self._is_running:
                 return
-            self.progress_updated.emit(
+            self._emit_progress_update(
                 15 + int(i / num_models * 60),
                 f"Ensemble: Processing model {i+1}/{num_models} ({member_model_data.model_basename})...",
             )
@@ -1048,7 +1137,7 @@ class ProcessingWorker(QObject):
             )
             return
 
-        self.progress_updated.emit(90, "Combining ensemble results...")
+        self._emit_progress_update(90, "Combining ensemble results...")
 
         # Process each stem with valid outputs following UVR.py ensemble_outputs pattern
         stems_saved = 0
@@ -1144,7 +1233,7 @@ class ProcessingWorker(QObject):
 
         # Final completion
         if stems_saved > 0:
-            self.progress_updated.emit(100, "Ensemble processing complete!")
+            self._emit_progress_update(100, "Ensemble processing complete!")
             success_msg = f"Ensemble processing completed successfully. Saved {stems_saved} ensemble stem(s)"
             if save_all_outputs:
                 total_individual_files = sum(len(files) for files in all_saved_files_by_stem.values())

@@ -1,6 +1,5 @@
 """
 Model data structure for UVR processing.
-This replaces the original ModelData from UVR.py with a cleaner implementation.
 """
 
 import hashlib
@@ -874,8 +873,6 @@ class ModelData:
 
         # --- VR Arch Specific Logic ---
         elif self.process_method == ac.VR_ARCH_TYPE:
-            # VR typically doesn't use a name mapper in the same way for path resolution in UVR.py,
-            # model_name is often the direct filename (without .pth)
             current_model_basename_for_fallback = Path(current_display_name).stem
             for ext in ac.VR_ARCH_SCAN_EXTENSIONS:  # Should be just ['.pth']
                 if (

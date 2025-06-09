@@ -1,7 +1,7 @@
 """Settings Dialog View for UVR PySide6 application."""
 
 from PySide6.QtCore import QSize, Qt, QTimer, Signal, Slot
-from PySide6.QtGui import QCloseEvent, QIcon
+from PySide6.QtGui import QCloseEvent, QIcon, QDesktopServices
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -17,9 +17,14 @@ from PySide6.QtWidgets import (
     QTabWidget,
     QVBoxLayout,
     QWidget,
+    QSpinBox,
+    QDoubleSpinBox,
+    QScrollArea,
+    QFrame
 )
 
 from ..core.logger_utils import get_logger
+from ..core import app_constants as ac
 
 logger = get_logger(__name__)
 
@@ -84,12 +89,16 @@ class SettingsDialogView(QDialog):
                 "Advanced VR Options",
                 "Advanced MDX-Net Options",
                 "Advanced Demucs Options",
-                "Ensemble Customization Options",
-                "Audio Alignment Tool",
+                ac.ENSEMBLE_SETTINGS,
+                ac.AUDIO_ALIGNMENT_SETTINGS,
                 "Open Information Guide",
                 "Open Error Log",
             ]
         )
+        # Make the first item (placeholder) non-selectable
+        item = self.main_menu_combo.model().item(0)
+        item.setFlags(item.flags() & ~Qt.ItemIsSelectable)
+        
         self.main_menu_combo.currentTextChanged.connect(self._on_advanced_menu_selected)
         general_layout.addWidget(self.main_menu_combo)
 
@@ -113,6 +122,10 @@ class SettingsDialogView(QDialog):
 
         self.delete_settings_combo = QComboBox()
         self.delete_settings_combo.addItems(["Select Saved Setting"])
+        # Make the first item (placeholder) non-selectable
+        item = self.delete_settings_combo.model().item(0)
+        item.setFlags(item.flags() & ~Qt.ItemIsSelectable)
+        
         delete_layout.addWidget(self.delete_settings_combo)
 
         main_layout.addWidget(delete_group)

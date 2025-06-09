@@ -362,9 +362,9 @@ class SettingsDialogPresenter(QObject):
             self._show_mdx_advanced_settings()
         elif menu_text == "Advanced Demucs Options":
             self._show_demucs_advanced_settings()
-        elif menu_text == "Ensemble Customization Options":
+        elif menu_text == ac.ENSEMBLE_SETTINGS:
             self._show_ensemble_settings()
-        elif menu_text == "Audio Alignment Tool":
+        elif menu_text == ac.AUDIO_ALIGNMENT_SETTINGS:
             self._show_audio_alignment_tool()
         elif menu_text == "Open Information Guide":
             self._show_information_guide()
@@ -372,124 +372,56 @@ class SettingsDialogPresenter(QObject):
             self._show_error_log()
 
     def _show_vr_advanced_settings(self):
-        """Show VR Architecture advanced settings dialog."""
-        from PySide6.QtWidgets import (
-            QCheckBox,
-            QDialog,
-            QDoubleSpinBox,
-            QFormLayout,
-            QHBoxLayout,
-            QPushButton,
-            QSpinBox,
-            QVBoxLayout,
-        )
-
-        dialog = QDialog(self.view)
-        dialog.setWindowTitle("Advanced VR Options")
-        dialog.resize(400, 300)
-
-        layout = QVBoxLayout(dialog)
-
-        # VR-specific settings
-        form_layout = QFormLayout()
-
-        # Window size
-        window_size_spin = QSpinBox()
-        window_size_spin.setRange(512, 8192)
-        window_size_spin.setValue(512)
-        form_layout.addRow("Window Size:", window_size_spin)
-
-        # Aggression setting
-        aggression_spin = QDoubleSpinBox()
-        aggression_spin.setRange(0.1, 50.0)
-        aggression_spin.setValue(5.0)
-        aggression_spin.setSingleStep(0.1)
-        form_layout.addRow("Aggression:", aggression_spin)
-
-        # High-end process
-        high_end_check = QCheckBox("Enable High-End Process")
-        form_layout.addRow(high_end_check)
-
-        # Post-process
-        post_process_check = QCheckBox("Enable Post-Process")
-        form_layout.addRow(post_process_check)
-
-        layout.addLayout(form_layout)
-
-        # Buttons
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
-
-        ok_btn = QPushButton("OK")
-        cancel_btn = QPushButton("Cancel")
-        ok_btn.clicked.connect(dialog.accept)
-        cancel_btn.clicked.connect(dialog.reject)
-
-        button_layout.addWidget(ok_btn)
-        button_layout.addWidget(cancel_btn)
-        layout.addLayout(button_layout)
-
+        """Show comprehensive VR Architecture advanced settings dialog."""
+        from .vr_arch_advanced_dialog import VRArchAdvancedDialog
+        
+        # Get current VR settings from the main window if available
+        current_settings = {}
+        try:
+            # Try to get current settings from the main UI's VR presenter
+            if hasattr(self, '_main_window_ref') and self._main_window_ref:
+                # This would need to be connected properly to the main window
+                pass
+        except Exception as e:
+            logger.debug(f"Could not get current VR settings: {e}")
+        
+        # Determine if this is VR_ARCH_PM mode (could be passed as parameter)
+        is_vr_mode = False  # This could be determined from the current model selection
+        
+        dialog = VRArchAdvancedDialog(current_settings, is_vr_mode, self.view)
+        
+        # Connect to handle settings updates
+        def on_settings_updated(settings):
+            logger.info("VR Architecture advanced settings updated")
+            # Here we would update the main UI's VR presenter with new settings
+            # This would need proper integration with the main application
+            
+        dialog.settings_updated.connect(on_settings_updated)
         dialog.exec()
 
     def _show_mdx_advanced_settings(self):
-        """Show MDX-Net advanced settings dialog."""
-        from PySide6.QtWidgets import (
-            QCheckBox,
-            QComboBox,
-            QDialog,
-            QFormLayout,
-            QHBoxLayout,
-            QPushButton,
-            QSpinBox,
-            QVBoxLayout,
-        )
-
-        dialog = QDialog(self.view)
-        dialog.setWindowTitle("Advanced MDX-Net Options")
-        dialog.resize(400, 300)
-
-        layout = QVBoxLayout(dialog)
-
-        # MDX-specific settings
-        form_layout = QFormLayout()
-
-        # Overlap
-        overlap_spin = QSpinBox()
-        overlap_spin.setRange(0, 16)
-        overlap_spin.setValue(8)
-        form_layout.addRow("Overlap:", overlap_spin)
-
-        # Shifts
-        shifts_spin = QSpinBox()
-        shifts_spin.setRange(0, 20)
-        shifts_spin.setValue(2)
-        form_layout.addRow("Shifts:", shifts_spin)
-
-        # Segment size
-        segment_combo = QComboBox()
-        segment_combo.addItems(["256", "512", "1024"])
-        segment_combo.setCurrentText("256")
-        form_layout.addRow("Segment Size:", segment_combo)
-
-        # Denoise
-        denoise_check = QCheckBox("Enable Denoise")
-        form_layout.addRow(denoise_check)
-
-        layout.addLayout(form_layout)
-
-        # Buttons
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
-
-        ok_btn = QPushButton("OK")
-        cancel_btn = QPushButton("Cancel")
-        ok_btn.clicked.connect(dialog.accept)
-        cancel_btn.clicked.connect(dialog.reject)
-
-        button_layout.addWidget(ok_btn)
-        button_layout.addWidget(cancel_btn)
-        layout.addLayout(button_layout)
-
+        """Show comprehensive MDX-Net advanced settings dialog."""
+        from .mdx_net_advanced_dialog import MDXNetAdvancedDialog
+        
+        # Get current MDX settings from the main window if available
+        current_settings = {}
+        try:
+            # Try to get current settings from the main UI's MDX presenter
+            if hasattr(self, '_main_window_ref') and self._main_window_ref:
+                # This would need to be connected properly to the main window
+                pass
+        except Exception as e:
+            logger.debug(f"Could not get current MDX settings: {e}")
+        
+        dialog = MDXNetAdvancedDialog(current_settings, self.view)
+        
+        # Connect to handle settings updates
+        def on_settings_updated(settings):
+            logger.info("MDX-Net advanced settings updated")
+            # Here we would update the main UI's MDX presenter with new settings
+            # This would need proper integration with the main application
+            
+        dialog.settings_updated.connect(on_settings_updated)
         dialog.exec()
 
     def _show_demucs_advanced_settings(self):
@@ -518,88 +450,222 @@ class SettingsDialogPresenter(QObject):
         dialog.exec()
 
     def _show_ensemble_settings(self):
-        """Show ensemble customization dialog."""
+        """Show simple ensemble settings dialog."""
         from PySide6.QtWidgets import (
-            QDialog,
-            QHBoxLayout,
-            QLabel,
-            QListWidget,
-            QPushButton,
-            QVBoxLayout,
+            QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QGroupBox,
+            QCheckBox, QComboBox, QLabel, QPushButton
         )
+        import os
+        import json
+        from pathlib import Path
 
         dialog = QDialog(self.view)
-        dialog.setWindowTitle("Ensemble Customization")
-        dialog.resize(500, 400)
-
+        dialog.setWindowTitle("Ensemble Settings")
+        dialog.setModal(True)
+        dialog.setFixedSize(320, 320)  # Increased height for Saved Ensembles section
+        
         layout = QVBoxLayout(dialog)
-
-        label = QLabel("Configure ensemble model combinations:")
-        layout.addWidget(label)
-
-        # Model list
-        model_list = QListWidget()
-        model_list.addItems(
-            [
-                "VR Architecture Model 1",
-                "MDX-Net Model 1",
-                "Demucs Model 1",
-                "VR Architecture Model 2",
-            ]
-        )
-        layout.addWidget(model_list)
-
-        # Buttons
+        layout.setSpacing(10)  # Reduced spacing
+        layout.setContentsMargins(15, 15, 15, 10)  # Reduced margins
+        
+        # Ensemble Options Group
+        options_group = QGroupBox("Ensemble Options")
+        options_layout = QFormLayout(options_group)
+        
+        # Append Ensemble Name
+        append_name_check = QCheckBox("Append Ensemble Name")
+        append_name_check.setChecked(True)
+        options_layout.addRow(append_name_check)
+        
+        # Save All Outputs
+        save_all_check = QCheckBox("Save All Outputs")
+        save_all_check.setChecked(False)
+        options_layout.addRow(save_all_check)
+        
+        layout.addWidget(options_group)
+        
+        # Saved Ensembles Group
+        saved_group = QGroupBox("Saved Ensembles")
+        saved_layout = QVBoxLayout(saved_group)
+        
+        # Get saved ensembles from filesystem
+        ensemble_cache_dir = Path("gui_data/saved_ensembles")
+        saved_ensembles = []
+        
+        if ensemble_cache_dir.exists():
+            for json_file in ensemble_cache_dir.glob("*.json"):
+                try:
+                    with open(json_file, 'r') as f:
+                        data = json.load(f)
+                        display_name = json_file.stem.replace("_", " ")
+                        saved_ensembles.append(display_name)
+                except (json.JSONDecodeError, KeyError, OSError):
+                    continue
+        
+        # Saved Ensembles Dropdown
+        saved_layout.addWidget(QLabel("Saved Ensembles:"))
+        ensemble_dropdown = QComboBox()
+        if saved_ensembles:
+            ensemble_dropdown.addItems(saved_ensembles)
+        else:
+            ensemble_dropdown.setEnabled(False)
+        saved_layout.addWidget(ensemble_dropdown)
+        
+        # Buttons for saved ensembles
+        ensemble_buttons = QHBoxLayout()
+        
+        load_ensemble_btn = QPushButton("Load")
+        save_current_btn = QPushButton("Save Current")
+        
+        load_ensemble_btn.setEnabled(len(saved_ensembles) > 0)
+        
+        ensemble_buttons.addWidget(load_ensemble_btn)
+        ensemble_buttons.addWidget(save_current_btn)
+        ensemble_buttons.addStretch()
+        
+        saved_layout.addLayout(ensemble_buttons)
+        layout.addWidget(saved_group)
+        
+        # Dialog buttons
         button_layout = QHBoxLayout()
         button_layout.addStretch()
-
-        ok_btn = QPushButton("OK")
-        cancel_btn = QPushButton("Cancel")
-        ok_btn.clicked.connect(dialog.accept)
-        cancel_btn.clicked.connect(dialog.reject)
-
-        button_layout.addWidget(ok_btn)
-        button_layout.addWidget(cancel_btn)
+        
+        apply_btn = QPushButton("Apply")
+        close_btn = QPushButton("Close")
+        
+        apply_btn.setFixedWidth(80)
+        close_btn.setFixedWidth(80)
+        
+        button_layout.addWidget(apply_btn)
+        button_layout.addSpacing(5)
+        button_layout.addWidget(close_btn)
+        
         layout.addLayout(button_layout)
-
+        
+        # Connect buttons
+        apply_btn.clicked.connect(dialog.accept)
+        close_btn.clicked.connect(dialog.reject)
+        
+        # Show dialog
         dialog.exec()
 
     def _show_audio_alignment_tool(self):
-        """Show audio alignment tool."""
+        """Show comprehensive audio alignment settings dialog."""
         from PySide6.QtWidgets import (
-            QDialog,
-            QHBoxLayout,
-            QLabel,
-            QPushButton,
-            QTextEdit,
-            QVBoxLayout,
+            QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QGroupBox,
+            QCheckBox, QComboBox, QLabel, QPushButton, QSpinBox, QDoubleSpinBox, QSlider
         )
 
         dialog = QDialog(self.view)
-        dialog.setWindowTitle("Audio Alignment Tool")
-        dialog.resize(500, 300)
-
+        dialog.setWindowTitle("Audio Alignment Settings")  # Shorter title
+        dialog.setModal(True)
+        dialog.setFixedSize(360, 420)  # Compact size to fit content
+        
         layout = QVBoxLayout(dialog)
-
-        label = QLabel("Audio Alignment and Synchronization Tool")
-        layout.addWidget(label)
-
-        text_edit = QTextEdit()
-        text_edit.setPlainText(
-            "This tool helps align audio tracks for better separation results.\n\nFeatures:\n- Automatic alignment detection\n- Manual alignment adjustment\n- Phase correction"
-        )
-        text_edit.setReadOnly(True)
-        layout.addWidget(text_edit)
-
-        # Buttons
+        layout.setSpacing(10)  # Reduced spacing
+        layout.setContentsMargins(15, 15, 15, 10)  # Reduced margins
+        
+        # Note: Removed unsupported algorithm dropdown - only includes real UVR.py functionality
+        
+        # Phase Settings Group
+        phase_group = QGroupBox("Phase Settings")
+        phase_layout = QFormLayout(phase_group)
+        phase_layout.setVerticalSpacing(8)  # Compact vertical spacing
+        
+        # Secondary Phase
+        secondary_phase_check = QCheckBox("Enable Secondary Phase Analysis")
+        secondary_phase_check.setChecked(False)
+        phase_layout.addRow(secondary_phase_check)
+        
+        # Phase Options
+        phase_options_combo = QComboBox()
+        phase_options_combo.addItems(["Automatic", "Positive Phase", "Negative Phase", "Native Phase"])
+        phase_options_combo.setCurrentText("Automatic")
+        phase_layout.addRow("Phase Options:", phase_options_combo)
+        
+        # Phase Shifts (Slider)
+        phase_shift_container = QHBoxLayout()
+        phase_shift_slider = QSlider()
+        from PySide6.QtCore import Qt
+        phase_shift_slider.setOrientation(Qt.Horizontal)
+        phase_shift_slider.setMinimum(0)
+        phase_shift_slider.setMaximum(6)
+        phase_shift_slider.setValue(0)  # Default to "None"
+        phase_shift_slider.setTickPosition(QSlider.TicksBelow)
+        phase_shift_slider.setTickInterval(1)
+        
+        phase_shift_label = QLabel("None")
+        phase_shift_values = ["None", "Very Low", "Low", "Medium", "High", "Very High", "Very Max"]
+        
+        def update_phase_shift_label(value):
+            phase_shift_label.setText(phase_shift_values[value])
+        
+        phase_shift_slider.valueChanged.connect(update_phase_shift_label)
+        
+        phase_shift_container.addWidget(phase_shift_slider)
+        phase_shift_container.addWidget(phase_shift_label)
+        
+        phase_layout.addRow("Phase Shifts:", phase_shift_container)
+        
+        layout.addWidget(phase_group)
+        
+        # Matching Settings Group (Based on actual UVR.py parameters)
+        matching_group = QGroupBox("Matching Settings")
+        matching_layout = QFormLayout(matching_group)
+        matching_layout.setVerticalSpacing(8)  # Compact vertical spacing
+        
+        # Match Silence (is_match_silence parameter)
+        silence_matching_check = QCheckBox("Match Silence")
+        silence_matching_check.setChecked(True)
+        matching_layout.addRow(silence_matching_check)
+        
+        # Spectral Matching (is_spec_match parameter)
+        spectral_matching_check = QCheckBox("Spectral Matching")
+        spectral_matching_check.setChecked(False)
+        matching_layout.addRow(spectral_matching_check)
+        
+        layout.addWidget(matching_group)
+        
+        # Output Settings Group (Based on actual UVR.py parameters)
+        output_group = QGroupBox("Output Settings")
+        output_layout = QFormLayout(output_group)
+        output_layout.setVerticalSpacing(8)  # Compact vertical spacing
+        
+        # Save Aligned Audio (is_save_align parameter)
+        save_aligned_check = QCheckBox("Save Aligned Audio")
+        save_aligned_check.setChecked(True)
+        output_layout.addRow(save_aligned_check)
+        
+        layout.addWidget(output_group)
+        
+        # Dialog buttons
         button_layout = QHBoxLayout()
         button_layout.addStretch()
-
+        
+        apply_btn = QPushButton("Apply")
         close_btn = QPushButton("Close")
-        close_btn.clicked.connect(dialog.accept)
+        
+        apply_btn.setFixedWidth(80)
+        close_btn.setFixedWidth(80)
+        
+        button_layout.addWidget(apply_btn)
+        button_layout.addSpacing(5)
         button_layout.addWidget(close_btn)
+        
         layout.addLayout(button_layout)
-
+        
+        # Connect buttons
+        def apply_settings():
+            logger.info("Audio alignment settings applied")
+            dialog.accept()
+        
+        def close_dialog():
+            dialog.reject()
+        
+        apply_btn.clicked.connect(apply_settings)
+        close_btn.clicked.connect(close_dialog)
+        
+        # Show dialog
         dialog.exec()
 
     def _show_information_guide(self):

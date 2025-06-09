@@ -1,13 +1,14 @@
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
-    QDoubleSpinBox,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QSpinBox,
     QVBoxLayout,
     QWidget,
+    QDoubleSpinBox,
 )
 
 
@@ -16,7 +17,6 @@ class MDXNetSettingsView(QWidget):
 
     segment_size_changed = Signal(int)
     overlap_changed = Signal(float)
-    match_method_changed = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -49,23 +49,26 @@ class MDXNetSettingsView(QWidget):
         self.overlap_spin.setMaximum(0.99)
         self.overlap_spin.setSingleStep(0.05)
         self.overlap_spin.setValue(0.25)
+        self.overlap_spin.setDecimals(2)
         self.overlap_spin.valueChanged.connect(self.overlap_changed)
         overlap_layout.addWidget(overlap_label)
         overlap_layout.addWidget(self.overlap_spin)
         overlap_layout.addStretch(1)
         settings_layout.addLayout(overlap_layout)
 
-        # Match Method
-        match_layout = QHBoxLayout()
-        match_label = QLabel("Match Method:")
-        self.match_combo = QComboBox()
-        self.match_combo.addItems(["Default", "Average", "Min/Max"])
-        self.match_combo.currentTextChanged.connect(self.match_method_changed)
-        match_layout.addWidget(match_label)
-        match_layout.addWidget(self.match_combo)
-        match_layout.addStretch(1)
-        settings_layout.addLayout(match_layout)
-
         layout.addWidget(settings_group)
         self.setLayout(layout)
-        # Debug print removed
+
+    def get_settings(self):
+        """Get current settings values."""
+        return {
+            'mdx_segment_size': self.seg_spin.value(),
+            'overlap': self.overlap_spin.value()
+        }
+
+    def set_settings(self, settings):
+        """Set settings values."""
+        if 'mdx_segment_size' in settings:
+            self.seg_spin.setValue(settings['mdx_segment_size'])
+        if 'overlap' in settings:
+            self.overlap_spin.setValue(settings['overlap'])

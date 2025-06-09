@@ -19,6 +19,10 @@ MDX_NET_MODELS_KEY = "MDX-Net"
 DEMUCS_MODELS_KEY = "Demucs"
 ENSEMBLE_MODELS_KEY = "Ensemble"  # Ensured Ensemble key
 
+# --- Advanced Settings Options ---
+ENSEMBLE_SETTINGS = "Ensemble Settings"
+AUDIO_ALIGNMENT_SETTINGS = "Audio Alignment Settings"
+
 # Subdirectories under the main 'models' folder for each type
 MODEL_TYPE_SUBDIRS = {
     VR_ARCH_MODELS_KEY: "VR_Models",

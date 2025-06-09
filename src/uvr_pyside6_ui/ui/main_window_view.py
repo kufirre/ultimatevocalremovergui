@@ -41,8 +41,8 @@ class MainWindowView(QMainWindow):
 
         self.setWindowTitle(ac.APP_TITLE)
         self.setGeometry(
-            100, 100, 680, 720
-        )  # Adjusted default size inspired by UVR.py WIDTH
+            100, 100, 600, 780
+        )  # Reduced width, increased height for better proportions
 
         # --- Main Content Container for ScrollArea ---
         self.main_content_container = QWidget()

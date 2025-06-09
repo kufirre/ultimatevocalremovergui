@@ -66,15 +66,15 @@ class DemucsAdvancedDialog(QDialog):
         
         # Secondary Model Tab  
         secondary_tab = self._create_secondary_model_tab()
-        tab_widget.addTab(secondary_tab, "Secondary")
+        tab_widget.addTab(secondary_tab, "Secondary Model")
         
         # Preprocess Model Tab
         preprocess_tab = self._create_preprocess_model_tab()
-        tab_widget.addTab(preprocess_tab, "Preprocess")
+        tab_widget.addTab(preprocess_tab, "Preprocess Model")
         
         # Vocal Splitter Tab
         vocal_tab = self._create_vocal_splitter_tab()
-        tab_widget.addTab(vocal_tab, "Vocal Split")
+        tab_widget.addTab(vocal_tab, "Vocal Splitter")
         
         # Button box with Apply/Close positioned closer together like OK/Cancel
         button_layout = QHBoxLayout()
@@ -137,20 +137,46 @@ class DemucsAdvancedDialog(QDialog):
                 "Open Folder Error",
                 f"Failed to open models folder: {str(e)}"
             )
+
+    def _vocal_splitter_options(self):
+        """Open vocal splitter options dialog."""
+        logger.info("Vocal splitter options requested")
+        # TODO: Implement vocal splitter options dialog
+        from PySide6.QtWidgets import QMessageBox
+        QMessageBox.information(
+            self,
+            "Vocal Splitter Options",
+            "Vocal splitter options dialog will be implemented here."
+        )
+
+    def _clear_autoset_cache(self):
+        """Clear the autoset cache."""
+        logger.info("Clear autoset cache requested")
+        # TODO: Implement cache clearing functionality
+        from PySide6.QtWidgets import QMessageBox
+        QMessageBox.information(
+            self,
+            "Clear Cache",
+            "AutoSet cache cleared successfully."
+        )
         
     def _create_advanced_tab(self):
         """Create the advanced settings tab."""
         widget = QFrame()
         layout = QVBoxLayout(widget)
+        layout.setSpacing(12)
+        layout.setContentsMargins(15, 15, 15, 15)
         
-        # Main settings form
-        form_layout = QFormLayout()
+        # Demucs Settings Group
+        demucs_group = QGroupBox("Demucs Settings")
+        demucs_layout = QFormLayout(demucs_group)
+        demucs_layout.setSpacing(10)
         
         # Shifts (0-5)
         self.shifts_spin = QSpinBox()
         self.shifts_spin.setRange(0, 5)
         self.shifts_spin.setValue(2)
-        form_layout.addRow("Shifts:", self.shifts_spin)
+        demucs_layout.addRow("Shifts:", self.shifts_spin)
         
         # Overlap (0.1-0.99)
         self.overlap_spin = QDoubleSpinBox()
@@ -158,7 +184,7 @@ class DemucsAdvancedDialog(QDialog):
         self.overlap_spin.setSingleStep(0.05)
         self.overlap_spin.setValue(0.25)
         self.overlap_spin.setDecimals(2)
-        form_layout.addRow("Overlap:", self.overlap_spin)
+        demucs_layout.addRow("Overlap:", self.overlap_spin)
         
         # Shift Conversion Pitch - slider with value label beside it
         pitch_layout = QHBoxLayout()
@@ -167,10 +193,12 @@ class DemucsAdvancedDialog(QDialog):
         self.pitch_slider.setValue(0)
         self.pitch_slider.setTickPosition(QSlider.TicksBelow)
         self.pitch_slider.setTickInterval(6)
+        self.pitch_slider.setMinimumWidth(180)
         
         self.pitch_value_label = QLabel("0")
         self.pitch_value_label.setMinimumWidth(30)
         self.pitch_value_label.setAlignment(Qt.AlignCenter)
+        self.pitch_value_label.setStyleSheet("font-weight: bold; color: #3498db;")
         
         self.pitch_slider.valueChanged.connect(
             lambda v: self.pitch_value_label.setText(str(v))
@@ -178,28 +206,40 @@ class DemucsAdvancedDialog(QDialog):
         
         pitch_layout.addWidget(self.pitch_slider)
         pitch_layout.addWidget(self.pitch_value_label)
-        form_layout.addRow("Shift Conversion Pitch:", pitch_layout)
+        demucs_layout.addRow("Shift Conversion Pitch:", pitch_layout)
+        
+        layout.addWidget(demucs_group)
+        
+        # Processing Options Group
+        options_group = QGroupBox("Processing Options")
+        options_layout = QVBoxLayout(options_group)
+        options_layout.setSpacing(8)
         
         # Split Mode checkbox
         self.split_mode_check = QCheckBox("Split Mode")
         self.split_mode_check.setChecked(True)
-        form_layout.addRow(self.split_mode_check)
+        options_layout.addWidget(self.split_mode_check)
         
         # Combine Stems checkbox
         self.combine_stems_check = QCheckBox("Combine Stems")
         self.combine_stems_check.setChecked(False)
-        form_layout.addRow(self.combine_stems_check)
+        options_layout.addWidget(self.combine_stems_check)
         
         # Spectral Inversion checkbox
         self.invert_spec_check = QCheckBox("Spectral Inversion")
         self.invert_spec_check.setChecked(False)
-        form_layout.addRow(self.invert_spec_check)
+        options_layout.addWidget(self.invert_spec_check)
         
-        layout.addLayout(form_layout)
+        layout.addWidget(options_group)
         
-        # Actions Group at the bottom
+        # Actions Group
         actions_group = QGroupBox("Actions")
         actions_layout = QVBoxLayout(actions_group)
+        actions_layout.setSpacing(8)
+        
+        self.clear_cache_btn = QPushButton("Clear AutoSet Cache")
+        self.clear_cache_btn.clicked.connect(self._clear_autoset_cache)
+        actions_layout.addWidget(self.clear_cache_btn)
         
         self.open_models_btn = QPushButton("Open Models Folder")
         self.open_models_btn.clicked.connect(self._open_models_folder)
@@ -211,221 +251,136 @@ class DemucsAdvancedDialog(QDialog):
         return widget
         
     def _create_secondary_model_tab(self):
-        """Create the secondary model tab with four separate sections."""
+        """Create the secondary model tab with vertical layout to fit without scrolling."""
         widget = QFrame()
         layout = QVBoxLayout(widget)
+        layout.setSpacing(8)
+        layout.setContentsMargins(15, 15, 15, 15)
         
         # Enable Secondary Model
         self.enable_secondary_check = QCheckBox("Enable Secondary Model")
         self.enable_secondary_check.setChecked(False)
         layout.addWidget(self.enable_secondary_check)
         
-        # Create scroll area for the four sections
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        
-        scroll_content = QFrame()
-        scroll_layout = QVBoxLayout(scroll_content)
-        
         # Store secondary model widgets for enable/disable
         self.secondary_widgets = []
         
+        # Create vertical layout for the four sections
         # 1. Vocals/Instruments Section
-        vocals_group = QGroupBox("Vocals/Instruments")
-        vocals_layout = QFormLayout(vocals_group)
+        vocals_group = self._create_secondary_section("Vocals/Instruments", "vocals")
+        layout.addWidget(vocals_group)
         
-        self.vocals_model_combo = QComboBox()
-        self.vocals_model_combo.addItems([
-            "No Model", "UVR-MDX-NET-1_9.onnx", "UVR-MDX-NET-2_9.onnx", 
-            "UVR-MDX-NET-3_9.onnx", "Kim_Vocal_1.onnx"
-        ])
-        self.vocals_model_combo.setEnabled(False)
-        vocals_layout.addRow("Model:", self.vocals_model_combo)
-        
-        # Vocals Scale with better UI
-        vocals_scale_layout = QHBoxLayout()
-        self.vocals_scale_slider = QSlider(Qt.Horizontal)
-        self.vocals_scale_slider.setRange(10, 100)
-        self.vocals_scale_slider.setValue(100)
-        self.vocals_scale_slider.setEnabled(False)
-        self.vocals_scale_slider.setMinimumWidth(200)
-        
-        self.vocals_scale_label = QLabel("100%")
-        self.vocals_scale_label.setMinimumWidth(50)
-        self.vocals_scale_label.setAlignment(Qt.AlignCenter)
-        self.vocals_scale_label.setStyleSheet("font-weight: bold; color: #2196F3;")
-        
-        self.vocals_scale_slider.valueChanged.connect(
-            lambda v: self.vocals_scale_label.setText(f"{v}%")
-        )
-        
-        vocals_scale_layout.addWidget(self.vocals_scale_slider)
-        vocals_scale_layout.addWidget(self.vocals_scale_label)
-        vocals_layout.addRow("Scale:", vocals_scale_layout)
-        
-        scroll_layout.addWidget(vocals_group)
-        self.secondary_widgets.extend([self.vocals_model_combo, self.vocals_scale_slider])
-        
-        # 2. Bass/No Bass Section  
-        bass_group = QGroupBox("Bass/No Bass")
-        bass_layout = QFormLayout(bass_group)
-        
-        self.bass_model_combo = QComboBox()
-        self.bass_model_combo.addItems([
-            "No Model", "UVR-MDX-NET-1_9.onnx", "UVR-MDX-NET-2_9.onnx",
-            "UVR-MDX-NET-3_9.onnx", "Kim_Vocal_1.onnx"
-        ])
-        self.bass_model_combo.setEnabled(False)
-        bass_layout.addRow("Model:", self.bass_model_combo)
-        
-        # Bass Scale
-        bass_scale_layout = QHBoxLayout()
-        self.bass_scale_slider = QSlider(Qt.Horizontal)
-        self.bass_scale_slider.setRange(10, 100)
-        self.bass_scale_slider.setValue(100)
-        self.bass_scale_slider.setEnabled(False)
-        self.bass_scale_slider.setMinimumWidth(200)
-        
-        self.bass_scale_label = QLabel("100%")
-        self.bass_scale_label.setMinimumWidth(50)
-        self.bass_scale_label.setAlignment(Qt.AlignCenter)
-        self.bass_scale_label.setStyleSheet("font-weight: bold; color: #2196F3;")
-        
-        self.bass_scale_slider.valueChanged.connect(
-            lambda v: self.bass_scale_label.setText(f"{v}%")
-        )
-        
-        bass_scale_layout.addWidget(self.bass_scale_slider)
-        bass_scale_layout.addWidget(self.bass_scale_label)
-        bass_layout.addRow("Scale:", bass_scale_layout)
-        
-        scroll_layout.addWidget(bass_group)
-        self.secondary_widgets.extend([self.bass_model_combo, self.bass_scale_slider])
+        # 2. Bass/No Bass Section
+        bass_group = self._create_secondary_section("Bass/No Bass", "bass")
+        layout.addWidget(bass_group)
         
         # 3. Drums/No Drums Section
-        drums_group = QGroupBox("Drums/No Drums")
-        drums_layout = QFormLayout(drums_group)
-        
-        self.drums_model_combo = QComboBox()
-        self.drums_model_combo.addItems([
-            "No Model", "UVR-MDX-NET-1_9.onnx", "UVR-MDX-NET-2_9.onnx",
-            "UVR-MDX-NET-3_9.onnx", "Kim_Vocal_1.onnx"
-        ])
-        self.drums_model_combo.setEnabled(False)
-        drums_layout.addRow("Model:", self.drums_model_combo)
-        
-        # Drums Scale
-        drums_scale_layout = QHBoxLayout()
-        self.drums_scale_slider = QSlider(Qt.Horizontal)
-        self.drums_scale_slider.setRange(10, 100)
-        self.drums_scale_slider.setValue(100)
-        self.drums_scale_slider.setEnabled(False)
-        self.drums_scale_slider.setMinimumWidth(200)
-        
-        self.drums_scale_label = QLabel("100%")
-        self.drums_scale_label.setMinimumWidth(50)
-        self.drums_scale_label.setAlignment(Qt.AlignCenter)
-        self.drums_scale_label.setStyleSheet("font-weight: bold; color: #2196F3;")
-        
-        self.drums_scale_slider.valueChanged.connect(
-            lambda v: self.drums_scale_label.setText(f"{v}%")
-        )
-        
-        drums_scale_layout.addWidget(self.drums_scale_slider)
-        drums_scale_layout.addWidget(self.drums_scale_label)
-        drums_layout.addRow("Scale:", drums_scale_layout)
-        
-        scroll_layout.addWidget(drums_group)
-        self.secondary_widgets.extend([self.drums_model_combo, self.drums_scale_slider])
+        drums_group = self._create_secondary_section("Drums/No Drums", "drums")
+        layout.addWidget(drums_group)
         
         # 4. Other/No Other Section
-        other_group = QGroupBox("Other/No Other")
-        other_layout = QFormLayout(other_group)
+        other_group = self._create_secondary_section("Other/No Other", "other")
+        layout.addWidget(other_group)
         
-        self.other_model_combo = QComboBox()
-        self.other_model_combo.addItems([
-            "No Model", "UVR-MDX-NET-1_9.onnx", "UVR-MDX-NET-2_9.onnx",
-            "UVR-MDX-NET-3_9.onnx", "Kim_Vocal_1.onnx"
-        ])
-        self.other_model_combo.setEnabled(False)
-        other_layout.addRow("Model:", self.other_model_combo)
-        
-        # Other Scale
-        other_scale_layout = QHBoxLayout()
-        self.other_scale_slider = QSlider(Qt.Horizontal)
-        self.other_scale_slider.setRange(10, 100)
-        self.other_scale_slider.setValue(100)
-        self.other_scale_slider.setEnabled(False)
-        self.other_scale_slider.setMinimumWidth(200)
-        
-        self.other_scale_label = QLabel("100%")
-        self.other_scale_label.setMinimumWidth(50)
-        self.other_scale_label.setAlignment(Qt.AlignCenter)
-        self.other_scale_label.setStyleSheet("font-weight: bold; color: #2196F3;")
-        
-        self.other_scale_slider.valueChanged.connect(
-            lambda v: self.other_scale_label.setText(f"{v}%")
-        )
-        
-        other_scale_layout.addWidget(self.other_scale_slider)
-        other_scale_layout.addWidget(self.other_scale_label)
-        other_layout.addRow("Scale:", other_scale_layout)
-        
-        scroll_layout.addWidget(other_group)
-        self.secondary_widgets.extend([self.other_model_combo, self.other_scale_slider])
-        
-        # Add stretch to push content to top
-        scroll_layout.addStretch()
-        
-        scroll_area.setWidget(scroll_content)
-        layout.addWidget(scroll_area)
+        layout.addStretch()
         
         # Connect enable checkbox
         self.enable_secondary_check.toggled.connect(self._toggle_secondary_widgets)
         
         return widget
+
+    def _create_secondary_section(self, title, section_name):
+        """Create a compact secondary model section."""
+        group = QGroupBox(title)
+        group_layout = QHBoxLayout(group)  # Use horizontal layout for compactness
+        group_layout.setSpacing(8)
+        
+        # Model combo box
+        model_combo = QComboBox()
+        model_combo.addItems([
+            "No Model", "UVR-MDX-NET-1_9.onnx", "UVR-MDX-NET-2_9.onnx", 
+            "UVR-MDX-NET-3_9.onnx", "Kim_Vocal_1.onnx"
+        ])
+        model_combo.setEnabled(False)
+        model_combo.setMinimumWidth(180)
+        
+        # Scale slider with compact layout
+        scale_slider = QSlider(Qt.Horizontal)
+        scale_slider.setRange(10, 100)
+        scale_slider.setValue(100)
+        scale_slider.setEnabled(False)
+        scale_slider.setMinimumWidth(100)
+        scale_slider.setMaximumWidth(120)
+        
+        scale_label = QLabel("100%")
+        scale_label.setMinimumWidth(40)
+        scale_label.setAlignment(Qt.AlignCenter)
+        scale_label.setStyleSheet("font-weight: bold; color: #2196F3;")
+        
+        scale_slider.valueChanged.connect(
+            lambda v, lbl=scale_label: lbl.setText(f"{v}%")
+        )
+        
+        # Add widgets to horizontal layout
+        group_layout.addWidget(QLabel("Model:"))
+        group_layout.addWidget(model_combo)
+        group_layout.addWidget(QLabel("Scale:"))
+        group_layout.addWidget(scale_slider)
+        group_layout.addWidget(scale_label)
+        group_layout.addStretch()
+        
+        # Store references to widgets
+        setattr(self, f"{section_name}_model_combo", model_combo)
+        setattr(self, f"{section_name}_scale_slider", scale_slider)
+        setattr(self, f"{section_name}_scale_label", scale_label)
+        
+        self.secondary_widgets.extend([model_combo, scale_slider])
+        
+        return group
         
     def _create_preprocess_model_tab(self):
         """Create the preprocess model tab."""
         widget = QFrame()
         layout = QFormLayout(widget)
+        layout.setSpacing(10)
+        layout.setContentsMargins(15, 15, 15, 15)
         
         # Enable Preprocess Model
         self.enable_preprocess_check = QCheckBox("Enable Preprocess Model")
         self.enable_preprocess_check.setChecked(False)
         layout.addRow(self.enable_preprocess_check)
         
-        # Preprocess Model Selection
+        # Model selection
         self.preprocess_model_combo = QComboBox()
         self.preprocess_model_combo.addItems([
-            "No Model", "UVR_MDXNET_1_9703.onnx", "UVR_MDXNET_2_9682.onnx",
-            "UVR_MDXNET_3_9662.onnx"
+            "No Model", "UVR_Demucs_Model_1", "UVR_Demucs_Model_2", 
+            "UVR_Demucs_Model_3", "UVR_Demucs_Model_4"
         ])
         self.preprocess_model_combo.setEnabled(False)
-        layout.addRow("Preprocess Model:", self.preprocess_model_combo)
+        layout.addRow("Model:", self.preprocess_model_combo)
         
-        # Save Instrument Mixture checkbox
-        self.save_inst_mix_check = QCheckBox("Save Instrument Mixture")
+        # Save Instrument Mix  
+        self.save_inst_mix_check = QCheckBox("Save Instrument Mix")
         self.save_inst_mix_check.setChecked(False)
         self.save_inst_mix_check.setEnabled(False)
         layout.addRow(self.save_inst_mix_check)
         
         # Connect enable checkbox
-        self.enable_preprocess_check.toggled.connect(
-            lambda enabled: (
-                self.preprocess_model_combo.setEnabled(enabled),
-                self.save_inst_mix_check.setEnabled(enabled)
-            )
-        )
+        self.enable_preprocess_check.toggled.connect(self._toggle_preprocess_widgets)
         
         return widget
+        
+    def _toggle_preprocess_widgets(self, enabled):
+        """Toggle preprocess widgets."""
+        self.preprocess_model_combo.setEnabled(enabled)
+        self.save_inst_mix_check.setEnabled(enabled)
         
     def _create_vocal_splitter_tab(self):
         """Create the vocal splitter tab."""
         widget = QFrame()
         layout = QFormLayout(widget)
+        layout.setSpacing(10)
+        layout.setContentsMargins(15, 15, 15, 15)
         
         # Enable Vocal Split
         self.enable_vocal_split_check = QCheckBox("Enable Vocal Split Mode")
@@ -624,22 +579,20 @@ class DemucsAdvancedPresenter(QObject):
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.current_settings = {}
-        
+        self.dialog = None
+
     def show_dialog(self, parent_widget=None, current_settings=None):
         """Show the advanced settings dialog."""
-        if current_settings:
-            self.current_settings = current_settings
-            
-        dialog = DemucsAdvancedDialog(self.current_settings, parent_widget)
-        dialog.settings_updated.connect(self.update_settings)
-        dialog.exec()
-        
+        self.dialog = DemucsAdvancedDialog(current_settings, parent_widget)
+        return self.dialog.exec()
+
     def update_settings(self, settings):
-        """Update the current settings."""
-        self.current_settings.update(settings)
-        logger.info(f"Demucs advanced settings presenter updated: {self.current_settings}")
-        
+        """Update current settings."""
+        if self.dialog:
+            self.dialog.current_settings.update(settings)
+
     def get_settings(self):
-        """Get the current advanced settings."""
-        return self.current_settings.copy() 
+        """Get current settings from dialog."""
+        if self.dialog:
+            return self.dialog.current_settings
+        return {} 

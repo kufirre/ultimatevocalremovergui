@@ -16,8 +16,8 @@ from ..core import app_constants as ac
 from ..core.uvr_core_adapter import UVRCoreAdapter
 from .demucs_settings_presenter import DemucsSettingsPresenter
 from .demucs_settings_view import DemucsSettingsView
-from .ensemble_settings_presenter import EnsembleSettingsPresenter
-from .ensemble_settings_view import EnsembleSettingsView
+from .ensemble_simple_presenter import EnsembleSimplePresenter
+from .ensemble_simple_view import EnsembleSimpleView
 from .execution_control_presenter import ExecutionControlPresenter
 from .execution_control_view import ExecutionControlView
 from .file_io_presenter import FileIOPresenter
@@ -86,9 +86,9 @@ class MainWindowView(QMainWindow):
         self.presenters[ac.DEMUCS_PRESENTER_KEY] = DemucsSettingsPresenter(
             view=self.demucs_view
         )
-        self.ensemble_view = EnsembleSettingsView()
-        self.presenters[ac.ENSEMBLE_PRESENTER_KEY] = EnsembleSettingsPresenter(
-            view=self.ensemble_view, adapter=self.adapter
+        self.ensemble_view = EnsembleSimpleView()
+        self.presenters[ac.ENSEMBLE_PRESENTER_KEY] = EnsembleSimplePresenter(
+            view=self.ensemble_view, adapter=self.adapter, settings_dialog_presenter=self.settings_dialog_presenter
         )
 
         # Processing Settings (create first so we can connect to it)
@@ -174,7 +174,7 @@ class MainWindowView(QMainWindow):
 
         # Trigger initial ensemble stem pair change to update processing settings checkboxes
         # This must happen after all connections are established
-        current_stem_pair = self.ensemble_view.stem_pair_combo.currentText()
+        current_stem_pair = self.ensemble_view.get_current_stem_pair()
         if current_stem_pair:
             self.presenters[ac.PROCESSING_SETTINGS_PRESENTER_KEY].handle_ensemble_stem_pair_change(current_stem_pair)
 

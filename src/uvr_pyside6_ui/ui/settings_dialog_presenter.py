@@ -450,103 +450,40 @@ class SettingsDialogPresenter(QObject):
         dialog.exec()
 
     def _show_ensemble_settings(self):
-        """Show simple ensemble settings dialog."""
-        from PySide6.QtWidgets import (
-            QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QGroupBox,
-            QCheckBox, QComboBox, QLabel, QPushButton
-        )
-        import os
-        import json
-        from pathlib import Path
-
-        dialog = QDialog(self.view)
-        dialog.setWindowTitle("Ensemble Settings")
-        dialog.setModal(True)
-        dialog.setFixedSize(320, 320)  # Increased height for Saved Ensembles section
+        """Show advanced ensemble configuration dialog."""
+        from .ensemble_advanced_dialog import EnsembleAdvancedDialog
         
-        layout = QVBoxLayout(dialog)
-        layout.setSpacing(10)  # Reduced spacing
-        layout.setContentsMargins(15, 15, 15, 10)  # Reduced margins
+        # Get current ensemble settings from the main window if available
+        current_settings = {}
+        try:
+            # Try to get current settings from the main UI's ensemble presenter
+            if hasattr(self, '_main_window_ref') and self._main_window_ref:
+                # This would need to be connected properly to the main window
+                pass
+        except Exception as e:
+            logger.debug(f"Could not get current ensemble settings: {e}")
         
-        # Ensemble Options Group
-        options_group = QGroupBox("Ensemble Options")
-        options_layout = QFormLayout(options_group)
+        dialog = EnsembleAdvancedDialog(current_settings, self.view)
         
-        # Append Ensemble Name
-        append_name_check = QCheckBox("Append Ensemble Name")
-        append_name_check.setChecked(True)
-        options_layout.addRow(append_name_check)
+        # Set available models if we have access to the adapter
+        if hasattr(self, 'adapter') and self.adapter:
+            try:
+                available_models = {
+                    ac.VR_ARCH_MODELS_KEY: self.adapter.get_available_models(ac.VR_ARCH_MODELS_KEY),
+                    ac.MDX_NET_MODELS_KEY: self.adapter.get_available_models(ac.MDX_NET_MODELS_KEY),
+                    ac.DEMUCS_MODELS_KEY: self.adapter.get_available_models(ac.DEMUCS_MODELS_KEY),
+                }
+                dialog.set_available_models(available_models)
+            except Exception as e:
+                logger.warning(f"Could not load available models for ensemble dialog: {e}")
         
-        # Save All Outputs
-        save_all_check = QCheckBox("Save All Outputs")
-        save_all_check.setChecked(False)
-        options_layout.addRow(save_all_check)
-        
-        layout.addWidget(options_group)
-        
-        # Saved Ensembles Group
-        saved_group = QGroupBox("Saved Ensembles")
-        saved_layout = QVBoxLayout(saved_group)
-        
-        # Get saved ensembles from filesystem
-        ensemble_cache_dir = Path("gui_data/saved_ensembles")
-        saved_ensembles = []
-        
-        if ensemble_cache_dir.exists():
-            for json_file in ensemble_cache_dir.glob("*.json"):
-                try:
-                    with open(json_file, 'r') as f:
-                        data = json.load(f)
-                        display_name = json_file.stem.replace("_", " ")
-                        saved_ensembles.append(display_name)
-                except (json.JSONDecodeError, KeyError, OSError):
-                    continue
-        
-        # Saved Ensembles Dropdown
-        saved_layout.addWidget(QLabel("Saved Ensembles:"))
-        ensemble_dropdown = QComboBox()
-        if saved_ensembles:
-            ensemble_dropdown.addItems(saved_ensembles)
-        else:
-            ensemble_dropdown.setEnabled(False)
-        saved_layout.addWidget(ensemble_dropdown)
-        
-        # Buttons for saved ensembles
-        ensemble_buttons = QHBoxLayout()
-        
-        load_ensemble_btn = QPushButton("Load")
-        save_current_btn = QPushButton("Save Current")
-        
-        load_ensemble_btn.setEnabled(len(saved_ensembles) > 0)
-        
-        ensemble_buttons.addWidget(load_ensemble_btn)
-        ensemble_buttons.addWidget(save_current_btn)
-        ensemble_buttons.addStretch()
-        
-        saved_layout.addLayout(ensemble_buttons)
-        layout.addWidget(saved_group)
-        
-        # Dialog buttons
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
-        
-        apply_btn = QPushButton("Apply")
-        close_btn = QPushButton("Close")
-        
-        apply_btn.setFixedWidth(80)
-        close_btn.setFixedWidth(80)
-        
-        button_layout.addWidget(apply_btn)
-        button_layout.addSpacing(5)
-        button_layout.addWidget(close_btn)
-        
-        layout.addLayout(button_layout)
-        
-        # Connect buttons
-        apply_btn.clicked.connect(dialog.accept)
-        close_btn.clicked.connect(dialog.reject)
-        
-        # Show dialog
+        # Connect to handle settings updates
+        def on_settings_updated(settings):
+            logger.info("Ensemble advanced settings updated")
+            # Here we would update the main UI's ensemble presenter with new settings
+            # This would need proper integration with the main application
+            
+        dialog.settings_updated.connect(on_settings_updated)
         dialog.exec()
 
     def _show_audio_alignment_tool(self):

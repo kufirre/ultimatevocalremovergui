@@ -41,8 +41,8 @@ class MainWindowView(QMainWindow):
 
         self.setWindowTitle(ac.APP_TITLE)
         self.setGeometry(
-            100, 100, 600, 780
-        )  # Reduced width, increased height for better proportions
+            100, 100, 600, 820
+        )  # Slightly increased height to accommodate reorganized settings without scrolling
 
         # --- Main Content Container for ScrollArea ---
         self.main_content_container = QWidget()

@@ -48,7 +48,7 @@ class EnsembleAdvancedDialog(QDialog):
 
     def _setup_ui(self):
         """Set up the user interface."""
-        self.setWindowTitle("Advanced Ensemble Configuration")
+        self.setWindowTitle("Advanced Ensemble Settings")
         self.setModal(True)
         self.setMinimumSize(580, 600)
         self.setMaximumSize(650, 750)
@@ -61,7 +61,7 @@ class EnsembleAdvancedDialog(QDialog):
 
 
         # Configuration Section
-        config_group = QGroupBox("Ensemble Configuration")
+        config_group = QGroupBox("Ensemble Settings")
         config_layout = QVBoxLayout(config_group)
 
         # Stem Pair Selection

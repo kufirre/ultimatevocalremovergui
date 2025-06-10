@@ -112,23 +112,13 @@ class VRArchSettingsView(QWidget):
         grid_layout.addWidget(self.pp_threshold_slider, 2, 1, 1, 2)  # Span 2 columns
         grid_layout.addWidget(self.pp_threshold_value_label, 2, 3)
 
-        # Row 3: Advanced Options Checkboxes
+        # Row 3: Advanced Options Checkboxes (all in one row to save height)
         self.high_end_checkbox = QCheckBox("High End Process")
         self.high_end_checkbox.setToolTip(
             "Enable high-end frequency processing for better quality."
         )
         self.high_end_checkbox.toggled.connect(self.high_end_changed)
 
-        self.tta_checkbox = QCheckBox("TTA (Test Time Augmentation)")
-        self.tta_checkbox.setToolTip(
-            "Enable test-time augmentation for potentially better results (slower processing)."
-        )
-        self.tta_checkbox.toggled.connect(self.tta_changed)
-
-        grid_layout.addWidget(self.high_end_checkbox, 3, 0, 1, 2)  # Span 2 columns
-        grid_layout.addWidget(self.tta_checkbox, 3, 2, 1, 2)  # Span 2 columns
-
-        # Row 4: Post Process checkbox
         self.post_process_checkbox = QCheckBox("Post Process")
         self.post_process_checkbox.setToolTip(
             "Enable post-processing to reduce artifacts."
@@ -142,7 +132,16 @@ class VRArchSettingsView(QWidget):
 
         self.post_process_checkbox.toggled.connect(toggle_post_process)
 
-        grid_layout.addWidget(self.post_process_checkbox, 4, 0, 1, 2)  # Span 2 columns
+        self.tta_checkbox = QCheckBox("TTA")
+        self.tta_checkbox.setToolTip(
+            "Enable test-time augmentation for potentially better results (slower processing)."
+        )
+        self.tta_checkbox.toggled.connect(self.tta_changed)
+
+        # Put all three checkboxes in row 3 to save vertical space
+        grid_layout.addWidget(self.high_end_checkbox, 3, 0)
+        grid_layout.addWidget(self.post_process_checkbox, 3, 1)
+        grid_layout.addWidget(self.tta_checkbox, 3, 2, 1, 2)  # TTA spans last 2 columns
 
         # Set column stretch ratios for better space utilization
         grid_layout.setColumnStretch(0, 0)  # Labels take minimum space

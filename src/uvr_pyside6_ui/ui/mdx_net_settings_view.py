@@ -25,10 +25,9 @@ class MDXNetSettingsView(QWidget):
         layout.setContentsMargins(0, 5, 0, 5)
 
         settings_group = QGroupBox("MDX-Net Settings")
-        settings_layout = QVBoxLayout(settings_group)
-
+        settings_layout = QHBoxLayout(settings_group)  # Changed to horizontal to save height
+        
         # Segment Size
-        seg_layout = QHBoxLayout()
         seg_label = QLabel("Segment Size:")
         self.seg_spin = QSpinBox()
         self.seg_spin.setMinimum(64)
@@ -36,13 +35,8 @@ class MDXNetSettingsView(QWidget):
         self.seg_spin.setSingleStep(64)
         self.seg_spin.setValue(256)
         self.seg_spin.valueChanged.connect(self.segment_size_changed)
-        seg_layout.addWidget(seg_label)
-        seg_layout.addWidget(self.seg_spin)
-        seg_layout.addStretch(1)
-        settings_layout.addLayout(seg_layout)
-
+        
         # Overlap
-        overlap_layout = QHBoxLayout()
         overlap_label = QLabel("Overlap:")
         self.overlap_spin = QDoubleSpinBox()
         self.overlap_spin.setMinimum(0.0)
@@ -51,10 +45,14 @@ class MDXNetSettingsView(QWidget):
         self.overlap_spin.setValue(0.25)
         self.overlap_spin.setDecimals(2)
         self.overlap_spin.valueChanged.connect(self.overlap_changed)
-        overlap_layout.addWidget(overlap_label)
-        overlap_layout.addWidget(self.overlap_spin)
-        overlap_layout.addStretch(1)
-        settings_layout.addLayout(overlap_layout)
+        
+        # Add all elements in a single row to save vertical space
+        settings_layout.addWidget(seg_label)
+        settings_layout.addWidget(self.seg_spin)
+        settings_layout.addSpacing(20)  # Add some spacing between controls
+        settings_layout.addWidget(overlap_label)
+        settings_layout.addWidget(self.overlap_spin)
+        settings_layout.addStretch(1)
 
         layout.addWidget(settings_group)
         self.setLayout(layout)

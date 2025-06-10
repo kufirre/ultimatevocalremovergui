@@ -41,7 +41,7 @@ class EnsembleSimpleView(QWidget):
         layout.setContentsMargins(0, 5, 0, 5)
 
         # Main ensemble group
-        ensemble_group = QGroupBox("Ensemble Configuration")
+        ensemble_group = QGroupBox("Ensemble Settings")
         ensemble_layout = QVBoxLayout(ensemble_group)
 
         # Row 1: Stem Pair and Algorithm
@@ -102,7 +102,7 @@ class EnsembleSimpleView(QWidget):
         # Advanced settings button
         self.advanced_button = QPushButton("Advanced Configuration...")
         self.advanced_button.setMinimumWidth(180)
-        self.advanced_button.setToolTip("Open advanced ensemble configuration dialog")
+        self.advanced_button.setToolTip("Open advanced ensemble settings dialog")
         
         status_row.addWidget(self.selection_status_label, 1)
         status_row.addWidget(self.advanced_button)

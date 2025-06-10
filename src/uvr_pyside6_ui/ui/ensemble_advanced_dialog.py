@@ -50,18 +50,15 @@ class EnsembleAdvancedDialog(QDialog):
         """Set up the user interface."""
         self.setWindowTitle("Advanced Ensemble Configuration")
         self.setModal(True)
-        self.setMinimumSize(800, 600)
-        self.setMaximumSize(1000, 800)
-        self.resize(900, 700)
+        self.setMinimumSize(580, 600)
+        self.setMaximumSize(650, 750)
+        self.resize(600, 680)
 
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(15, 15, 15, 15)
-        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setSpacing(8)
 
-        # Title
-        title_label = QLabel("Advanced Ensemble Configuration")
-        title_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #2e7d9a;")
-        main_layout.addWidget(title_label)
+
 
         # Configuration Section
         config_group = QGroupBox("Ensemble Configuration")
@@ -70,7 +67,7 @@ class EnsembleAdvancedDialog(QDialog):
         # Stem Pair Selection
         stem_pair_layout = QHBoxLayout()
         stem_pair_label = QLabel("Main Stem Pair:")
-        stem_pair_label.setMinimumWidth(120)
+        stem_pair_label.setMinimumWidth(100)
         self.stem_pair_combo = QComboBox()
         self.stem_pair_combo.addItems(ac.ENSEMBLE_MAIN_STEM_OPTIONS)
         self.stem_pair_combo.setCurrentText(self._current_main_stem_pair)
@@ -81,7 +78,7 @@ class EnsembleAdvancedDialog(QDialog):
         # Algorithm Selection
         algorithm_layout = QHBoxLayout()
         algorithm_label = QLabel("Ensemble Algorithm:")
-        algorithm_label.setMinimumWidth(120)
+        algorithm_label.setMinimumWidth(100)
         self.algorithm_combo = QComboBox()
         algorithm_layout.addWidget(algorithm_label)
         algorithm_layout.addWidget(self.algorithm_combo, 1)
@@ -123,7 +120,7 @@ class EnsembleAdvancedDialog(QDialog):
         available_layout.addWidget(QLabel("Available Models (Local Library)"))
         self.available_models_list = QListWidget()
         self.available_models_list.setSelectionMode(QListWidget.ExtendedSelection)
-        self.available_models_list.setMinimumHeight(300)
+        self.available_models_list.setMinimumHeight(280)
         available_layout.addWidget(self.available_models_list)
         models_layout.addLayout(available_layout, 1)
 
@@ -132,33 +129,33 @@ class EnsembleAdvancedDialog(QDialog):
         transfer_layout.addStretch()
 
         self.add_button = QPushButton()
-        self.add_button.setMaximumSize(40, 30)
+        self.add_button.setMaximumSize(35, 28)
         self.add_button.setToolTip("Add selected models to ensemble")
         try:
             add_icon = QIcon(":/uvr/img/right.png")
             if not add_icon.isNull():
                 self.add_button.setIcon(add_icon)
-                self.add_button.setIconSize(QSize(20, 20))
+                self.add_button.setIconSize(QSize(16, 16))
             else:
                 self.add_button.setText(">>")
         except Exception:
             self.add_button.setText(">>")
 
         self.remove_button = QPushButton()
-        self.remove_button.setMaximumSize(40, 30)
+        self.remove_button.setMaximumSize(35, 28)
         self.remove_button.setToolTip("Remove selected models from ensemble")
         try:
             remove_icon = QIcon(":/uvr/img/left.png")
             if not remove_icon.isNull():
                 self.remove_button.setIcon(remove_icon)
-                self.remove_button.setIconSize(QSize(20, 20))
+                self.remove_button.setIconSize(QSize(16, 16))
             else:
                 self.remove_button.setText("<<")
         except Exception:
             self.remove_button.setText("<<")
 
         transfer_layout.addWidget(self.add_button)
-        transfer_layout.addSpacing(10)
+        transfer_layout.addSpacing(8)
         transfer_layout.addWidget(self.remove_button)
         transfer_layout.addStretch()
         models_layout.addLayout(transfer_layout)
@@ -168,7 +165,7 @@ class EnsembleAdvancedDialog(QDialog):
         selected_layout.addWidget(QLabel("Models for Ensemble"))
         self.selected_models_list = QListWidget()
         self.selected_models_list.setSelectionMode(QListWidget.ExtendedSelection)
-        self.selected_models_list.setMinimumHeight(300)
+        self.selected_models_list.setMinimumHeight(280)
         selected_layout.addWidget(self.selected_models_list)
         models_layout.addLayout(selected_layout, 1)
 
@@ -182,15 +179,15 @@ class EnsembleAdvancedDialog(QDialog):
         saved_layout = QHBoxLayout()
         saved_layout.addWidget(QLabel("Saved Ensembles:"))
         self.saved_ensembles_combo = QComboBox()
-        self.saved_ensembles_combo.setMinimumWidth(200)
+        self.saved_ensembles_combo.setMinimumWidth(150)
         saved_layout.addWidget(self.saved_ensembles_combo, 1)
 
         # Management Buttons
         mgmt_buttons_layout = QHBoxLayout()
-        self.load_ensemble_btn = QPushButton("Load Ensemble")
-        self.save_ensemble_btn = QPushButton("Save Current As...")
-        self.delete_ensemble_btn = QPushButton("Delete Selected")
-        self.clear_selection_btn = QPushButton("Clear Selection")
+        self.load_ensemble_btn = QPushButton("Load")
+        self.save_ensemble_btn = QPushButton("Save As...")
+        self.delete_ensemble_btn = QPushButton("Delete")
+        self.clear_selection_btn = QPushButton("Clear")
 
         mgmt_buttons_layout.addWidget(self.load_ensemble_btn)
         mgmt_buttons_layout.addWidget(self.save_ensemble_btn)
@@ -207,14 +204,14 @@ class EnsembleAdvancedDialog(QDialog):
         button_layout.addStretch()
 
         self.apply_btn = QPushButton("Apply")
-        self.apply_btn.setMinimumWidth(80)
+        self.apply_btn.setMinimumWidth(70)
         self.ok_btn = QPushButton("OK")
-        self.ok_btn.setMinimumWidth(80)
+        self.ok_btn.setMinimumWidth(70)
         self.cancel_btn = QPushButton("Cancel")
-        self.cancel_btn.setMinimumWidth(80)
+        self.cancel_btn.setMinimumWidth(70)
 
         button_layout.addWidget(self.apply_btn)
-        button_layout.addSpacing(10)
+        button_layout.addSpacing(8)
         button_layout.addWidget(self.ok_btn)
         button_layout.addSpacing(5)
         button_layout.addWidget(self.cancel_btn)

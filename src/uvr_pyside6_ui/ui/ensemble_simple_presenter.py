@@ -23,6 +23,11 @@ class EnsembleSimplePresenter(QObject):
         self._current_main_stem_pair: str = ac.ENSEMBLE_MAIN_STEM_OPTIONS[0] if ac.ENSEMBLE_MAIN_STEM_OPTIONS else ""
         self._current_algorithm: str = ac.ENSEMBLE_ALGORITHM_OPTIONS[0] if ac.ENSEMBLE_ALGORITHM_OPTIONS else ""
         self._currently_selected_models: List[str] = []
+        
+        # Checkbox states
+        self._save_all_outputs: bool = True
+        self._append_ensemble_name: bool = False
+        self._use_waveform: bool = False
 
         self._setup_connections()
         self._initialize_settings()
@@ -32,6 +37,11 @@ class EnsembleSimplePresenter(QObject):
         self.view.main_stem_pair_changed.connect(self.on_main_stem_pair_changed)
         self.view.ensemble_algorithm_changed.connect(self.on_ensemble_algorithm_changed)
         self.view.advanced_settings_requested.connect(self.on_advanced_settings_requested)
+        
+        # Checkbox connections
+        self.view.save_all_outputs_changed.connect(self.on_save_all_outputs_changed)
+        self.view.append_ensemble_name_changed.connect(self.on_append_ensemble_name_changed)
+        self.view.use_waveform_changed.connect(self.on_use_waveform_changed)
 
     def _initialize_settings(self):
         """Initialize ensemble settings."""
@@ -39,6 +49,11 @@ class EnsembleSimplePresenter(QObject):
         self.view.set_current_stem_pair(self._current_main_stem_pair)
         self._update_algorithm_options()
         self.view.update_selection_status(self._currently_selected_models)
+        
+        # Set initial checkbox states
+        self.view.set_save_all_outputs(self._save_all_outputs)
+        self.view.set_append_ensemble_name(self._append_ensemble_name)
+        self.view.set_use_waveform(self._use_waveform)
 
     @Slot(str)
     def on_main_stem_pair_changed(self, stem_pair: str):
@@ -54,6 +69,21 @@ class EnsembleSimplePresenter(QObject):
     def on_ensemble_algorithm_changed(self, algorithm: str):
         """Handle ensemble algorithm change."""
         self._current_algorithm = algorithm
+
+    @Slot(bool)
+    def on_save_all_outputs_changed(self, value: bool):
+        """Handle save all outputs checkbox change."""
+        self._save_all_outputs = value
+
+    @Slot(bool)
+    def on_append_ensemble_name_changed(self, value: bool):
+        """Handle append ensemble name checkbox change."""
+        self._append_ensemble_name = value
+
+    @Slot(bool)
+    def on_use_waveform_changed(self, value: bool):
+        """Handle use waveform checkbox change."""
+        self._use_waveform = value
 
     @Slot()
     def on_advanced_settings_requested(self):
@@ -92,18 +122,29 @@ class EnsembleSimplePresenter(QObject):
         self._current_algorithm = settings.get("ensemble_algorithm", self._current_algorithm)
         self._currently_selected_models = settings.get("ensemble_selected_models", [])
         
+        # Update checkbox states
+        self._save_all_outputs = settings.get("save_all_outputs", self._save_all_outputs)
+        self._append_ensemble_name = settings.get("append_ensemble_name", self._append_ensemble_name)
+        self._use_waveform = settings.get("use_waveform_ensemble", self._use_waveform)
+        
         # Update view
         self.view.set_current_stem_pair(self._current_main_stem_pair)
         self._update_algorithm_options()
         self.view.set_current_algorithm(self._current_algorithm)
         self.view.update_selection_status(self._currently_selected_models)
+        
+        # Update checkbox states in view
+        self.view.set_save_all_outputs(self._save_all_outputs)
+        self.view.set_append_ensemble_name(self._append_ensemble_name)
+        self.view.set_use_waveform(self._use_waveform)
 
     def _update_algorithm_options(self):
         """Update algorithm options based on stem pair selection."""
         if self._current_main_stem_pair == "4 Stem Ensemble":
-            # 4-stem ensembles have different algorithm options
-            algorithms = [ac.ENSEMBLE_ALGORITHM_OPTIONS[0]] if ac.ENSEMBLE_ALGORITHM_OPTIONS else []
+            # 4-stem ensembles use simpler algorithm options
+            algorithms = ac.ENSEMBLE_ALGORITHM_4_STEM_OPTIONS
         else:
+            # Standard 2-stem ensembles use full algorithm options
             algorithms = ac.ENSEMBLE_ALGORITHM_OPTIONS
             
         self.view.update_algorithm_options(algorithms)
@@ -119,6 +160,9 @@ class EnsembleSimplePresenter(QObject):
             "ensemble_main_stem_pair": self._current_main_stem_pair,
             "ensemble_algorithm": self._current_algorithm,
             "ensemble_selected_models": self._currently_selected_models.copy(),
+            "save_all_outputs": self._save_all_outputs,
+            "append_ensemble_name": self._append_ensemble_name,
+            "use_waveform_ensemble": self._use_waveform,
         }
 
     def load_settings(self, settings: dict):
@@ -127,11 +171,21 @@ class EnsembleSimplePresenter(QObject):
         self._current_algorithm = settings.get("ensemble_algorithm", self._current_algorithm)
         self._currently_selected_models = settings.get("ensemble_selected_models", [])
         
+        # Load checkbox states
+        self._save_all_outputs = settings.get("save_all_outputs", self._save_all_outputs)
+        self._append_ensemble_name = settings.get("append_ensemble_name", self._append_ensemble_name)
+        self._use_waveform = settings.get("use_waveform_ensemble", self._use_waveform)
+        
         # Update view
         self.view.set_current_stem_pair(self._current_main_stem_pair)
         self._update_algorithm_options()
         self.view.set_current_algorithm(self._current_algorithm)
         self.view.update_selection_status(self._currently_selected_models)
+        
+        # Update checkbox states in view
+        self.view.set_save_all_outputs(self._save_all_outputs)
+        self.view.set_append_ensemble_name(self._append_ensemble_name)
+        self.view.set_use_waveform(self._use_waveform)
 
     def is_ensemble_configured(self) -> bool:
         """Check if ensemble is properly configured."""

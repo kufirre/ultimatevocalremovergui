@@ -8,6 +8,7 @@ from typing import Dict, List
 from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QGroupBox,
@@ -85,6 +86,31 @@ class EnsembleAdvancedDialog(QDialog):
         algorithm_layout.addWidget(algorithm_label)
         algorithm_layout.addWidget(self.algorithm_combo, 1)
         config_layout.addLayout(algorithm_layout)
+
+        # Ensemble Options Checkboxes
+        options_layout = QHBoxLayout()
+        
+        # Save all outputs checkbox
+        self.save_all_outputs_checkbox = QCheckBox(ac.SAVE_ALL_OUTPUTS_TEXT)
+        self.save_all_outputs_checkbox.setChecked(self.current_settings.get("save_all_outputs", True))
+        self.save_all_outputs_checkbox.setToolTip("Save all individual ensemble outputs")
+        
+        # Append ensemble name checkbox
+        self.append_ensemble_name_checkbox = QCheckBox(ac.APPEND_ENSEMBLE_NAME_TEXT)
+        self.append_ensemble_name_checkbox.setChecked(self.current_settings.get("append_ensemble_name", False))
+        self.append_ensemble_name_checkbox.setToolTip("Add ensemble name to output filename")
+        
+        # Use waveform checkbox
+        self.use_waveform_checkbox = QCheckBox(ac.WAVEFORM_ENSEMBLE_TEXT)
+        self.use_waveform_checkbox.setChecked(self.current_settings.get("use_waveform_ensemble", False))
+        self.use_waveform_checkbox.setToolTip("Use waveform ensemble instead of spectrogram")
+        
+        options_layout.addWidget(self.save_all_outputs_checkbox)
+        options_layout.addWidget(self.append_ensemble_name_checkbox)
+        options_layout.addWidget(self.use_waveform_checkbox)
+        options_layout.addStretch()
+        
+        config_layout.addLayout(options_layout)
 
         main_layout.addWidget(config_group)
 
@@ -252,9 +278,10 @@ class EnsembleAdvancedDialog(QDialog):
         self.algorithm_combo.clear()
         
         if self._current_main_stem_pair == "4 Stem Ensemble":
-            # 4-stem ensembles have different algorithm options
-            algorithms = [ac.ENSEMBLE_ALGORITHM_OPTIONS[0]]  # Usually just one option
+            # 4-stem ensembles use simpler algorithm options
+            algorithms = ac.ENSEMBLE_ALGORITHM_4_STEM_OPTIONS
         else:
+            # Standard 2-stem ensembles use full algorithm options
             algorithms = ac.ENSEMBLE_ALGORITHM_OPTIONS
             
         self.algorithm_combo.addItems(algorithms)
@@ -263,6 +290,8 @@ class EnsembleAdvancedDialog(QDialog):
             self.algorithm_combo.setCurrentText(self._current_algorithm)
         else:
             self._current_algorithm = algorithms[0] if algorithms else ""
+            if algorithms:
+                self.algorithm_combo.setCurrentText(self._current_algorithm)
 
     def _update_model_lists(self):
         """Update available models list based on stem pair selection."""
@@ -437,6 +466,9 @@ class EnsembleAdvancedDialog(QDialog):
             "ensemble_main_stem_pair": self._current_main_stem_pair,
             "ensemble_algorithm": self._current_algorithm,
             "ensemble_selected_models": self._currently_selected_models.copy(),
+            "save_all_outputs": self.save_all_outputs_checkbox.isChecked(),
+            "append_ensemble_name": self.append_ensemble_name_checkbox.isChecked(),
+            "use_waveform_ensemble": self.use_waveform_checkbox.isChecked(),
         }
 
     def set_available_models(self, models_by_type: Dict[str, List[str]]):

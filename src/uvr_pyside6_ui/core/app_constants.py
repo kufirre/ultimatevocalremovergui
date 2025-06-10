@@ -106,6 +106,11 @@ ENSEMBLE_ACTION_LOAD = "Load Saved Ensemble..."
 ENSEMBLE_ACTION_SAVE_AS = "Save Current Ensemble As..."
 ENSEMBLE_ACTION_CLEAR_SELECTION = "Clear Model Selection"
 
+# Ensemble checkbox options text
+SAVE_ALL_OUTPUTS_TEXT = "Save All Outputs"
+APPEND_ENSEMBLE_NAME_TEXT = "Append Ensemble Name"
+WAVEFORM_ENSEMBLE_TEXT = "Use Waveform"
+
 DOWNLOAD_MORE_MODELS_TEXT = "--- Download More Models ---"
 
 # --- Processing Method Constants ---

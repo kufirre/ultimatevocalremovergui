@@ -4,6 +4,7 @@ from typing import List
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QGroupBox,
     QHBoxLayout,
@@ -25,6 +26,9 @@ class EnsembleSimpleView(QWidget):
     main_stem_pair_changed = Signal(str)
     ensemble_algorithm_changed = Signal(str)
     advanced_settings_requested = Signal()
+    save_all_outputs_changed = Signal(bool)
+    append_ensemble_name_changed = Signal(bool)
+    use_waveform_changed = Signal(bool)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -63,7 +67,32 @@ class EnsembleSimpleView(QWidget):
         
         ensemble_layout.addLayout(config_row)
 
-        # Row 2: Current Selection and Advanced Button
+        # Row 2: Ensemble Options Checkboxes
+        options_row = QHBoxLayout()
+        
+        # Save all outputs checkbox
+        self.save_all_outputs_checkbox = QCheckBox(ac.SAVE_ALL_OUTPUTS_TEXT)
+        self.save_all_outputs_checkbox.setChecked(True)  # Default to True
+        self.save_all_outputs_checkbox.setToolTip("Save all individual ensemble outputs")
+        
+        # Append ensemble name checkbox
+        self.append_ensemble_name_checkbox = QCheckBox(ac.APPEND_ENSEMBLE_NAME_TEXT)
+        self.append_ensemble_name_checkbox.setChecked(False)  # Default to False
+        self.append_ensemble_name_checkbox.setToolTip("Add ensemble name to output filename")
+        
+        # Use waveform checkbox
+        self.use_waveform_checkbox = QCheckBox(ac.WAVEFORM_ENSEMBLE_TEXT)
+        self.use_waveform_checkbox.setChecked(False)  # Default to False
+        self.use_waveform_checkbox.setToolTip("Use waveform ensemble instead of spectrogram")
+        
+        options_row.addWidget(self.save_all_outputs_checkbox)
+        options_row.addWidget(self.append_ensemble_name_checkbox)
+        options_row.addWidget(self.use_waveform_checkbox)
+        options_row.addStretch()
+        
+        ensemble_layout.addLayout(options_row)
+
+        # Row 3: Current Selection and Advanced Button
         status_row = QHBoxLayout()
         
         # Current selection status
@@ -87,6 +116,11 @@ class EnsembleSimpleView(QWidget):
         self.stem_pair_combo.currentTextChanged.connect(self.main_stem_pair_changed)
         self.algorithm_combo.currentTextChanged.connect(self.ensemble_algorithm_changed)
         self.advanced_button.clicked.connect(self.advanced_settings_requested)
+        
+        # Checkbox connections
+        self.save_all_outputs_checkbox.toggled.connect(self.save_all_outputs_changed)
+        self.append_ensemble_name_checkbox.toggled.connect(self.append_ensemble_name_changed)
+        self.use_waveform_checkbox.toggled.connect(self.use_waveform_changed)
 
     def set_current_stem_pair(self, stem_pair: str):
         """Set the current stem pair selection."""
@@ -127,4 +161,28 @@ class EnsembleSimpleView(QWidget):
 
     def get_current_algorithm(self) -> str:
         """Get current algorithm selection."""
-        return self.algorithm_combo.currentText() 
+        return self.algorithm_combo.currentText()
+
+    def get_save_all_outputs(self) -> bool:
+        """Get save all outputs checkbox state."""
+        return self.save_all_outputs_checkbox.isChecked()
+
+    def set_save_all_outputs(self, value: bool):
+        """Set save all outputs checkbox state."""
+        self.save_all_outputs_checkbox.setChecked(value)
+
+    def get_append_ensemble_name(self) -> bool:
+        """Get append ensemble name checkbox state."""
+        return self.append_ensemble_name_checkbox.isChecked()
+
+    def set_append_ensemble_name(self, value: bool):
+        """Set append ensemble name checkbox state."""
+        self.append_ensemble_name_checkbox.setChecked(value)
+
+    def get_use_waveform(self) -> bool:
+        """Get use waveform checkbox state."""
+        return self.use_waveform_checkbox.isChecked()
+
+    def set_use_waveform(self, value: bool):
+        """Set use waveform checkbox state."""
+        self.use_waveform_checkbox.setChecked(value) 

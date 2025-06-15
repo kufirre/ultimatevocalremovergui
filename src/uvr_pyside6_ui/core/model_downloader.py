@@ -4,8 +4,6 @@ import json
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Tuple
 
-import requests
-
 from . import app_constants as ac
 from .logger_utils import get_logger
 
@@ -169,7 +167,3 @@ if __name__ == "__main__":
             else:
                 logger.info(f"  {key}: {str(value)[:100]}...")
 
-    # def my_progress(filename, percent): print(f"Progress for {filename}: {percent}%")
-    # Test download (replace with a small, real file URL for testing)
-    # success, msg, cfg_path = download_model_file("Test File", "https://speed.hetzner.de/100MB.bin", "VR Arch", progress_callback=my_progress)
-    # print(f"Download success: {success}, Message: {msg}, Config: {cfg_path}")

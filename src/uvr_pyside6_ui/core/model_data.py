@@ -4,23 +4,20 @@ Model data structure for UVR processing.
 
 import hashlib
 import json
+import torch
+import yaml
+
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-
-import torch
-import yaml
 from ml_collections import ConfigDict
 
 from . import app_constants as ac
 from .logger_utils import get_logger
+from lib_v5.vr_network.model_param_init import ModelParameters
+
 
 logger = get_logger(__name__)
-
-try:
-    from lib_v5.vr_network.model_param_init import ModelParameters
-except ImportError:
-    from .app_constants import DummyModelParameters as ModelParameters
 
 
 def get_project_root() -> Path:

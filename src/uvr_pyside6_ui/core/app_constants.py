@@ -165,7 +165,7 @@ MODEL_SUBDIRS = {
     VR_ARCH_MODELS_KEY: "VR_Models",
     MDX_NET_MODELS_KEY: "MDX_Net_Models",
     DEMUCS_MODELS_KEY: "Demucs_Models",
-    ENSEMBLE_MODELS_KEY: None,  # Ensemble configs are in gui_data/saved_ensembles
+    ENSEMBLE_MODELS_KEY: None,
 }
 VR_ARCH_SCAN_EXTENSIONS = [".pth"]
 MDX_SCAN_EXTENSIONS = [".onnx", ".ckpt"]
@@ -207,7 +207,7 @@ IS_LINUX = OPERATING_SYSTEM == "Linux"
 CPU_EXECUTION_PROVIDER = "CPUExecutionProvider"
 CUDA_EXECUTION_PROVIDER = "CUDAExecutionProvider"
 
-# --- Additional Stem Constants (from separate.py context) ---
+# --- Additional Stem Constants ---
 LEAD_VOCAL_STEM = "lead_only"
 BV_VOCAL_STEM = "backing_only"
 LEAD_VOCAL_STEM_I = "with_lead_vocals"  # Instrumental with lead
@@ -217,7 +217,7 @@ BV_VOCAL_STEM_LABEL = "Backing Vocals"
 NO_STEM_TEXT = "No "  # Text prefix for "No Other", "No Bass" etc.
 DENOISE_NONE, DENOISE_S, DENOISE_M = "None", "Standard", "Denoise Model"
 
-# --- Demucs Specific Mappers (extending existing ones) ---
+# --- Demucs Specific Mappers ---
 DEMUCS_2_SOURCE_MAPPER = {INST_STEM: 0, VOCAL_STEM: 1}
 # DEMUCS_6_SOURCE_MAPPER will require GUITAR_STEM, PIANO_STEM to be defined first
 # Let's add them to the stem list above

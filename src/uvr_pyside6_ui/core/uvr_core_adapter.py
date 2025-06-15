@@ -78,7 +78,7 @@ class UVRCoreAdapter(QObject):
     def _get_project_models_dir(self) -> Path | None:
         try:
             current_file_path = Path(__file__).resolve()
-            # Assuming this file (uvr_core_adapter.py) is in src/uvr_pyside6_ui/core/
+            # Given that this file (uvr_core_adapter.py) is in src/uvr_pyside6_ui/core/
             # parents[0] is core/
             # parents[1] is uvr_pyside6_ui/
             # parents[2] is src/
@@ -109,13 +109,8 @@ class UVRCoreAdapter(QObject):
             )
             return None
 
-    # _get_local_catalog_cache_file_path is removed as model_downloader handles its own cache path
-
-    # _fetch_and_cache_online_catalog is replaced by model_downloader.fetch_online_model_catalog
-
     def get_online_catalog(self) -> dict:
         if self._online_catalog_data_cache is None:
-            # Debug print removed
             self._online_catalog_data_cache = fetch_online_model_catalog()
         return (
             self._online_catalog_data_cache
@@ -581,7 +576,6 @@ class UVRCoreAdapter(QObject):
         return scanned_identifier, False
 
     def get_available_methods(self) -> list:  # Corrected in response #35
-        # Debug print removed
         return [
             ac.VR_ARCH_MODELS_KEY,
             ac.MDX_NET_MODELS_KEY,
@@ -656,9 +650,7 @@ class UVRCoreAdapter(QObject):
         return model_name
 
     def start_processing(self, settings_dict: dict):
-        # Debug print removed
         if self.processing_thread and self.processing_thread.isRunning():
-            # Debug print removed
             # Optionally, emit a signal here indicating processing is already active
             return
 
@@ -675,15 +667,12 @@ class UVRCoreAdapter(QObject):
             self._on_processing_thread_finished
         )  # Connect to our new slot
 
-        # Debug print removed
         self.processing_thread.start()
 
     def stop_processing(self):
         if self.processing_thread and self.processing_thread.isRunning():
-            # Debug print removed
             self.processing_thread.stop_processing()  # Call the method on our ProcessingThread
             # The thread will manage stopping its worker.
             # We might want to wait for it to actually finish or provide a timeout.
         else:
-            # Debug print removed
             pass  # Or emit a signal

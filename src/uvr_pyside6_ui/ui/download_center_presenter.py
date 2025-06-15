@@ -7,8 +7,17 @@ from pathlib import Path
 from PySide6.QtCore import QObject, QTimer, Slot
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
+    QDialog,
+    QFormLayout,
     QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
     QMessageBox,
+    QPushButton,
+    QTextEdit,
+    QVBoxLayout,
 )
 
 from uvr_pyside6_ui.core.logger_utils import get_logger
@@ -16,7 +25,6 @@ from uvr_pyside6_ui.core.uvr_core_adapter import UVRCoreAdapter
 
 logger = get_logger(__name__)
 
-# VIP functionality imports
 try:
     from cryptography.fernet import Fernet
     from cryptography.hazmat.primitives import hashes
@@ -27,7 +35,6 @@ except ImportError:
     logger.warning("Cryptography library not available - VIP verification disabled")
     CRYPTO_AVAILABLE = False
 
-# VIP Constants - matching original UVR.py
 VIP_REPO = (
     b"\xf3\xc2W\x19\x1foI)\xc2\xa9\xcc\xb67(Z\xf5",
     b"gAAAAABjQAIQ-NpNMMxMedpKHHb7ze_nqB05hw0YhbOy3pFzuzDrfqumn8_qvraxEoUpZC5ZXC0gGvfDxFMqyq9VWbYKlA67SUFI_wZB6QoVyGI581vs7kaGfUqlXHIdDS6tQ_U-BfjbEAK9EU_74-R2zXjz8Xzekw==",
@@ -405,7 +412,7 @@ class DownloadCenterPresenter(QObject):
                     if isinstance(download_target_info, dict):
                         if len(download_target_info) == 1:
                             # MDX23C format: {'MDX23C_D1581.ckpt': 'model_2_stem_061321.yaml'}
-                            # We should download the .ckpt file, not the .yaml file
+                            # Download the .ckpt file, not the .yaml file
                             for ckpt_file, yaml_file in download_target_info.items():
                                 if ckpt_file.endswith(".ckpt"):
                                     # Convert to format expected by adapter: download the .ckpt file
@@ -465,7 +472,7 @@ class DownloadCenterPresenter(QObject):
             # Show brief error in UI, full details in log
             error_msg = "Download failed to start"
             self.view.show_status_message(error_msg, 5000)
-            self.view.dc_progress_info_label.setText("❌ " + error_msg)
+            self.view.dc_progress_info_label.setText(f"❌ {error_msg}")
 
     @Slot(str, int)
     def _on_adapter_download_progress(self, model_name: str, percentage: int):
@@ -561,17 +568,6 @@ class DownloadCenterPresenter(QObject):
     @Slot()
     def _on_vip_access(self):
         """Handle VIP access button click - show VIP code input dialog."""
-        from PySide6.QtWidgets import (
-            QDialog,
-            QFormLayout,
-            QHBoxLayout,
-            QLabel,
-            QLineEdit,
-            QPushButton,
-            QTextEdit,
-            QVBoxLayout,
-        )
-
         dialog = QDialog(self.view)
         dialog.setWindowTitle("VIP Access")
         dialog.resize(450, 350)
@@ -811,18 +807,6 @@ Valid VIP codes are encrypted and provided by the UVR development team."""
     @Slot()
     def _on_manual_download(self):
         """Handle manual download button click."""
-        from PySide6.QtWidgets import (
-            QComboBox,
-            QDialog,
-            QFormLayout,
-            QHBoxLayout,
-            QLabel,
-            QLineEdit,
-            QMessageBox,
-            QPushButton,
-            QVBoxLayout,
-        )
-
         dialog = QDialog(self.view)
         dialog.setWindowTitle("Manual Download")
         dialog.resize(500, 300)

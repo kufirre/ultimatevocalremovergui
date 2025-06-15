@@ -1,35 +1,25 @@
 from __future__ import annotations
 
 import gc
-from pathlib import Path
-from typing import Any, Dict, Optional
-
+import warnings
+import audioread
+import librosa
+import soundfile as sf
+import pydub
 import numpy as np
 import torch
+
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 from . import app_constants as ac
 from .logger_utils import get_logger
 from .model_data import ModelData
+from lib_v5 import spec_utils
+
 
 logger = get_logger("separate_logic_base")
 
-try:
-    from lib_v5 import spec_utils
-except ImportError as e:
-    logger.warning(f"lib_v5 spec_utils not found: {e}")
-    spec_utils = None
-
-import warnings
-
-import audioread
-import librosa
-import soundfile as sf
-
-try:
-    import pydub
-except ImportError:
-    logger.warning("Warning: pydub not found.")
-    pydub = None
 
 MPS_AVAILABLE = torch.backends.mps.is_available() if ac.IS_MACOS else False
 CUDA_AVAILABLE = torch.cuda.is_available()

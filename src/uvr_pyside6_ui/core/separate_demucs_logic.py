@@ -10,41 +10,19 @@ import torch
 from . import app_constants as ac
 from .logger_utils import get_logger
 from .model_data import ModelData
-from .separate_logic_base import (
-    CPU_DEVICE,
-    SeparatorAttributesLogic,
-    clear_gpu_cache_logic,
-)
+from .separate_logic_base import  CPU_DEVICE, SeparatorAttributesLogic, clear_gpu_cache_logic
+
+
+from demucs.apply import apply_model as demucs_apply_model
+from demucs.apply import demucs_segments
+# from demucs.hdemucs import HDemucs
+from demucs.pretrained import get_model as demucs_get_model
+from demucs.utils import apply_model_v1 as demucs_apply_model_v1
+from demucs.utils import apply_model_v2 as demucs_apply_model_v2
+from lib_v5 import spec_utils
+
 
 logger = get_logger("separate_demucs_logic")
-
-try:
-    from demucs.apply import apply_model as demucs_apply_model
-    from demucs.apply import demucs_segments
-    from demucs.hdemucs import HDemucs
-    from demucs.pretrained import get_model as demucs_get_model
-    from demucs.utils import (
-        apply_model_v1 as demucs_apply_model_v1,
-    )
-    from demucs.utils import (
-        apply_model_v2 as demucs_apply_model_v2,
-    )
-except ImportError as e:
-    logger.warning(f"Demucs modules not found: {e}")
-    (
-        demucs_apply_model,
-        demucs_segments,
-        HDemucs,
-        demucs_get_model,
-        demucs_apply_model_v1,
-        demucs_apply_model_v2,
-    ) = [None] * 6
-
-try:
-    from lib_v5 import spec_utils
-except ImportError as e:
-    logger.warning(f"lib_v5 spec_utils not found: {e}")
-    spec_utils = None
 
 
 class SeparateDemucsLogic(SeparatorAttributesLogic):
@@ -225,8 +203,6 @@ class SeparateDemucsLogic(SeparatorAttributesLogic):
                         processed_sources_tensor = (
                             None  # Ensure it's None if exception occurs
                         )
-
-                        # Fallback creation removed from here, will be handled by the caller if all_stems_output is None.
 
         except Exception as e:
             logger.error(

@@ -1,36 +1,21 @@
 from __future__ import annotations
 
 import gc
-from typing import Any, Dict, Optional
-
 import numpy as np
 import torch
+from typing import Any, Dict, Optional
 
 from . import app_constants as ac
 from .logger_utils import get_logger
 from .model_data import ModelData
-from .separate_logic_base import (
-    CPU_DEVICE,
-    CUDA_AVAILABLE,
-    SeparatorAttributesLogic,
-    clear_gpu_cache_logic,
-)
+from .separate_logic_base import CPU_DEVICE, CUDA_AVAILABLE, SeparatorAttributesLogic, clear_gpu_cache_logic
+
+from lib_v5 import spec_utils
+from lib_v5.tfc_tdf_v3 import TFC_TDF_net
+from .separate_vr_logic import vr_denoiser_logic
+
 
 logger = get_logger("separate_mdxc_logic")
-
-try:
-    from lib_v5 import spec_utils
-    from lib_v5.tfc_tdf_v3 import TFC_TDF_net
-except ImportError as e:
-    logger.warning(f"lib_v5 MDX-C modules not found: {e}")
-    spec_utils, TFC_TDF_net = None, None
-
-# Import vr_denoiser_logic from VR module
-try:
-    from .separate_vr_logic import vr_denoiser_logic
-except ImportError:
-    logger.warning("Warning: vr_denoiser_logic not found.")
-    vr_denoiser_logic = None
 
 
 class SeparateMDXCLogic(SeparatorAttributesLogic):

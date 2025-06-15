@@ -34,7 +34,7 @@ class UVRLogger:
 
         # Configure root logger
         logging.basicConfig(
-            level=getattr(logging, log_level.upper(), logging.INFO),
+            level=getattr(logging, log_level.upper(), logging.DEBUG),
             format=LOG_FORMAT,
             datefmt=LOG_DATE_FORMAT,
             force=True,  # Override any existing configuration

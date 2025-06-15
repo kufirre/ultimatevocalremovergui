@@ -1,33 +1,26 @@
 from __future__ import annotations
 
 import hashlib
-from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
-
 import audioread
 import librosa
 import numpy as np
 import torch
+import traceback
+
+from pathlib import Path
+from typing import Any, Dict, Optional, Tuple
 
 from . import app_constants as ac
 from .logger_utils import get_logger
 from .model_data import ModelData
-from .separate_logic_base import (
-    CPU_DEVICE,
-    SeparatorAttributesLogic,
-    clear_gpu_cache_logic,
-)
+from .separate_logic_base import CPU_DEVICE, SeparatorAttributesLogic, clear_gpu_cache_logic
+from lib_v5 import spec_utils
+from lib_v5.vr_network import nets as nets_vr
+from lib_v5.vr_network import nets_new as nets_new_vr
+from lib_v5.vr_network.model_param_init import ModelParameters
+
 
 logger = get_logger("separate_vr_logic")
-
-try:
-    from lib_v5 import spec_utils
-    from lib_v5.vr_network import nets as nets_vr
-    from lib_v5.vr_network import nets_new as nets_new_vr
-    from lib_v5.vr_network.model_param_init import ModelParameters
-except ImportError as e:
-    logger.warning(f"lib_v5 VR modules not found: {e}")
-    spec_utils, nets_vr, nets_new_vr, ModelParameters = None, None, None, None
 
 
 class SeparateVRLogic(SeparatorAttributesLogic):
@@ -50,10 +43,6 @@ class SeparateVRLogic(SeparatorAttributesLogic):
 
     def _loading_mix_vr(self, audio_file_path_str: str) -> Optional[np.ndarray]:
         """Load and process audio for VR separation."""
-        if not spec_utils or not self.md.vr_model_param:
-            logger.error("VR spec_utils/params error.")
-            return None
-
         X_wave: Dict[int, np.ndarray] = {}
         X_spec_s: Dict[int, np.ndarray] = {}
         mp = self.md.vr_model_param
@@ -331,7 +320,6 @@ class SeparateVRLogic(SeparatorAttributesLogic):
                 )
         except Exception as e:
             logger.error(f"Error in spectrogram to wave conversion: {e}")
-            import traceback
 
             logger.error(f"Traceback: {traceback.format_exc()}")
             # Create a small non-zero waveform instead of empty array
@@ -461,8 +449,6 @@ class SeparateVRLogic(SeparatorAttributesLogic):
             self.model_run_instance.to(self.device).eval()
         except Exception as e:
             logger.error(f"Error loading VR model: {e}")
-            import traceback
-
             logger.error(traceback.format_exc())
             return None
 

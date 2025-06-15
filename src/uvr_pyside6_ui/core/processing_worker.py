@@ -1,18 +1,38 @@
 """
-Real processing worker that wraps the original UVR processing logic.
-This replaces MockProcessingWorker with actual audio separation functionality.
+Processing worker.
 """
-
+import audioread
+import math
 import traceback
 import os
 import tempfile
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
-
 import numpy as np
 import torch
 import librosa
+import soundfile as sf
+import shutil
+import gzip
+
+import lib_v5.mdxnet as MdxnetSet
+import onnxruntime as ort
+
+from pathlib import Path
 from PySide6.QtCore import QObject, QThread, Signal
+from typing import Any, Dict, List, Optional, Union
+
+from demucs.apply import apply_model, demucs_segments
+from demucs.utils import apply_model_v1, apply_model_v2
+from demucs.pretrained import get_model
+# from demucs.demucs import HDemucs
+from lib_v5.tfc_tdf_v3 import TFC_TDF_net
+# from lib_v5.vr_network.model_param_init import ModelParameters
+from lib_v5.vr_network import nets, nets_new
+from lib_v5.tfc_tdf_v3 import STFT
+from lib_v5 import spec_utils
+
+from onnx import load
+from onnx2pytorch import ConvertModel
+
 
 from . import app_constants as ac
 from .logger_utils import get_logger
@@ -30,19 +50,6 @@ from .separate_vr_logic import SeparateVRLogic
 
 logger = get_logger(__name__)
 
-try:
-    from lib_v5 import spec_utils
-except ImportError as e:
-    logger.warning(f"Warning: Could not import spec_utils: {e}")
-    spec_utils = None
-
-# Import logic functions from base module
-try:
-    from .separate_logic_base import prepare_mix_logic, write_audio_logic
-except ImportError as e:
-    logger.warning(f"Warning: Could not import logic functions: {e}")
-    prepare_mix_logic, write_audio_logic = None, None
-
 
 class ProcessingWorker(QObject):
     progress_updated = Signal(int, str)
@@ -58,7 +65,7 @@ class ProcessingWorker(QObject):
         self.total_progress_steps = 100  # Will be set based on processing type
         self.original_mix_audio: Optional[np.ndarray] = None
         
-        # Multi-file progress tracking (following UVR.py pattern)
+        # Multi-file progress tracking
         self._multi_file_context = {
             'total_files': 1,
             'current_file': 1,
@@ -68,12 +75,12 @@ class ProcessingWorker(QObject):
         }
 
         # Initialize device based on model data settings
-        self.device = 'cpu'  # Default to CPU string like in separate.py
+        self.device = 'cpu'  # Default to CPU string
         
         try:
             self.model_data = ModelData.from_settings_dict(settings_dict)
             
-            # Initialize device following separate.py logic (lines 179-191)
+            # Initialize device
             if (hasattr(self.model_data, 'is_gpu_conversion') and 
                 self.model_data.is_gpu_conversion >= 0):
                 
@@ -182,8 +189,6 @@ class ProcessingWorker(QObject):
 
         except Exception as e:
             logger.error(f"Processing error: {e}")
-            import traceback
-
             logger.error(traceback.format_exc())
             self.processing_finished.emit(False, f"Processing failed: {str(e)}")
         finally:
@@ -199,8 +204,6 @@ class ProcessingWorker(QObject):
             return None
 
         try:
-            from .separate_logic_base import prepare_mix_logic
-
             audio_data = prepare_mix_logic(str(self.model_data.audio_file))
             if audio_data is None:
                 logger.error("Failed to load audio data")
@@ -403,16 +406,16 @@ class ProcessingWorker(QObject):
                         and self.model_data.is_save_inst_vocal_splitter
                         and self._is_running
                     ):
-                        main_vocals_from_splitter = splitter_results.get(
-                            ac.MAIN_VOCAL_STEM
+                        lead_vocals_from_splitter = splitter_results.get(
+                            ac.LEAD_VOCAL_STEM
                         )
                         if (
-                            main_vocals_from_splitter is not None
-                            and main_vocals_from_splitter.shape
+                            lead_vocals_from_splitter is not None
+                            and lead_vocals_from_splitter.shape
                             == vocal_input_for_splitter.shape
                         ):
                             inst_from_splitter = (
-                                vocal_input_for_splitter - main_vocals_from_splitter
+                                vocal_input_for_splitter - lead_vocals_from_splitter
                             )
                             splitter_separator._write_stem(
                                 f"{ac.INST_STEM}_(VocalSplitter)",
@@ -510,14 +513,14 @@ class ProcessingWorker(QObject):
             self.progress_value = new_progress
         # If new_progress <= self.progress_value, keep current value (don't go backwards)
 
-        # Format message like original UVR
+        # Format message
         if not message:
             if self.progress_value < 10:
                 message = "Initializing..."
             elif self.progress_value >= 95:
                 message = "Finalizing..."
             else:
-                message = "Processing..."  # Removed percentage from status message
+                message = "Processing..."
 
         self.progress_updated.emit(self.progress_value, message)
 
@@ -541,7 +544,7 @@ class ProcessingWorker(QObject):
             self._multi_file_context['current_file'] = file_number
             self._multi_file_context['file_progress_start'] = (file_number - 1) * self._multi_file_context['file_progress_range']
             
-            # Create message following UVR.py pattern: "Downloading Item X/Y..."
+            # Create message : "Downloading Item X/Y..."
             base_msg = self._multi_file_context.get('base_message', 'Processing')
             file_msg = f"{base_msg} {file_number}/{self._multi_file_context['total_files']}"
             if file_name:
@@ -612,17 +615,7 @@ class ProcessingWorker(QObject):
         pass
 
     def _process_vr_arch(self, process_data: Dict[str, Any]) -> bool:
-        """Process using VR (Vocal Remover) architecture - matches separate.py SeparateVR"""
-        try:
-            import math
-            import os
-            from lib_v5.vr_network import nets, nets_new
-            from lib_v5.vr_network.model_param_init import ModelParameters
-            from lib_v5 import spec_utils
-        except ImportError as e:
-            self.processing_finished.emit(False, f"Required VR modules not available: {e}")
-            return False
-
+        """Process using VR (Vocal Remover) architecture"""
         self._write_to_console(f"Loading VR model: {self.model_data.model_basename}", "")
         
         # Initialize device
@@ -701,25 +694,14 @@ class ProcessingWorker(QObject):
         return True
 
     def _process_mdx_net(self, process_data: Dict[str, Any]) -> bool:
-        """Process using MDX architecture - matches separate.py SeparateMDX/SeparateMDXC"""
+        """Process using MDX architecture"""
         if self.model_data.is_mdx_c:
             return self._process_mdx_c()
         else:
             return self._process_mdx_regular()
 
     def _process_mdx_regular(self) -> bool:
-        """Process using regular MDX - matches separate.py SeparateMDX"""
-        try:
-            import lib_v5.mdxnet as MdxnetSet
-            from lib_v5.tfc_tdf_v3 import STFT
-            from lib_v5 import spec_utils
-            from onnx import load
-            from onnx2pytorch import ConvertModel
-            import onnxruntime as ort
-        except ImportError as e:
-            self.processing_finished.emit(False, f"Required MDX modules not available: {e}")
-            return False
-
+        """Process using regular MDX"""
         self._write_to_console(f"Loading MDX model: {self.model_data.model_basename}", "")
 
         # Load model
@@ -732,7 +714,7 @@ class ProcessingWorker(QObject):
             dim_c, hop_length = 4, 1024
             if self.model_data.mdx_segment_size == self.model_data.mdx_dim_t_set and self.device != 'mps':
                 providers = ['CUDAExecutionProvider', 'CPUExecutionProvider'] if self.device.startswith('cuda') else ['CPUExecutionProvider']
-                ort_session = ort.InferenceSession(self.model_data.model_path, providers=providers)
+                ort_session = onnxruntime.InferenceSession(self.model_data.model_path, providers=providers)
                 model_run = lambda spek: ort_session.run(None, {'input': spek.cpu().numpy()})[0]
             else:
                 model_run = ConvertModel(load(self.model_data.model_path))
@@ -744,7 +726,7 @@ class ProcessingWorker(QObject):
             self.processing_finished.emit(False, "Failed to load audio for MDX processing")
             return False
 
-        # Ensure correct audio format for MDX processing - should be (2, N) like in separate.py
+        # Ensure correct audio format for MDX processing
         if mix.ndim == 1:
             # Convert mono to stereo: (N,) -> (2, N)
             mix = np.asfortranarray([mix, mix])
@@ -774,7 +756,7 @@ class ProcessingWorker(QObject):
             secondary_path = os.path.join(self.model_data.export_path, f'{Path(self.model_data.audio_file).stem}_({self.model_data.secondary_stem}).wav')
             raw_mix = mix.T if hasattr(mix, 'T') else mix
             if self.model_data.is_invert_spec:
-                from lib_v5 import spec_utils
+
                 secondary_audio = spec_utils.invert_stem(raw_mix, source.T)
             else:
                 secondary_audio = raw_mix - source.T
@@ -786,14 +768,7 @@ class ProcessingWorker(QObject):
         return True
 
     def _process_mdx_c(self) -> bool:
-        """Process using MDX-C - matches separate.py SeparateMDXC"""
-        try:
-            from lib_v5.tfc_tdf_v3 import TFC_TDF_net
-            from lib_v5 import spec_utils
-        except ImportError as e:
-            self.processing_finished.emit(False, f"Required MDX-C modules not available: {e}")
-            return False
-
+        """Process using MDX-C"""
         self._write_to_console(f"Loading MDX-C model: {self.model_data.model_basename}", "")
 
         # Load model
@@ -807,7 +782,7 @@ class ProcessingWorker(QObject):
             self.processing_finished.emit(False, "Failed to load audio for MDX-C processing")
             return False
 
-        # Ensure correct audio format for MDX-C processing - should be (2, N) like in separate.py
+        # Ensure correct audio format for MDX-C processing - should be (2, N)
         if mix.ndim == 1:
             # Convert mono to stereo: (N,) -> (2, N)
             mix = np.asfortranarray([mix, mix])
@@ -921,7 +896,7 @@ class ProcessingWorker(QObject):
     def _align_spectrograms(
         self, spec_list: List[np.ndarray]
     ) -> Optional[List[np.ndarray]]:
-        """Aligns a list of spectrograms to a common shape by padding/trimming the time axis."""
+        """Aligns a list of spectograms to a common shape by padding/trimming the time axis."""
         if not spec_list:
             return None
 
@@ -994,10 +969,10 @@ class ProcessingWorker(QObject):
         self._write_to_console(f"🎯 Primary stem only: {is_primary_stem_only}", "")
         self._write_to_console(f"🎯 Secondary stem only: {is_secondary_stem_only}", "")
 
-        # Determine what stems to process based on ensemble settings following UVR.py lines 6649-6653
+        # Determine what stems to process based on ensemble settings
         stems_to_process = []
         
-        # Following UVR.py logic: if not is_secondary_stem_only, process primary; if not is_primary_stem_only, process secondary
+        # If not is_secondary_stem_only, process primary; if not is_primary_stem_only, process secondary
         if not is_secondary_stem_only:
             stems_to_process.append(primary_stem)
             self._write_to_console(f"  ✓ Will process primary stem: {primary_stem}", "")
@@ -1064,7 +1039,7 @@ class ProcessingWorker(QObject):
                     f"  Produced stems: {list(member_results.keys())}", ""
                 )
 
-                # Save individual model outputs following UVR.py pattern (line 6612)
+                # Save individual model outputs
                 for stem_name in stems_to_process:
                     if stem_name in member_results:
                         stem_audio = member_results[stem_name]
@@ -1073,7 +1048,7 @@ class ProcessingWorker(QObject):
                                 f"  {stem_name} shape: {stem_audio.shape}", ""
                             )
                             
-                            # Save individual model output with model name in filename (following UVR.py pattern)
+                            # Save individual model output with model name in filename
                             cleaned_model_name = self._clean_model_name_for_filename(member_model_data.model_basename)
                             individual_output_filename = f"{ensemble_output_base}_{cleaned_model_name}_({stem_name}).wav"
                             individual_output_path = Path(self.model_data.export_path) / individual_output_filename
@@ -1092,7 +1067,6 @@ class ProcessingWorker(QObject):
                                     continue
                                 
                                 # Save individual output
-                                import soundfile as sf
                                 sf.write(str(individual_output_path), stem_audio_to_save, 44100)
                                 
                                 self._write_to_console(f"  ✓ Saved individual output: {individual_output_filename}", "")
@@ -1139,7 +1113,7 @@ class ProcessingWorker(QObject):
 
         self._emit_progress_update(90, "Combining ensemble results...")
 
-        # Process each stem with valid outputs following UVR.py ensemble_outputs pattern
+        # Process each stem with valid outputs
         stems_saved = 0
         for stem_name in valid_stems:
             if not self._is_running:
@@ -1156,7 +1130,7 @@ class ProcessingWorker(QObject):
                 )
                 continue
 
-            # Determine algorithm for this stem following UVR.py pattern
+            # Determine algorithm for this stem
             ensemble_algorithm = self.model_data.ensemble_type
             if "/" in ensemble_algorithm:
                 # Primary/Secondary algorithm pair like "Max Spec/Min Spec"
@@ -1207,13 +1181,12 @@ class ProcessingWorker(QObject):
                     self._write_to_console(f"Saving ensemble {stem_name} to: {ensemble_output_filename}", "")
 
                     # Save the ensemble result
-                    import soundfile as sf
                     sf.write(str(ensemble_output_path), ensembled_audio_final, samplerate_to_save)
 
                     stems_saved += 1
                     self._write_to_console(f"✓ Saved ensemble {stem_name} successfully", "")
 
-                    # Clean up individual files if not saving all outputs (following UVR.py pattern)
+                    # Clean up individual files if not saving all outputs
                     if not save_all_outputs:
                         for individual_file in all_saved_files_by_stem[stem_name]:
                             try:
@@ -1224,7 +1197,6 @@ class ProcessingWorker(QObject):
 
                 except Exception as save_error:
                     self._write_to_console(f"❌ Error saving ensemble {stem_name}: {save_error}", "")
-                    import traceback
                     self._write_to_console(f"❌ Save traceback: {traceback.format_exc()}", "")
             else:
                 self._write_to_console(
@@ -1245,7 +1217,7 @@ class ProcessingWorker(QObject):
             )
 
     def _process_individual_model(self, model_data: ModelData, input_audio: np.ndarray) -> Optional[Dict[str, np.ndarray]]:
-        """Process a single model and return its results - follows separate.py process_secondary_model pattern"""
+        """Process a single model and return its results"""
         try:
             self._write_to_console(f"🔄 Processing model: {model_data.model_basename}", "")
             self._write_to_console(f"  Method: {model_data.process_method}", "")
@@ -1276,7 +1248,7 @@ class ProcessingWorker(QObject):
             temp_audio_file = self._save_temp_audio(input_audio)
             self._write_to_console(f"  ✓ Created temp audio file: {temp_audio_file}", "")
             
-            # Create process_data for the separator - following original pattern
+            # Create process_data for the separator
             # Use a temporary directory so separators don't save files in the main export path
             temp_export_dir = tempfile.mkdtemp(prefix="ensemble_temp_")
             process_data = {
@@ -1294,7 +1266,7 @@ class ProcessingWorker(QObject):
                 'input_audio_array': input_audio,
             }
             
-            # Create the appropriate separator following original process_secondary_model pattern
+            # Create the appropriate separator
             separator = None
             try:
                 if model_data.process_method == ac.VR_ARCH_TYPE:
@@ -1320,11 +1292,10 @@ class ProcessingWorker(QObject):
                     
             except Exception as separator_error:
                 self._write_to_console(f"❌ Error creating separator for {model_data.model_basename}: {separator_error}", "")
-                import traceback
                 self._write_to_console(f"❌ Separator creation traceback: {traceback.format_exc()}", "")
                 return None
                 
-            # Run the separator following original seperate() method pattern
+            # Run the separator
             try:
                 self._write_to_console(f"  🎯 Running separation...", "")
                 self._write_to_console(f"  🔍 Temp export dir: {temp_export_dir}", "")
@@ -1369,7 +1340,7 @@ class ProcessingWorker(QObject):
                     
                 self._write_to_console(f"  ✓ Separation completed, type: {type(results)}", "")
                 
-                # Handle different result types following original gather_sources pattern
+                # Handle different result types
                 if isinstance(results, dict):
                     # Dictionary format - this is what we want for ensemble
                     self._write_to_console(f"  📋 Results dictionary keys: {list(results.keys())}", "")
@@ -1415,13 +1386,11 @@ class ProcessingWorker(QObject):
                     
             except Exception as processing_error:
                 self._write_to_console(f"❌ Processing error for {model_data.model_basename}: {processing_error}", "")
-                import traceback
                 self._write_to_console(f"❌ Processing traceback: {traceback.format_exc()}", "")
                 return None
                 
         except Exception as e:
             self._write_to_console(f"❌ General error processing {model_data.model_basename}: {e}", "")
-            import traceback
             self._write_to_console(f"❌ General traceback: {traceback.format_exc()}", "")
             return None
         finally:
@@ -1434,7 +1403,6 @@ class ProcessingWorker(QObject):
                 pass
             try:
                 if 'temp_export_dir' in locals():
-                    import shutil
                     shutil.rmtree(temp_export_dir, ignore_errors=True)
                     self._write_to_console(f"  🗑️ Cleaned up temp export directory", "")
             except:
@@ -1442,15 +1410,6 @@ class ProcessingWorker(QObject):
 
     def _process_vr_arch_direct(self, input_audio: np.ndarray) -> bool:
         """Process VR model directly for ensemble - returns audio in memory"""
-        try:
-            import math
-            import os
-            from lib_v5.vr_network import nets, nets_new
-            from lib_v5 import spec_utils
-        except ImportError:
-            self._write_to_console("❌ Required VR modules not available", "")
-            return False
-
         try:
             # Save input audio to temporary file for processing
             temp_audio_file = self._save_temp_audio(input_audio)
@@ -1541,23 +1500,11 @@ class ProcessingWorker(QObject):
             
         except Exception as e:
             self._write_to_console(f"❌ VR processing error: {e}", "")
-            import traceback
             self._write_to_console(f"❌ VR traceback: {traceback.format_exc()}", "")
             return False
 
     def _process_mdx_regular_direct(self, input_audio: np.ndarray) -> bool:
         """Process regular MDX model directly for ensemble"""
-        try:
-            import lib_v5.mdxnet as MdxnetSet
-            from lib_v5.tfc_tdf_v3 import STFT
-            from lib_v5 import spec_utils
-            from onnx import load
-            from onnx2pytorch import ConvertModel
-            import onnxruntime as ort
-        except ImportError:
-            self._write_to_console("❌ Required MDX modules not available", "")
-            return False
-
         try:
             self._write_to_console(f"  Loading MDX model: {self.model_data.model_basename}", "")
             
@@ -1571,7 +1518,7 @@ class ProcessingWorker(QObject):
                 dim_c, hop_length = 4, 1024
                 if self.model_data.mdx_segment_size == self.model_data.mdx_dim_t_set and self.device != 'mps':
                     providers = ['CUDAExecutionProvider', 'CPUExecutionProvider'] if self.device.startswith('cuda') else ['CPUExecutionProvider']
-                    ort_session = ort.InferenceSession(self.model_data.model_path, providers=providers)
+                    ort_session = onnxruntime.InferenceSession(self.model_data.model_path, providers=providers)
                     model_run = lambda spek: ort_session.run(None, {'input': spek.cpu().numpy()})[0]
                 else:
                     model_run = ConvertModel(load(self.model_data.model_path))
@@ -1603,19 +1550,11 @@ class ProcessingWorker(QObject):
             
         except Exception as e:
             self._write_to_console(f"❌ MDX processing error: {e}", "")
-            import traceback
             self._write_to_console(f"❌ MDX traceback: {traceback.format_exc()}", "")
             return False
 
     def _process_mdx_c_direct(self, input_audio: np.ndarray) -> bool:
         """Process MDX-C model directly for ensemble"""
-        try:
-            from lib_v5.tfc_tdf_v3 import TFC_TDF_net
-            from lib_v5 import spec_utils
-        except ImportError:
-            self._write_to_console("❌ Required MDX-C modules not available", "")
-            return False
-
         try:
             self._write_to_console(f"  Loading MDX-C model: {self.model_data.model_basename}", "")
             
@@ -1693,7 +1632,6 @@ class ProcessingWorker(QObject):
             
         except Exception as e:
             self._write_to_console(f"❌ MDX-C processing error: {e}", "")
-            import traceback
             self._write_to_console(f"❌ MDX-C traceback: {traceback.format_exc()}", "")
             return False
 
@@ -1701,14 +1639,7 @@ class ProcessingWorker(QObject):
         """Process Demucs model directly for ensemble"""
         try:
             self._write_to_console(f"  📂 Importing Demucs modules...", "")
-            import gzip
-            import os
-            from pathlib import Path
-            from demucs.apply import apply_model, demucs_segments
-            from demucs.utils import apply_model_v1, apply_model_v2
-            from demucs.pretrained import get_model as _gm
-            from demucs.demucs import HDemucs
-            from lib_v5 import spec_utils
+
             self._write_to_console(f"  ✓ Demucs modules imported successfully", "")
         except ImportError as e:
             self._write_to_console(f"❌ Required Demucs modules not available: {e}", "")
@@ -1726,7 +1657,7 @@ class ProcessingWorker(QObject):
             return False
         
         try:
-            # Prepare audio like in separate.py
+            # Prepare audio
             self._write_to_console(f"  📄 Loading audio from temp file...", "")
             mix = prepare_mix_logic(temp_audio_file)
             if mix is None:
@@ -1735,7 +1666,7 @@ class ProcessingWorker(QObject):
 
             self._write_to_console(f"  ✓ Loaded audio shape: {mix.shape}", "")
 
-            # Load model based on version like in separate.py lines 819-833
+            # Load model based on version
             try:
                 self._write_to_console(f"  🤖 Loading Demucs model (version: {self.model_data.demucs_version})...", "")
                 
@@ -1760,7 +1691,7 @@ class ProcessingWorker(QObject):
                 else:  # V3/V4
                     self._write_to_console(f"  Loading V3/V4 model from: {self.model_data.model_path}", "")
                     
-                    # For V3/V4, load using get_model exactly like in separate.py
+                    # For V3/V4, load using get_model
                     model_name = os.path.splitext(os.path.basename(self.model_data.model_path))[0]
                     model_dir = Path(os.path.dirname(self.model_data.model_path))
                     
@@ -1775,9 +1706,9 @@ class ProcessingWorker(QObject):
                     dir_contents = list(model_dir.iterdir())
                     self._write_to_console(f"  Directory contents: {[f.name for f in dir_contents]}", "")
                     
-                    # Load the model using get_model exactly as in separate.py
+                    # Load the model using get_model
                     self._write_to_console(f"  Calling get_model(name={model_name}, repo={model_dir})...", "")
-                    demucs_model = _gm(name=model_name, repo=model_dir)
+                    demucs_model = get_model(name=model_name, repo=model_dir)
                     
                     if demucs_model is None:
                         self._write_to_console(f"❌ get_model returned None for {model_name} from {model_dir}", "")
@@ -1785,7 +1716,7 @@ class ProcessingWorker(QObject):
                     
                     self._write_to_console(f"  ✓ get_model succeeded, applying segments wrapper...", "")
                     
-                    # Apply segments wrapper like in separate.py
+                    # Apply segments wrapper
                     segment_value = getattr(self.model_data, 'segment', ac.DEFAULT)
                     self._write_to_console(f"  Segment value: {segment_value}", "")
                     demucs_model = demucs_segments(segment_value, demucs_model)
@@ -1797,13 +1728,12 @@ class ProcessingWorker(QObject):
                 self._write_to_console("  ✓ Model loaded successfully", "")
             except Exception as model_error:
                 self._write_to_console(f"❌ Failed to load Demucs model: {model_error}", "")
-                import traceback
                 self._write_to_console(f"❌ Model loading traceback: {traceback.format_exc()}", "")
                 return False
 
             self._write_to_console("  🎯 Running Demucs demixing...", "")
 
-            # Process audio like in demix_demucs method (lines 973-1020)
+            # Process audio like in demix_demucs method
             org_mix = mix
             
             if getattr(self.model_data, 'is_pitch_change', False):
@@ -1864,11 +1794,10 @@ class ProcessingWorker(QObject):
                     self._write_to_console(f"  Raw sources shape: {sources.shape if hasattr(sources, 'shape') else type(sources)}", "")
                 except Exception as inference_error:
                     self._write_to_console(f"❌ Demucs inference failed: {inference_error}", "")
-                    import traceback
                     self._write_to_console(f"❌ Inference traceback: {traceback.format_exc()}", "")
                     return False
 
-            # Post-process like in separate.py
+            # Post-process
             try:
                 self._write_to_console(f"  🔧 Post-processing results...", "")
                 sources = (sources * ref.std() + ref.mean()).cpu().numpy()
@@ -1885,7 +1814,6 @@ class ProcessingWorker(QObject):
                 self._write_to_console(f"  Final processed sources shape: {sources.shape}", "")
             except Exception as postprocess_error:
                 self._write_to_console(f"❌ Post-processing failed: {postprocess_error}", "")
-                import traceback
                 self._write_to_console(f"❌ Post-processing traceback: {traceback.format_exc()}", "")
                 return False
 
@@ -1922,17 +1850,15 @@ class ProcessingWorker(QObject):
                 
             except Exception as mapping_error:
                 self._write_to_console(f"❌ Source mapping failed: {mapping_error}", "")
-                import traceback
                 self._write_to_console(f"❌ Mapping traceback: {traceback.format_exc()}", "")
                 return False
 
         except Exception as e:
             self._write_to_console(f"❌ Demucs processing failed: {e}", "")
-            import traceback
             self._write_to_console(f"❌ Full traceback: {traceback.format_exc()}", "")
             return False
         finally:
-            # Clean up like in separate.py
+            # Clean up
             if 'demucs_model' in locals():
                 del demucs_model
                 if hasattr(torch.cuda, 'empty_cache'):
@@ -1949,9 +1875,6 @@ class ProcessingWorker(QObject):
 
     def _save_temp_audio(self, audio: np.ndarray) -> str:
         """Save audio array to a temporary file"""
-        import tempfile
-        import soundfile as sf
-        
         try:
             with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
                 # Ensure audio is in correct format for saving
@@ -2030,21 +1953,13 @@ class ProcessingWorker(QObject):
                 self._write_to_console(f"Saved {stem_name} to {Path(stem_path).name}", "")
             else:
                 # Fallback using soundfile
-                import soundfile as sf
                 sf.write(stem_path, stem_audio, 44100)
                 self._write_to_console(f"Saved {stem_name} to {Path(stem_path).name}", "")
         except Exception as e:
             self._write_to_console(f"Error saving {stem_name}: {e}", "")
 
     def _loading_mix_vr(self) -> Optional[np.ndarray]:
-        """Load audio mix for VR processing - matches separate.py loading_mix"""
-        try:
-            from lib_v5 import spec_utils
-            import librosa
-            import audioread
-        except ImportError:
-            return None
-
+        """Load audio mix for VR processing"""
         X_wave = {}
         X_spec_s = {}
         mp = self.model_data.vr_model_param
@@ -2102,11 +2017,7 @@ class ProcessingWorker(QObject):
         return X_spec
 
     def _inference_vr(self, X_spec: np.ndarray, device, model_run, is_vr_51_model: bool):
-        """VR inference - matches separate.py inference_vr"""
-        try:
-            from lib_v5 import spec_utils
-        except ImportError:
-            return None, None
+        """VR inference"""
 
         def _execute(X_mag_pad, roi_size):
             X_dataset = []
@@ -2147,7 +2058,7 @@ class ProcessingWorker(QObject):
             return mask
 
         def postprocess(mask, X_mag, X_phase):
-            # Create proper aggressiveness dictionary structure like in separate.py
+            # Create proper aggressiveness dictionary structure
             mp = self.model_data.vr_model_param
             aggressiveness = {
                 'value': self.model_data.aggression_setting,
@@ -2299,7 +2210,7 @@ class ProcessingWorker(QObject):
     def _spectral_ensemble(
         self, outputs: List[np.ndarray], is_max: bool = True
     ) -> np.ndarray:
-        """Combine outputs using spectral ensemble (min/max magnitude) in frequency domain - following original UVR"""
+        """Combine outputs using spectral ensemble (min/max magnitude) in frequency domain"""
         if not outputs:
             return None
 
@@ -2310,14 +2221,6 @@ class ProcessingWorker(QObject):
             self._write_to_console(f"    Input {i}: shape={output.shape}, dtype={output.dtype}", "")
 
         try:
-            # Import required spectral utilities 
-            try:
-                from lib_v5 import spec_utils
-                self._write_to_console("  ✓ Imported spec_utils for proper spectral processing", "")
-            except ImportError:
-                self._write_to_console("  ⚠️ spec_utils not available, using simple magnitude comparison", "")
-                return self._simple_spectral_ensemble(outputs, is_max)
-
             # Normalize all outputs to the same format: (2, N) for spectral processing
             normalized_outputs = []
             for i, output in enumerate(outputs):
@@ -2389,7 +2292,6 @@ class ProcessingWorker(QObject):
 
         except Exception as e:
             self._write_to_console(f"  ❌ Error in spectral ensemble: {e}", "")
-            import traceback
             self._write_to_console(f"  ❌ Spectral traceback: {traceback.format_exc()}", "")
             # Fallback to simple method
             self._write_to_console("  🔄 Falling back to simple spectral ensemble", "")
@@ -2459,12 +2361,7 @@ class ProcessingWorker(QObject):
             return self._average_ensemble(outputs)
 
     def _spec_to_wav_vr(self, spec: np.ndarray, is_v51_model: bool) -> np.ndarray:
-        """Convert spectrogram to audio - matches separate.py spec_to_wav"""
-        try:
-            from lib_v5 import spec_utils
-        except ImportError:
-            return np.array([])
-
+        """Convert spectrogram to audio"""
         mp = self.model_data.vr_model_param
         
         # Handle both boolean and string values for high_end_process
@@ -2489,13 +2386,7 @@ class ProcessingWorker(QObject):
         return wav
 
     def _demix_mdx(self, mix: np.ndarray, model_run, hop_length: int, dim_c: int) -> Optional[np.ndarray]:
-        """MDX demixing - matches separate.py demix"""
-        try:
-            from lib_v5.tfc_tdf_v3 import STFT
-            from lib_v5 import spec_utils
-        except ImportError:
-            return None
-
+        """MDX demixing"""
         # Initialize settings
         n_fft = self.model_data.mdx_n_fft_scale_set
         n_bins = n_fft // 2 + 1
@@ -2582,11 +2473,7 @@ class ProcessingWorker(QObject):
         return source
 
     def _demix_mdx_c(self, mix: np.ndarray, model) -> Optional[np.ndarray]:
-        """MDX-C demixing - matches separate.py demix for MDX-C"""
-        try:
-            from lib_v5 import spec_utils
-        except ImportError:
-            return None
+        """MDX-C demixing"""
 
         org_mix = mix
         if self.model_data.is_pitch_change:
@@ -2654,9 +2541,8 @@ class ProcessingWorker(QObject):
             return self._pitch_fix_mdx(est_s, sr_pitched, org_mix) if self.model_data.is_pitch_change else est_s
 
     def _pitch_fix_mdx(self, source: np.ndarray, sr_pitched: int, org_mix: np.ndarray) -> np.ndarray:
-        """Apply pitch correction for MDX - matches separate.py pitch_fix"""
+        """Apply pitch correction for MDX"""
         try:
-            from lib_v5 import spec_utils
             source = spec_utils.change_pitch_semitones(source, sr_pitched, semitone_shift=self.model_data.semitone_shift)[0]
             source = spec_utils.match_array_shapes(source, org_mix)
             return source
@@ -2687,9 +2573,8 @@ class ProcessingWorker(QObject):
             }
 
     def _pitch_fix_demucs(self, source: np.ndarray, sr_pitched: int, org_mix: np.ndarray) -> np.ndarray:
-        """Apply pitch correction for Demucs - matches separate.py pitch_fix"""
+        """Apply pitch correction for Demucs"""
         try:
-            from lib_v5 import spec_utils
             source = spec_utils.change_pitch_semitones(
                 source, sr_pitched, semitone_shift=self.model_data.semitone_shift
             )[0]

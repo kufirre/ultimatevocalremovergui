@@ -635,35 +635,82 @@ class DemucsAdvancedDialog(QDialog):
             self._load_models_if_needed()
 
     def _load_models_if_needed(self):
-        """Lazy load models only when needed."""
+        """Lazy load models only when needed - optimized to load all models once."""
         if self._models_loaded:
             return
             
         try:
-            # Populate with filtered models based on stem compatibility
-            vocal_models = self._get_filtered_models_for_stem(ac.VOCAL_STEM, ac.INST_STEM)
-            bass_models = self._get_filtered_models_for_stem(ac.BASS_STEM, ac.secondary_stem(ac.BASS_STEM))
-            drums_models = self._get_filtered_models_for_stem(ac.DRUM_STEM, ac.secondary_stem(ac.DRUM_STEM))
-            other_models = self._get_filtered_models_for_stem(ac.OTHER_STEM, ac.secondary_stem(ac.OTHER_STEM))
-
-            # Update combo boxes
-            self.vocals_model_combo.clear()
-            self.vocals_model_combo.addItems(vocal_models)
+            from ..core.uvr_core_adapter import UVRCoreAdapter
+            from ..core.model_data import ModelData
             
-            self.bass_model_combo.clear()
-            self.bass_model_combo.addItems(bass_models)
+            # Load all models once and cache them
+            adapter = UVRCoreAdapter()
+            all_suitable_models = []
             
-            self.drums_model_combo.clear()
-            self.drums_model_combo.addItems(drums_models)
+            # Get all available models from all architectures (do this once)
+            for arch_key in [ac.VR_ARCH_MODELS_KEY, ac.MDX_NET_MODELS_KEY, ac.DEMUCS_MODELS_KEY]:
+                arch_models = adapter.get_available_models(arch_key)
+                
+                for model_name in arch_models:
+                    try:
+                        # Create minimal settings dict for ModelData creation
+                        temp_settings = {
+                            'chosen_process_method': self._get_process_method_for_arch(arch_key),
+                            'is_gpu_conversion': False,
+                            'is_normalization': False,
+                        }
+                        
+                        model_data = ModelData.from_settings_dict(
+                            temp_settings,
+                            _model_name_override=model_name,
+                            _process_method_override=self._get_process_method_for_arch(arch_key),
+                            _is_secondary_model_instance=True
+                        )
+                        
+                        # Store model with its data for filtering
+                        all_suitable_models.append((model_name, model_data))
+                        
+                    except Exception as e:
+                        logger.debug(f"Could not check model {model_name}: {e}")
+                        continue
             
-            self.other_model_combo.clear()
-            self.other_model_combo.addItems(other_models)
+            # Now filter for each stem pair efficiently
+            stem_pairs = [
+                (ac.VOCAL_STEM, ac.INST_STEM),
+                (ac.BASS_STEM, ac.secondary_stem(ac.BASS_STEM)),
+                (ac.DRUM_STEM, ac.secondary_stem(ac.DRUM_STEM)),
+                (ac.OTHER_STEM, ac.secondary_stem(ac.OTHER_STEM))
+            ]
+            
+            combo_boxes = [
+                self.vocals_model_combo,
+                self.bass_model_combo,
+                self.drums_model_combo,
+                self.other_model_combo
+            ]
+            
+            # Filter models for each stem pair
+            for i, (primary_stem, secondary_stem) in enumerate(stem_pairs):
+                suitable_models = [ac.NO_MODEL]
+                
+                for model_name, model_data in all_suitable_models:
+                    if self._is_model_suitable_for_stem_pair(model_data, primary_stem, secondary_stem):
+                        suitable_models.append(model_name)
+                
+                # Update combo box
+                combo_boxes[i].clear()
+                combo_boxes[i].addItems(suitable_models)
             
             self._models_loaded = True
-            logger.debug("Models loaded successfully for secondary tab")
+            logger.debug("Models loaded successfully for secondary tab (optimized)")
             
         except Exception as e:
             logger.error(f"Error loading models: {e}")
+            # Fallback: populate with just NO_MODEL
+            for combo in [self.vocals_model_combo, self.bass_model_combo, 
+                         self.drums_model_combo, self.other_model_combo]:
+                combo.clear()
+                combo.addItems([ac.NO_MODEL])
 
 
 class DemucsAdvancedPresenter(QObject):

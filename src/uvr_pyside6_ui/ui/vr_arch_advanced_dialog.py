@@ -675,37 +675,82 @@ class VRArchAdvancedDialog(QDialog):
             return True  # VR models are generally compatible
 
     def _load_models_if_needed(self):
-        """Lazy load models only when needed."""
+        """Lazy load models only when needed - optimized to load VR models once."""
         if self._models_loaded:
             return
             
         try:
             from ..core import app_constants as ac
+            from ..core.uvr_core_adapter import UVRCoreAdapter
+            from ..core.model_data import ModelData
             
-            # Populate with filtered models based on stem compatibility
-            vocal_models = self._get_filtered_models_for_stem(ac.VOCAL_STEM, ac.INST_STEM)
-            bass_models = self._get_filtered_models_for_stem(ac.BASS_STEM, ac.secondary_stem(ac.BASS_STEM))
-            drums_models = self._get_filtered_models_for_stem(ac.DRUM_STEM, ac.secondary_stem(ac.DRUM_STEM))
-            other_models = self._get_filtered_models_for_stem(ac.OTHER_STEM, ac.secondary_stem(ac.OTHER_STEM))
-
-            # Update combo boxes
-            self.vocals_model_combo.clear()
-            self.vocals_model_combo.addItems(vocal_models)
+            # Load VR models once and cache them
+            adapter = UVRCoreAdapter()
+            all_suitable_models = []
             
-            self.bass_model_combo.clear()
-            self.bass_model_combo.addItems(bass_models)
+            # Get VR models specifically (only need VR for VR dialog)
+            vr_models = adapter.get_available_models(ac.VR_ARCH_MODELS_KEY)
             
-            self.drums_model_combo.clear()
-            self.drums_model_combo.addItems(drums_models)
+            for model_name in vr_models:
+                try:
+                    # Create minimal settings dict for ModelData creation
+                    temp_settings = {
+                        'chosen_process_method': ac.VR_ARCH_TYPE,
+                        'is_gpu_conversion': False,
+                        'is_normalization': False,
+                    }
+                    
+                    model_data = ModelData.from_settings_dict(
+                        temp_settings,
+                        _model_name_override=model_name,
+                        _process_method_override=ac.VR_ARCH_TYPE,
+                        _is_secondary_model_instance=True
+                    )
+                    
+                    # Store model with its data for filtering
+                    all_suitable_models.append((model_name, model_data))
+                    
+                except Exception as e:
+                    logger.debug(f"Could not check VR model {model_name}: {e}")
+                    continue
             
-            self.other_model_combo.clear()
-            self.other_model_combo.addItems(other_models)
+            # Now filter for each stem pair efficiently
+            stem_pairs = [
+                (ac.VOCAL_STEM, ac.INST_STEM),
+                (ac.BASS_STEM, ac.secondary_stem(ac.BASS_STEM)),
+                (ac.DRUM_STEM, ac.secondary_stem(ac.DRUM_STEM)),
+                (ac.OTHER_STEM, ac.secondary_stem(ac.OTHER_STEM))
+            ]
+            
+            combo_boxes = [
+                self.vocals_model_combo,
+                self.bass_model_combo,
+                self.drums_model_combo,
+                self.other_model_combo
+            ]
+            
+            # Filter models for each stem pair
+            for i, (primary_stem, secondary_stem) in enumerate(stem_pairs):
+                suitable_models = [ac.NO_MODEL]
+                
+                for model_name, model_data in all_suitable_models:
+                    if self._is_model_suitable_for_stem_pair(model_data, primary_stem, secondary_stem):
+                        suitable_models.append(model_name)
+                
+                # Update combo box
+                combo_boxes[i].clear()
+                combo_boxes[i].addItems(suitable_models)
             
             self._models_loaded = True
-            logger.debug("VR models loaded successfully for secondary tab")
+            logger.debug("VR models loaded successfully for secondary tab (optimized)")
             
         except Exception as e:
             logger.error(f"Error loading VR models: {e}")
+            # Fallback: populate with just NO_MODEL
+            for combo in [self.vocals_model_combo, self.bass_model_combo, 
+                         self.drums_model_combo, self.other_model_combo]:
+                combo.clear()
+                combo.addItems([ac.NO_MODEL])
 
     def _on_tab_changed(self, index):
         """Handle tab change to implement lazy loading."""

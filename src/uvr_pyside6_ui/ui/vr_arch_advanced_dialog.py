@@ -1,46 +1,56 @@
-from PySide6.QtCore import Signal, QObject
-from PySide6.QtWidgets import (
-    QDialog, QTabWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QGroupBox, QLabel, QComboBox, QCheckBox, QDoubleSpinBox, QSpinBox,
-    QPushButton, QDialogButtonBox, QSlider, QFrame, QScrollArea
-)
-from PySide6.QtCore import Qt
 import logging
 import os
 import platform
 import subprocess
 from pathlib import Path
 
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QFormLayout,
+    QFrame,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QSlider,
+    QTabWidget,
+    QVBoxLayout,
+)
+
 logger = logging.getLogger(__name__)
 
 
 class VRArchAdvancedDialog(QDialog):
     """Advanced VR Architecture settings dialog matching UVR.py structure."""
-    
+
     settings_updated = Signal(dict)
-    
+
     def __init__(self, current_settings=None, is_vr_mode=False, parent=None):
         super().__init__(parent)
         self.current_settings = current_settings or {}
         self.is_vr_mode = is_vr_mode
-        
+
         self.setWindowTitle("Advanced VR Options")
         self.setModal(True)
         self.setMinimumSize(450, 500)  # Consistent with other dialogs
-        
+
         self._setup_ui()
         self._load_settings()
 
     def _setup_ui(self):
         """Set up the user interface."""
         layout = QVBoxLayout(self)
-        
+
         # Create tab widget for organizing settings with modern styling
         tab_widget = QTabWidget()
         tab_widget.setTabPosition(QTabWidget.North)
         tab_widget.setUsesScrollButtons(False)  # Disable scroll buttons for modern look
         tab_widget.setElideMode(Qt.ElideNone)  # Don't elide tab text
-        tab_widget.setStyleSheet("""
+        tab_widget.setStyleSheet(
+            """
             QTabWidget::pane {
                 border: 1px solid #4a637a;
                 background-color: #2c3e50;
@@ -60,37 +70,38 @@ class VRArchAdvancedDialog(QDialog):
             QTabBar::tab:hover:!selected {
                 background-color: #4a637a;
             }
-        """)
-        
+        """
+        )
+
         # Create tabs
         self._create_advanced_tab(tab_widget)
         self._create_secondary_model_tab(tab_widget)
         self._create_vocal_splitter_tab(tab_widget)
-        
+
         layout.addWidget(tab_widget)
-        
+
         # Button layout - Apply and Close closer together
         button_layout = QHBoxLayout()
         button_layout.addStretch()  # Push buttons to the right
-        
+
         # Apply and Close buttons with minimal spacing
         self.apply_button = QPushButton("Apply")
         self.close_button = QPushButton("Close")
-        
+
         # Set consistent button sizes
         button_width = 80
         self.apply_button.setFixedWidth(button_width)
         self.close_button.setFixedWidth(button_width)
-        
+
         # Connect signals
         self.apply_button.clicked.connect(self._apply_settings)
         self.close_button.clicked.connect(self.reject)
-        
+
         # Add buttons with minimal spacing between them
         button_layout.addWidget(self.apply_button)
         button_layout.addSpacing(5)  # Small gap between buttons
         button_layout.addWidget(self.close_button)
-        
+
         layout.addLayout(button_layout)
 
     def _create_advanced_tab(self, tab_widget):
@@ -99,19 +110,19 @@ class VRArchAdvancedDialog(QDialog):
         layout = QVBoxLayout(widget)
         layout.setSpacing(12)
         layout.setContentsMargins(15, 15, 15, 15)
-        
+
         # VR Settings Group
         vr_group = QGroupBox("VR Architecture Settings")
         vr_layout = QFormLayout(vr_group)
         vr_layout.setSpacing(10)
-        
+
         # Window Size (only if not in VR_ARCH_PM mode)
         if not self.is_vr_mode:
             self.window_size_combo = QComboBox()
             self.window_size_combo.addItems(["320", "512", "1024"])
             self.window_size_combo.setCurrentText("512")
             vr_layout.addRow("Window Size:", self.window_size_combo)
-            
+
             # Aggression Setting - slider with value label beside it
             aggression_layout = QHBoxLayout()
             self.aggression_slider = QSlider(Qt.Horizontal)
@@ -119,18 +130,22 @@ class VRArchAdvancedDialog(QDialog):
             self.aggression_slider.setMaximum(50)
             self.aggression_slider.setValue(5)
             self.aggression_slider.setMinimumWidth(180)
-            
+
             self.aggression_value_label = QLabel("5")
             self.aggression_value_label.setAlignment(Qt.AlignCenter)
             self.aggression_value_label.setMinimumWidth(30)
-            self.aggression_value_label.setStyleSheet("font-weight: bold; color: #3498db;")
-            
-            self.aggression_slider.valueChanged.connect(lambda v: self.aggression_value_label.setText(str(v)))
-            
+            self.aggression_value_label.setStyleSheet(
+                "font-weight: bold; color: #3498db;"
+            )
+
+            self.aggression_slider.valueChanged.connect(
+                lambda v: self.aggression_value_label.setText(str(v))
+            )
+
             aggression_layout.addWidget(self.aggression_slider)
             aggression_layout.addWidget(self.aggression_value_label)
             vr_layout.addRow("Aggression Setting:", aggression_layout)
-        
+
         # Batch Size - slider with value label beside it
         batch_layout = QHBoxLayout()
         self.batch_size_slider = QSlider(Qt.Horizontal)
@@ -138,19 +153,21 @@ class VRArchAdvancedDialog(QDialog):
         self.batch_size_slider.setMaximum(16)
         self.batch_size_slider.setValue(4)
         self.batch_size_slider.setMinimumWidth(180)
-        
+
         self.batch_size_value_label = QLabel("4")
         self.batch_size_value_label.setAlignment(Qt.AlignCenter)
         self.batch_size_value_label.setMinimumWidth(30)
         self.batch_size_value_label.setStyleSheet("font-weight: bold; color: #3498db;")
-        
-        self.batch_size_slider.valueChanged.connect(lambda v: self.batch_size_value_label.setText(str(v)))
-        
+
+        self.batch_size_slider.valueChanged.connect(
+            lambda v: self.batch_size_value_label.setText(str(v))
+        )
+
         batch_layout.addWidget(self.batch_size_slider)
         batch_layout.addWidget(self.batch_size_value_label)
         vr_layout.addRow("Batch Size:", batch_layout)
-        
-        # Post Process Threshold - slider with value label beside it  
+
+        # Post Process Threshold - slider with value label beside it
         threshold_layout = QHBoxLayout()
         self.threshold_slider = QSlider(Qt.Horizontal)
         self.threshold_slider.setMinimum(1)  # 0.1 * 10
@@ -158,56 +175,56 @@ class VRArchAdvancedDialog(QDialog):
         self.threshold_slider.setValue(2)  # 0.2 * 10
         self.threshold_slider.setMinimumWidth(180)
         self.threshold_slider.setEnabled(False)  # Disabled by default
-        
+
         self.threshold_value_label = QLabel("0.2")
         self.threshold_value_label.setAlignment(Qt.AlignCenter)
         self.threshold_value_label.setMinimumWidth(30)
         self.threshold_value_label.setStyleSheet("font-weight: bold; color: #3498db;")
-        
+
         self.threshold_slider.valueChanged.connect(self._update_threshold_label)
-        
+
         threshold_layout.addWidget(self.threshold_slider)
         threshold_layout.addWidget(self.threshold_value_label)
         vr_layout.addRow("Post Process Threshold:", threshold_layout)
-        
+
         layout.addWidget(vr_group)
-        
+
         # Processing Options Group
         options_group = QGroupBox("Processing Options")
         options_layout = QVBoxLayout(options_group)
         options_layout.setSpacing(8)
-        
+
         # TTA
         self.tta_checkbox = QCheckBox("Enable TTA")
         options_layout.addWidget(self.tta_checkbox)
-        
+
         # Post Process
         self.post_process_checkbox = QCheckBox("Post Process")
         self.post_process_checkbox.toggled.connect(self._toggle_threshold)
         options_layout.addWidget(self.post_process_checkbox)
-        
+
         # High End Process
         self.high_end_process_checkbox = QCheckBox("High End Process")
         options_layout.addWidget(self.high_end_process_checkbox)
-        
+
         layout.addWidget(options_group)
-        
+
         # Actions section
         actions_group = QGroupBox("Actions")
         actions_layout = QVBoxLayout(actions_group)
         actions_layout.setSpacing(8)
-        
+
         self.clear_cache_btn = QPushButton("Clear AutoSet Cache")
         self.clear_cache_btn.clicked.connect(self._clear_autoset_cache)
         actions_layout.addWidget(self.clear_cache_btn)
-        
+
         self.open_models_btn = QPushButton("Open Models Folder")
         self.open_models_btn.clicked.connect(self._open_models_folder)
         actions_layout.addWidget(self.open_models_btn)
-        
+
         layout.addWidget(actions_group)
         layout.addStretch()  # Push everything to the top
-        
+
         tab_widget.addTab(widget, "Advanced")
         return widget
 
@@ -216,10 +233,11 @@ class VRArchAdvancedDialog(QDialog):
         logger.info("Vocal splitter options requested")
         # TODO: Implement vocal splitter options dialog
         from PySide6.QtWidgets import QMessageBox
+
         QMessageBox.information(
             self,
             "Vocal Splitter Options",
-            "Vocal splitter options dialog will be implemented here."
+            "Vocal splitter options dialog will be implemented here.",
         )
 
     def _clear_autoset_cache(self):
@@ -227,10 +245,9 @@ class VRArchAdvancedDialog(QDialog):
         logger.info("Clear autoset cache requested")
         # TODO: Implement cache clearing functionality
         from PySide6.QtWidgets import QMessageBox
+
         QMessageBox.information(
-            self,
-            "Clear Cache",
-            "AutoSet cache cleared successfully."
+            self, "Clear Cache", "AutoSet cache cleared successfully."
         )
 
     def _create_secondary_model_tab(self, tab_widget):
@@ -239,37 +256,37 @@ class VRArchAdvancedDialog(QDialog):
         layout = QVBoxLayout(widget)
         layout.setSpacing(8)
         layout.setContentsMargins(15, 15, 15, 15)
-        
+
         # Enable Secondary Model
         self.enable_secondary_check = QCheckBox("Enable Secondary Model")
         self.enable_secondary_check.setChecked(False)
         layout.addWidget(self.enable_secondary_check)
-        
+
         # Store secondary model widgets for enable/disable
         self.secondary_widgets = []
-        
+
         # Create vertical layout for the four sections
         # 1. Vocals/Instruments Section
         vocals_group = self._create_secondary_section("Vocals/Instruments", "vocals")
         layout.addWidget(vocals_group)
-        
+
         # 2. Bass/No Bass Section
         bass_group = self._create_secondary_section("Bass/No Bass", "bass")
         layout.addWidget(bass_group)
-        
+
         # 3. Drums/No Drums Section
         drums_group = self._create_secondary_section("Drums/No Drums", "drums")
         layout.addWidget(drums_group)
-        
+
         # 4. Other/No Other Section
         other_group = self._create_secondary_section("Other/No Other", "other")
         layout.addWidget(other_group)
-        
+
         layout.addStretch()
-        
+
         # Connect enable checkbox
         self.enable_secondary_check.toggled.connect(self._toggle_secondary_controls)
-        
+
         tab_widget.addTab(widget, "Secondary Model")
         return widget
 
@@ -278,17 +295,23 @@ class VRArchAdvancedDialog(QDialog):
         group = QGroupBox(title)
         group_layout = QHBoxLayout(group)  # Use horizontal layout for compactness
         group_layout.setSpacing(8)
-        
+
         # Model combo box
         model_combo = QComboBox()
         # VR-specific models
-        model_combo.addItems([
-            "No Model", "1_HP-UVR.pth", "2_HP-UVR.pth", "3_HP-Vocal-UVR.pth", 
-            "4_HP-Vocal-UVR.pth", "5_HP-Karaoke-UVR.pth"
-        ])
+        model_combo.addItems(
+            [
+                "No Model",
+                "1_HP-UVR.pth",
+                "2_HP-UVR.pth",
+                "3_HP-Vocal-UVR.pth",
+                "4_HP-Vocal-UVR.pth",
+                "5_HP-Karaoke-UVR.pth",
+            ]
+        )
         model_combo.setEnabled(False)
         model_combo.setMinimumWidth(180)
-        
+
         # Scale slider with compact layout
         scale_slider = QSlider(Qt.Horizontal)
         scale_slider.setRange(10, 100)
@@ -296,16 +319,16 @@ class VRArchAdvancedDialog(QDialog):
         scale_slider.setEnabled(False)
         scale_slider.setMinimumWidth(100)
         scale_slider.setMaximumWidth(120)
-        
+
         scale_label = QLabel("100%")
         scale_label.setMinimumWidth(40)
         scale_label.setAlignment(Qt.AlignCenter)
         scale_label.setStyleSheet("font-weight: bold; color: #2196F3;")
-        
+
         scale_slider.valueChanged.connect(
             lambda v, lbl=scale_label: lbl.setText(f"{v}%")
         )
-        
+
         # Add widgets to horizontal layout
         group_layout.addWidget(QLabel("Model:"))
         group_layout.addWidget(model_combo)
@@ -313,14 +336,14 @@ class VRArchAdvancedDialog(QDialog):
         group_layout.addWidget(scale_slider)
         group_layout.addWidget(scale_label)
         group_layout.addStretch()
-        
+
         # Store references to widgets
         setattr(self, f"{section_name}_model_combo", model_combo)
         setattr(self, f"{section_name}_scale_slider", scale_slider)
         setattr(self, f"{section_name}_scale_label", scale_label)
-        
+
         self.secondary_widgets.extend([model_combo, scale_slider])
-        
+
         return group
 
     def _update_threshold_label(self, value):
@@ -334,7 +357,7 @@ class VRArchAdvancedDialog(QDialog):
 
     def _toggle_secondary_controls(self, enabled):
         """Toggle all secondary model controls."""
-        if hasattr(self, 'secondary_widgets'):
+        if hasattr(self, "secondary_widgets"):
             for control in self.secondary_widgets:
                 control.setEnabled(enabled)
 
@@ -342,56 +365,64 @@ class VRArchAdvancedDialog(QDialog):
         """Load settings into the dialog controls."""
         if not self.current_settings:
             return
-            
+
         # Advanced settings
         if not self.is_vr_mode:
-            if 'window_size' in self.current_settings:
-                window_size = str(self.current_settings['window_size'])
+            if "window_size" in self.current_settings:
+                window_size = str(self.current_settings["window_size"])
                 index = self.window_size_combo.findText(window_size)
                 if index >= 0:
                     self.window_size_combo.setCurrentIndex(index)
-                    
-            if 'aggression_setting' in self.current_settings:
+
+            if "aggression_setting" in self.current_settings:
                 # Convert float aggression (0.01-0.50) to int (1-50)
-                aggression = self.current_settings['aggression_setting']
+                aggression = self.current_settings["aggression_setting"]
                 if isinstance(aggression, float):
                     aggression_int = int(aggression * 100)
                 else:
                     aggression_int = int(aggression)
                 self.aggression_slider.setValue(aggression_int)
                 self.aggression_value_label.setText(str(aggression_int))
-        
-        if 'batch_size' in self.current_settings:
-            self.batch_size_slider.setValue(self.current_settings['batch_size'])
-            self.batch_size_value_label.setText(str(self.current_settings['batch_size']))
-            
-        if 'post_process_threshold' in self.current_settings:
-            threshold = int(self.current_settings['post_process_threshold'] * 10)
+
+        if "batch_size" in self.current_settings:
+            self.batch_size_slider.setValue(self.current_settings["batch_size"])
+            self.batch_size_value_label.setText(
+                str(self.current_settings["batch_size"])
+            )
+
+        if "post_process_threshold" in self.current_settings:
+            threshold = int(self.current_settings["post_process_threshold"] * 10)
             self.threshold_slider.setValue(threshold)
             self._update_threshold_label(threshold)
-            
+
         # Processing options
-        self.tta_checkbox.setChecked(self.current_settings.get('is_tta', False))
-        self.post_process_checkbox.setChecked(self.current_settings.get('is_post_process', False))
-        self.high_end_process_checkbox.setChecked(self.current_settings.get('is_high_end_process', False))
-        
+        self.tta_checkbox.setChecked(self.current_settings.get("is_tta", False))
+        self.post_process_checkbox.setChecked(
+            self.current_settings.get("is_post_process", False)
+        )
+        self.high_end_process_checkbox.setChecked(
+            self.current_settings.get("is_high_end_process", False)
+        )
+
         # Secondary model settings
-        self.enable_secondary_check.setChecked(self.current_settings.get('vr_is_secondary_model_activate', False))
-        
+        self.enable_secondary_check.setChecked(
+            self.current_settings.get("vr_is_secondary_model_activate", False)
+        )
+
         # Load secondary model settings for each section
-        sections = ['vocals', 'bass', 'drums', 'other']
+        sections = ["vocals", "bass", "drums", "other"]
         for section in sections:
             # Model selection
-            model_key = f'vr_{section}_secondary_model'
+            model_key = f"vr_{section}_secondary_model"
             if model_key in self.current_settings:
                 combo = getattr(self, f"{section}_model_combo")
                 model = self.current_settings[model_key]
                 index = combo.findText(model)
                 if index >= 0:
                     combo.setCurrentIndex(index)
-                    
+
             # Scale/percentage
-            scale_key = f'vr_{section}_secondary_model_scale'
+            scale_key = f"vr_{section}_secondary_model_scale"
             if scale_key in self.current_settings:
                 slider = getattr(self, f"{section}_scale_slider")
                 label = getattr(self, f"{section}_scale_label")
@@ -399,71 +430,81 @@ class VRArchAdvancedDialog(QDialog):
                 scale_value = self.current_settings[scale_key]
                 if isinstance(scale_value, str):
                     # Handle percentage string format
-                    scale_value = float(scale_value.replace('%', '')) / 100.0
+                    scale_value = float(scale_value.replace("%", "")) / 100.0
                 percentage = int(scale_value * 100)
                 slider.setValue(percentage)
                 label.setText(f"{percentage}%")
-        
+
         # Vocal splitter settings
-        self.enable_vocal_split_check.setChecked(self.current_settings.get("vr_is_vocal_split_mode", False))
-        
+        self.enable_vocal_split_check.setChecked(
+            self.current_settings.get("vr_is_vocal_split_mode", False)
+        )
+
         # Load vocal model if exists
         vocal_model = self.current_settings.get("vr_vocal_model", "No Model")
         vocal_index = self.vocal_model_combo.findText(vocal_model)
         if vocal_index >= 0:
             self.vocal_model_combo.setCurrentIndex(vocal_index)
-        
+
         # Load deverb option
-        deverb_option = self.current_settings.get("vr_deverb_option", "Main Vocals Only")
+        deverb_option = self.current_settings.get(
+            "vr_deverb_option", "Main Vocals Only"
+        )
         deverb_index = self.deverb_combo.findText(deverb_option)
         if deverb_index >= 0:
             self.deverb_combo.setCurrentIndex(deverb_index)
-        
-        self.save_vocal_only_check.setChecked(self.current_settings.get("vr_save_vocal_only", False))
-        self.save_inst_only_check.setChecked(self.current_settings.get("vr_save_inst_only", False))
+
+        self.save_vocal_only_check.setChecked(
+            self.current_settings.get("vr_save_vocal_only", False)
+        )
+        self.save_inst_only_check.setChecked(
+            self.current_settings.get("vr_save_inst_only", False)
+        )
 
     def _apply_settings(self):
         """Apply the current settings and emit the signal."""
         settings = {}
-        
+
         # Advanced settings
         if not self.is_vr_mode:
-            settings['window_size'] = int(self.window_size_combo.currentText())
+            settings["window_size"] = int(self.window_size_combo.currentText())
             # Convert int aggression (1-50) to float (0.01-0.50)
-            settings['aggression_setting'] = self.aggression_slider.value() / 100.0
-            
-        settings['batch_size'] = self.batch_size_slider.value()
-        settings['post_process_threshold'] = self.threshold_slider.value() / 10.0
-        
+            settings["aggression_setting"] = self.aggression_slider.value() / 100.0
+
+        settings["batch_size"] = self.batch_size_slider.value()
+        settings["post_process_threshold"] = self.threshold_slider.value() / 10.0
+
         # Processing options
-        settings['is_tta'] = self.tta_checkbox.isChecked()
-        settings['is_post_process'] = self.post_process_checkbox.isChecked()
-        settings['is_high_end_process'] = self.high_end_process_checkbox.isChecked()
-        
+        settings["is_tta"] = self.tta_checkbox.isChecked()
+        settings["is_post_process"] = self.post_process_checkbox.isChecked()
+        settings["is_high_end_process"] = self.high_end_process_checkbox.isChecked()
+
         # Secondary model settings
-        settings['vr_is_secondary_model_activate'] = self.enable_secondary_check.isChecked()
-        
+        settings["vr_is_secondary_model_activate"] = (
+            self.enable_secondary_check.isChecked()
+        )
+
         # Secondary model settings for each section
-        sections = ['vocals', 'bass', 'drums', 'other']
+        sections = ["vocals", "bass", "drums", "other"]
         for section in sections:
             # Model selection
             combo = getattr(self, f"{section}_model_combo")
             settings[f"vr_{section}_secondary_model"] = combo.currentText()
-            
+
             # Scale/percentage
             slider = getattr(self, f"{section}_scale_slider")
             # Convert from 1-99 percentage to 0.01-0.99
             percentage = slider.value()
             scale_value = percentage / 100.0
             settings[f"vr_{section}_secondary_model_scale"] = scale_value
-        
+
         # Vocal splitter settings
-        settings['vr_is_vocal_split_mode'] = self.enable_vocal_split_check.isChecked()
-        settings['vr_vocal_model'] = self.vocal_model_combo.currentText()
-        settings['vr_deverb_option'] = self.deverb_combo.currentText()
-        settings['vr_save_vocal_only'] = self.save_vocal_only_check.isChecked()
-        settings['vr_save_inst_only'] = self.save_inst_only_check.isChecked()
-        
+        settings["vr_is_vocal_split_mode"] = self.enable_vocal_split_check.isChecked()
+        settings["vr_vocal_model"] = self.vocal_model_combo.currentText()
+        settings["vr_deverb_option"] = self.deverb_combo.currentText()
+        settings["vr_save_vocal_only"] = self.save_vocal_only_check.isChecked()
+        settings["vr_save_inst_only"] = self.save_inst_only_check.isChecked()
+
         logger.info(f"VR advanced settings applied: {settings}")
         self.settings_updated.emit(settings)
         self.accept()
@@ -473,11 +514,12 @@ class VRArchAdvancedDialog(QDialog):
         try:
             # Get the VR models directory path
             from ..core.model_data import VR_MODELS_DIR_PATH
+
             models_path = Path(VR_MODELS_DIR_PATH)
-            
+
             # Create directory if it doesn't exist
             models_path.mkdir(parents=True, exist_ok=True)
-            
+
             # Open in system file manager
             if platform.system() == "Windows":
                 os.startfile(str(models_path))
@@ -485,12 +527,12 @@ class VRArchAdvancedDialog(QDialog):
                 subprocess.run(["open", str(models_path)])
             else:  # Linux and others
                 subprocess.run(["xdg-open", str(models_path)])
-                
+
             logger.info(f"Open VR models folder requested: {models_path}")
-            
+
         except Exception as e:
             logger.error(f"Failed to open VR models folder: {e}")
-            # TODO: Show error dialog to user 
+            # TODO: Show error dialog to user
 
     def _create_vocal_splitter_tab(self, tab_widget):
         """Create the vocal splitter tab."""
@@ -498,61 +540,72 @@ class VRArchAdvancedDialog(QDialog):
         layout = QVBoxLayout(widget)
         layout.setSpacing(10)
         layout.setContentsMargins(15, 15, 15, 15)
-        
+
         # Vocal Splitter Settings Group
         vocal_group = QGroupBox("Vocal Splitter Settings")
         vocal_layout = QFormLayout(vocal_group)
         vocal_layout.setSpacing(10)
-        
+
         # Enable Vocal Split
         self.enable_vocal_split_check = QCheckBox("Enable Vocal Split Mode")
         self.enable_vocal_split_check.setChecked(False)
         vocal_layout.addRow(self.enable_vocal_split_check)
-        
+
         # Vocal Model Selection
         self.vocal_model_combo = QComboBox()
-        self.vocal_model_combo.addItems([
-            "No Model", "1_HP-UVR.pth", "2_HP-UVR.pth", "3_HP-Vocal-UVR.pth", 
-            "4_HP-Vocal-UVR.pth", "5_HP-Karaoke-UVR.pth"
-        ])
+        self.vocal_model_combo.addItems(
+            [
+                "No Model",
+                "1_HP-UVR.pth",
+                "2_HP-UVR.pth",
+                "3_HP-Vocal-UVR.pth",
+                "4_HP-Vocal-UVR.pth",
+                "5_HP-Karaoke-UVR.pth",
+            ]
+        )
         self.vocal_model_combo.setEnabled(False)
         vocal_layout.addRow("Model:", self.vocal_model_combo)
-        
+
         # Vocal Split Mode - DeVerberate Options
         self.deverb_combo = QComboBox()
-        self.deverb_combo.addItems([
-            "Main Vocals Only", "Lead Vocals Only", "Backing Vocals Only", "All Vocal Types"
-        ])
+        self.deverb_combo.addItems(
+            [
+                "Main Vocals Only",
+                "Lead Vocals Only",
+                "Backing Vocals Only",
+                "All Vocal Types",
+            ]
+        )
         self.deverb_combo.setEnabled(False)
         vocal_layout.addRow("DeVerberate Option:", self.deverb_combo)
-        
+
         layout.addWidget(vocal_group)
-        
+
         # Processing Options
         options_group = QGroupBox("Processing Options")
         options_layout = QVBoxLayout(options_group)
         options_layout.setSpacing(8)
-        
+
         self.save_vocal_only_check = QCheckBox("Save Vocals Only")
         self.save_vocal_only_check.setEnabled(False)
         options_layout.addWidget(self.save_vocal_only_check)
-        
+
         self.save_inst_only_check = QCheckBox("Save Instrumental Only")
         self.save_inst_only_check.setEnabled(False)
         options_layout.addWidget(self.save_inst_only_check)
-        
+
         layout.addWidget(options_group)
         layout.addStretch()
-        
+
         # Connect enable checkbox
         self.enable_vocal_split_check.toggled.connect(self._toggle_vocal_widgets)
-        
+
         tab_widget.addTab(widget, "Vocal Splitter")
         return widget
-    
+
     def _toggle_vocal_widgets(self, enabled):
         """Toggle vocal splitter widgets."""
         self.vocal_model_combo.setEnabled(enabled)
         self.deverb_combo.setEnabled(enabled)
         self.save_vocal_only_check.setEnabled(enabled)
-        self.save_inst_only_check.setEnabled(enabled) 
+        self.save_inst_only_check.setEnabled(enabled)

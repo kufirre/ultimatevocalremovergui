@@ -88,7 +88,9 @@ class MainWindowView(QMainWindow):
         )
         self.ensemble_view = EnsembleSimpleView()
         self.presenters[ac.ENSEMBLE_PRESENTER_KEY] = EnsembleSimplePresenter(
-            view=self.ensemble_view, adapter=self.adapter, settings_dialog_presenter=self.settings_dialog_presenter
+            view=self.ensemble_view,
+            adapter=self.adapter,
+            settings_dialog_presenter=self.settings_dialog_presenter,
         )
 
         # Processing Settings (create first so we can connect to it)
@@ -114,7 +116,9 @@ class MainWindowView(QMainWindow):
 
         # Connect ensemble stem pair changes to processing settings updates
         self.ensemble_view.main_stem_pair_changed.connect(
-            self.presenters[ac.PROCESSING_SETTINGS_PRESENTER_KEY].handle_ensemble_stem_pair_change
+            self.presenters[
+                ac.PROCESSING_SETTINGS_PRESENTER_KEY
+            ].handle_ensemble_stem_pair_change
         )
 
         # Connect Demucs stem changes to model selection presenter
@@ -176,7 +180,9 @@ class MainWindowView(QMainWindow):
         # This must happen after all connections are established
         current_stem_pair = self.ensemble_view.get_current_stem_pair()
         if current_stem_pair:
-            self.presenters[ac.PROCESSING_SETTINGS_PRESENTER_KEY].handle_ensemble_stem_pair_change(current_stem_pair)
+            self.presenters[
+                ac.PROCESSING_SETTINGS_PRESENTER_KEY
+            ].handle_ensemble_stem_pair_change(current_stem_pair)
 
         # Debug print removed
 

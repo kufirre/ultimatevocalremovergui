@@ -1,7 +1,5 @@
 from PySide6.QtCore import QObject, Slot
 
-from ..core import app_constants as ac
-
 
 class ProcessingSettingsPresenter(QObject):
     def __init__(self, view):
@@ -123,7 +121,7 @@ class ProcessingSettingsPresenter(QObject):
     def _update_ensemble_checkboxes(self):
         """Update checkbox labels and enable/disable state based on current ensemble stem pair."""
         stem_pair = self._current_ensemble_stem_pair
-        
+
         if stem_pair in ["4 Stem Ensemble", "Multi-stem Ensemble"]:
             # Disable checkboxes for multi-stem ensembles since "stem only" doesn't make sense
             self.view.set_stem_checkboxes_enabled(False)
@@ -132,11 +130,11 @@ class ProcessingSettingsPresenter(QObject):
         elif "/" in stem_pair:
             # Parse stem pair (e.g., "Vocals/Instrumental", "Bass/No Bass")
             primary_stem, secondary_stem = stem_pair.split("/", 1)
-            
+
             # Update checkbox labels with the actual stem names
             self.view.set_primary_stem_text(primary_stem)
             self.view.set_secondary_stem_text(secondary_stem)
-            
+
             # Enable checkboxes for specific stem pairs
             self.view.set_stem_checkboxes_enabled(True)
         else:

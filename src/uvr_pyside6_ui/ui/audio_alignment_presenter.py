@@ -36,40 +36,40 @@ class AudioAlignmentPresenter(QObject):
     def show_alignment_dialog(self):
         """Show the audio alignment dialog."""
         self.view = AudioAlignmentView(self.parent_window)
-        
+
         # Load current settings
         self.view.set_settings(self._current_settings)
-        
+
         # Connect signals
         self.view.alignment_applied.connect(self._on_alignment_applied)
         self.view.preview_requested.connect(self._on_preview_requested)
-        
+
         # Show dialog
         self.view.exec()
 
     def _on_alignment_applied(self, settings):
         """Handle alignment settings being applied."""
         logger.info(f"Alignment settings applied: {settings}")
-        
+
         # Update current settings
         self._current_settings.update(settings)
-        
+
         # Save settings if requested
         if settings.get("save_settings", False):
             self._save_default_settings(settings)
-        
+
         # Emit signal for other components
         self.alignment_settings_changed.emit(settings)
 
     def _on_preview_requested(self, settings):
         """Handle preview request."""
         logger.info(f"Preview requested with settings: {settings}")
-        
+
         # In a real implementation, this would:
         # 1. Apply the alignment settings temporarily
         # 2. Process a small sample of audio
         # 3. Show the result in a preview window
-        
+
         # For now, just log the request
         logger.info("Preview functionality not yet implemented")
 

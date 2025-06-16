@@ -1,24 +1,28 @@
 from __future__ import annotations
 
 import hashlib
+import traceback
+from pathlib import Path
+from typing import Any, Dict, Optional, Tuple
+
 import audioread
 import librosa
 import numpy as np
 import torch
-import traceback
 
-from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
-
-from . import app_constants as ac
-from .logger_utils import get_logger
-from .model_data import ModelData
-from .separate_logic_base import CPU_DEVICE, SeparatorAttributesLogic, clear_gpu_cache_logic
 from lib_v5 import spec_utils
 from lib_v5.vr_network import nets as nets_vr
 from lib_v5.vr_network import nets_new as nets_new_vr
 from lib_v5.vr_network.model_param_init import ModelParameters
 
+from . import app_constants as ac
+from .logger_utils import get_logger
+from .model_data import ModelData
+from .separate_logic_base import (
+    CPU_DEVICE,
+    SeparatorAttributesLogic,
+    clear_gpu_cache_logic,
+)
 
 logger = get_logger("separate_vr_logic")
 
@@ -397,7 +401,7 @@ class SeparateVRLogic(SeparatorAttributesLogic):
         try:
             # Get model hash for debugging
             with open(md.model_path, "rb") as f:
-                model_hash = hashlib.md5(f.read()).hexdigest()
+                model_hash = hashlib.md5(f.read(), usedforsecurity=False).hexdigest()
             logger.info(f"Model file hash: {model_hash}")
 
             # Check if hash exists in model_data.json

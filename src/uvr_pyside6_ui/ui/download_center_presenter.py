@@ -66,7 +66,12 @@ def vip_downloads(password, link_type=VIP_REPO):
 class DownloadCenterPresenter(QObject):
     """Handle model downloads and VIP functionality."""
 
-    def __init__(self, adapter: UVRCoreAdapter, settings_file_path: Path, parent_qt_object: QObject = None):
+    def __init__(
+        self,
+        adapter: UVRCoreAdapter,
+        settings_file_path: Path,
+        parent_qt_object: QObject = None,
+    ):
         super().__init__(parent_qt_object)
         self.view = None
         self.adapter = adapter
@@ -75,7 +80,7 @@ class DownloadCenterPresenter(QObject):
         self._is_download_in_progress = False
         self._last_progress_percentage = -1  # Track last progress to throttle updates
         self._decoded_vip_link: str | None = None
-        
+
         # Check if VIP is already activated and set up adapter
         self._check_vip_status()
 
@@ -140,7 +145,9 @@ class DownloadCenterPresenter(QObject):
             if default_model_type:
                 if hasattr(self.view, "dc_architecture_combo"):
                     if default_model_type == "VR Arch":
-                        self.view.dc_architecture_combo.setCurrentText("VR Architecture")
+                        self.view.dc_architecture_combo.setCurrentText(
+                            "VR Architecture"
+                        )
                     elif default_model_type == "MDX-Net":
                         self.view.dc_architecture_combo.setCurrentText("MDX-Net")
                     elif default_model_type == "Demucs":
@@ -406,7 +413,9 @@ class DownloadCenterPresenter(QObject):
                 if model_name in vip_enhanced_models:
                     download_target_info = vip_enhanced_models[model_name]
                     logger.info(f"Found VIP model in enhanced catalog: {model_name}")
-                    logger.debug(f"VIP model info format: {type(download_target_info)} - {download_target_info}")
+                    logger.debug(
+                        f"VIP model info format: {type(download_target_info)} - {download_target_info}"
+                    )
 
                     # Special handling for different VIP model formats
                     if isinstance(download_target_info, dict):
@@ -425,7 +434,7 @@ class DownloadCenterPresenter(QObject):
                             # Complex VIP model format - extract the actual model filename
                             # Look for common model file extensions
                             for key, value in download_target_info.items():
-                                if key.endswith(('.onnx', '.pth', '.ckpt')):
+                                if key.endswith((".onnx", ".pth", ".ckpt")):
                                     download_target_info = key
                                     logger.info(f"Extracted VIP model filename: {key}")
                                     break
@@ -434,19 +443,25 @@ class DownloadCenterPresenter(QObject):
                                 if download_target_info:
                                     first_key = list(download_target_info.keys())[0]
                                     download_target_info = first_key
-                                    logger.info(f"Using first VIP model key: {first_key}")
+                                    logger.info(
+                                        f"Using first VIP model key: {first_key}"
+                                    )
                     elif isinstance(download_target_info, str):
                         # Simple string format - extract just the filename if it has model prefix
                         if ":" in download_target_info:
                             # Format like "MDX-Net Model VIP: UVR-MDX-NET_Main_406"
-                            actual_filename = download_target_info.split(":")[-1].strip()
+                            actual_filename = download_target_info.split(":")[
+                                -1
+                            ].strip()
                             download_target_info = actual_filename
-                            logger.info(f"Extracted filename from VIP string: {actual_filename}")
-                    
+                            logger.info(
+                                f"Extracted filename from VIP string: {actual_filename}"
+                            )
+
                     logger.info(f"Final VIP download target: {download_target_info}")
 
             if not download_target_info:
-                error_msg = f"Model not found in catalog"
+                error_msg = "Model not found in catalog"
                 self.view.show_status_message(error_msg, 3000)
                 logger.error(
                     f"Model '{model_name}' not found in any catalog for {internal_model_type}"
@@ -477,10 +492,7 @@ class DownloadCenterPresenter(QObject):
     @Slot(str, int)
     def _on_adapter_download_progress(self, model_name: str, percentage: int):
         """Handle download progress updates with proper UI updates."""
-        if (
-            self.view
-            and self.view.isVisible()
-        ):
+        if self.view and self.view.isVisible():
             # Update progress info label
             self.view.dc_progress_info_label.setText(f"Downloading {model_name}...")
 
@@ -532,7 +544,7 @@ class DownloadCenterPresenter(QObject):
                 self.view.dc_progress_info_label.setText(f"❌ {brief_error}")
                 self.view.dc_progress_percent_label.setText("Failed")
                 self.view.dc_progress_bar.setValue(0)
-                
+
                 # Log full error details
                 logger.error(f"Download failed for {model_display_name}: {message}")
 
@@ -562,7 +574,8 @@ class DownloadCenterPresenter(QObject):
         if self.view:
             self.view.dc_progress_info_label.setText("Model catalog refreshed")
             QTimer.singleShot(
-                2000, lambda: self.view.dc_progress_info_label.setText("Ready to download")
+                2000,
+                lambda: self.view.dc_progress_info_label.setText("Ready to download"),
             )
 
     @Slot()
@@ -689,7 +702,7 @@ Enter your VIP access code below to unlock these features."""
             # Save VIP status and set VIP link in adapter
             self._save_vip_status(vip_code)
             self._decoded_vip_link = decoded_vip_link
-            
+
             # Set VIP link in the adapter for URL construction
             self.adapter.set_vip_link(decoded_vip_link)
 

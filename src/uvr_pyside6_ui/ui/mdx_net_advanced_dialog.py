@@ -1,44 +1,55 @@
-from PySide6.QtCore import Signal, QObject
-from PySide6.QtWidgets import (
-    QDialog, QTabWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QGroupBox, QLabel, QComboBox, QCheckBox, QDoubleSpinBox, QSpinBox,
-    QPushButton, QDialogButtonBox, QSlider, QFrame, QScrollArea, QGridLayout
-)
-from PySide6.QtCore import Qt
 import logging
 import os
 import platform
 import subprocess
 from pathlib import Path
 
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QFormLayout,
+    QFrame,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QSlider,
+    QSpinBox,
+    QTabWidget,
+    QVBoxLayout,
+)
+
 logger = logging.getLogger(__name__)
 
 
 class MDXNetAdvancedDialog(QDialog):
     """Advanced MDX-Net settings dialog matching UVR.py structure."""
-    
+
     settings_updated = Signal(dict)
-    
+
     def __init__(self, current_settings=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Advanced MDX-Net Options")
         self.setModal(True)
         self.setMinimumSize(450, 500)
-        
+
         self.current_settings = current_settings or {}
         self._setup_ui()
         self._load_settings()
-    
+
     def _setup_ui(self):
         """Set up the user interface."""
         layout = QVBoxLayout(self)
-        
+
         # Create tab widget for organizing settings with modern styling
         tab_widget = QTabWidget()
         tab_widget.setTabPosition(QTabWidget.North)
         tab_widget.setUsesScrollButtons(False)  # Disable scroll buttons for modern look
         tab_widget.setElideMode(Qt.ElideNone)  # Don't elide tab text
-        tab_widget.setStyleSheet("""
+        tab_widget.setStyleSheet(
+            """
             QTabWidget::pane {
                 border: 1px solid #4a637a;
                 background-color: #2c3e50;
@@ -58,49 +69,51 @@ class MDXNetAdvancedDialog(QDialog):
             QTabBar::tab:hover:!selected {
                 background-color: #4a637a;
             }
-        """)
-        
+        """
+        )
+
         # Create the tabs
         self._create_advanced_tab(tab_widget)
         self._create_secondary_model_tab(tab_widget)
         self._create_vocal_splitter_tab(tab_widget)
         self._create_mdx23_tab(tab_widget)
-        
+
         layout.addWidget(tab_widget)
-        
+
         # Button layout - Apply and Close closer together
         button_layout = QHBoxLayout()
         button_layout.addStretch()  # Push buttons to the right
-        
+
         # Apply and Close buttons with minimal spacing
         self.apply_button = QPushButton("Apply")
         self.close_button = QPushButton("Close")
-        
+
         # Set consistent button sizes
         button_width = 80
         self.apply_button.setFixedWidth(button_width)
         self.close_button.setFixedWidth(button_width)
-        
+
         # Apply and Close buttons with minimal spacing
         button_layout.addWidget(self.apply_button)
         button_layout.addSpacing(5)  # Small gap between buttons
         button_layout.addWidget(self.close_button)
-        
+
         layout.addLayout(button_layout)
-        
+
         # Connect buttons
         self.apply_button.clicked.connect(self._apply_settings)
         self.close_button.clicked.connect(self.reject)
-    
+
     def _vocal_splitter_options(self):
         """Open vocal splitter options dialog."""
         logger.info("Vocal splitter options requested")
         # TODO: Implement vocal splitter options dialog
         from PySide6.QtWidgets import QMessageBox
+
         QMessageBox.information(
             self,
             "Vocal Splitter Options",
-            "Vocal splitter options dialog will be implemented here."
+            "Vocal splitter options dialog will be implemented here.",
         )
 
     def _clear_autoset_cache(self):
@@ -108,170 +121,180 @@ class MDXNetAdvancedDialog(QDialog):
         logger.info("Clear autoset cache requested")
         # TODO: Implement cache clearing functionality
         from PySide6.QtWidgets import QMessageBox
+
         QMessageBox.information(
-            self,
-            "Clear Cache",
-            "AutoSet cache cleared successfully."
+            self, "Clear Cache", "AutoSet cache cleared successfully."
         )
-    
+
     def _create_advanced_tab(self, tab_widget):
         """Create the advanced settings tab."""
         widget = QFrame()
         layout = QVBoxLayout(widget)
         layout.setSpacing(15)
         layout.setContentsMargins(15, 15, 15, 15)  # Reduced from 20
-        
+
         # Advanced MDX Settings
         settings_group = QGroupBox("Advanced MDX-Net Settings")
         settings_layout = QFormLayout(settings_group)
         settings_layout.setSpacing(10)
-        
+
         # Volume Compensation
         self.compensate_combo = QComboBox()
-        self.compensate_combo.addItems(["Auto", "1.035", "1.08", "1.09", "1.1", "1.2", "1.3"])
+        self.compensate_combo.addItems(
+            ["Auto", "1.035", "1.08", "1.09", "1.1", "1.2", "1.3"]
+        )
         self.compensate_combo.setCurrentText("1.035")
         settings_layout.addRow("Volume Compensation:", self.compensate_combo)
-        
+
         # Segment Size
         self.segment_size_combo = QComboBox()
         self.segment_size_combo.addItems(["Default", "256", "512", "1024"])
         self.segment_size_combo.setCurrentText("256")
         settings_layout.addRow("Segment Size:", self.segment_size_combo)
-        
+
         # Overlap
         self.overlap_combo = QComboBox()
-        self.overlap_combo.addItems(["Default", "0.1", "0.2", "0.25", "0.5", "0.75", "0.99"])
+        self.overlap_combo.addItems(
+            ["Default", "0.1", "0.2", "0.25", "0.5", "0.75", "0.99"]
+        )
         self.overlap_combo.setCurrentText("0.25")
         settings_layout.addRow("Overlap:", self.overlap_combo)
-        
+
         # Shift Conversion Pitch (Semitone shift) - slider with value label beside it
         pitch_layout = QHBoxLayout()
         self.pitch_slider = QSlider(Qt.Horizontal)
         self.pitch_slider.setRange(-12, 12)
         self.pitch_slider.setValue(0)
         self.pitch_slider.setMinimumWidth(180)  # Reduced from 200
-        
+
         self.pitch_value_label = QLabel("0")
         self.pitch_value_label.setAlignment(Qt.AlignCenter)
         self.pitch_value_label.setMinimumWidth(30)
         self.pitch_value_label.setStyleSheet("font-weight: bold; color: #3498db;")
-        
-        self.pitch_slider.valueChanged.connect(lambda v: self.pitch_value_label.setText(str(v)))
-        
+
+        self.pitch_slider.valueChanged.connect(
+            lambda v: self.pitch_value_label.setText(str(v))
+        )
+
         pitch_layout.addWidget(self.pitch_slider)
         pitch_layout.addWidget(self.pitch_value_label)
         pitch_layout.setContentsMargins(0, 0, 0, 0)
         settings_layout.addRow("Shift Conversion Pitch:", pitch_layout)
-        
+
         # Denoise Output
         self.denoise_combo = QComboBox()
         self.denoise_combo.addItems(["None", "Standard", "Denoise Model"])
         self.denoise_combo.setCurrentText("None")
         settings_layout.addRow("Denoise Output:", self.denoise_combo)
-        
+
         layout.addWidget(settings_group)
-        
+
         # Processing Options
         options_group = QGroupBox("Processing Options")
         options_layout = QVBoxLayout(options_group)
         options_layout.setSpacing(8)
-        
+
         self.match_frequency_check = QCheckBox("Match Frequency Cutoff")
         options_layout.addWidget(self.match_frequency_check)
-        
+
         self.spectral_inversion_check = QCheckBox("Spectral Inversion")
         options_layout.addWidget(self.spectral_inversion_check)
-        
+
         layout.addWidget(options_group)
-        
+
         # Actions section
         actions_group = QGroupBox("Actions")
         actions_layout = QVBoxLayout(actions_group)
         actions_layout.setSpacing(8)
-        
+
         self.clear_cache_btn = QPushButton("Clear AutoSet Cache")
         self.clear_cache_btn.clicked.connect(self._clear_autoset_cache)
         actions_layout.addWidget(self.clear_cache_btn)
-        
+
         self.open_models_btn = QPushButton("Open Models Folder")
         self.open_models_btn.clicked.connect(self._open_models_folder)
         actions_layout.addWidget(self.open_models_btn)
-        
+
         layout.addWidget(actions_group)
         layout.addStretch()  # Push everything to the top
-        
+
         tab_widget.addTab(widget, "Advanced")
         return widget
-    
+
     def _create_secondary_model_tab(self, tab_widget):
         """Create the secondary model tab with vertical layout to fit without scrolling."""
         widget = QFrame()
         layout = QVBoxLayout(widget)
         layout.setSpacing(8)
         layout.setContentsMargins(15, 15, 15, 15)
-        
+
         # Master enable checkbox
         self.enable_secondary_check = QCheckBox("Enable Secondary Model")
         self.enable_secondary_check.toggled.connect(self._toggle_secondary_controls)
         layout.addWidget(self.enable_secondary_check)
-        
+
         # Store widgets for enable/disable
         self.secondary_widgets = []
-        
+
         # Create vertical layout for the four sections
         # 1. Vocals/Instruments Section
         vocals_group = self._create_secondary_section("Vocals/Instruments", "vocals")
         layout.addWidget(vocals_group)
-        
+
         # 2. Bass/No Bass Section
         bass_group = self._create_secondary_section("Bass/No Bass", "bass")
         layout.addWidget(bass_group)
-        
+
         # 3. Drums/No Drums Section
         drums_group = self._create_secondary_section("Drums/No Drums", "drums")
         layout.addWidget(drums_group)
-        
+
         # 4. Other/No Other Section
         other_group = self._create_secondary_section("Other/No Other", "other")
         layout.addWidget(other_group)
-        
+
         layout.addStretch()
-        
+
         tab_widget.addTab(widget, "Secondary Model")
         return widget
-    
+
     def _create_secondary_section(self, title, section_key):
         """Create a compact secondary model section."""
         group = QGroupBox(title)
         group_layout = QHBoxLayout(group)  # Use horizontal layout for compactness
         group_layout.setSpacing(8)
-        
+
         # Model dropdown
         model_combo = QComboBox()
-        model_combo.addItems([
-            "No Model", "UVR-MDX-NET-1_9.onnx", "UVR-MDX-NET-2_9.onnx", 
-            "UVR-MDX-NET-3_9.onnx", "Kim_Vocal_1.onnx"
-        ])
+        model_combo.addItems(
+            [
+                "No Model",
+                "UVR-MDX-NET-1_9.onnx",
+                "UVR-MDX-NET-2_9.onnx",
+                "UVR-MDX-NET-3_9.onnx",
+                "Kim_Vocal_1.onnx",
+            ]
+        )
         model_combo.setEnabled(False)
         model_combo.setMinimumWidth(180)
-        
-        # Scale slider 
+
+        # Scale slider
         scale_slider = QSlider(Qt.Horizontal)
         scale_slider.setRange(10, 100)
         scale_slider.setValue(100)
         scale_slider.setEnabled(False)
         scale_slider.setMinimumWidth(100)
         scale_slider.setMaximumWidth(120)
-        
+
         scale_label = QLabel("100%")
         scale_label.setMinimumWidth(40)
         scale_label.setAlignment(Qt.AlignCenter)
         scale_label.setStyleSheet("font-weight: bold; color: #2196F3;")
-        
+
         scale_slider.valueChanged.connect(
             lambda v, lbl=scale_label: lbl.setText(f"{v}%")
         )
-        
+
         # Add widgets to horizontal layout
         group_layout.addWidget(QLabel("Model:"))
         group_layout.addWidget(model_combo)
@@ -279,33 +302,34 @@ class MDXNetAdvancedDialog(QDialog):
         group_layout.addWidget(scale_slider)
         group_layout.addWidget(scale_label)
         group_layout.addStretch()
-        
+
         # Store references for enable/disable
         setattr(self, f"{section_key}_model_combo", model_combo)
         setattr(self, f"{section_key}_scale_slider", scale_slider)
         setattr(self, f"{section_key}_scale_label", scale_label)
-        
+
         self.secondary_widgets.extend([model_combo, scale_slider])
-        
+
         return group
-    
+
     def _toggle_secondary_controls(self, enabled):
         """Toggle secondary model controls."""
         for widget in self.secondary_widgets:
             widget.setEnabled(enabled)
-    
+
     def _open_models_folder(self):
         """Open the MDX models folder in the system file manager."""
         try:
             logger.info("Open MDX models folder requested")
-            
+
             # Get the MDX models directory path
             from ..core.model_data import MDX_MODELS_DIR_PATH
+
             models_path = Path(MDX_MODELS_DIR_PATH)
-            
+
             # Create directory if it doesn't exist
             models_path.mkdir(parents=True, exist_ok=True)
-            
+
             # Open in system file manager
             if platform.system() == "Windows":
                 os.startfile(models_path)
@@ -313,37 +337,51 @@ class MDXNetAdvancedDialog(QDialog):
                 subprocess.run(["open", str(models_path)])
             else:  # Linux and others
                 subprocess.run(["xdg-open", str(models_path)])
-                
+
         except Exception as e:
             logger.error(f"Failed to open MDX models folder: {e}")
             # Could show an error dialog here if needed
-    
+
     def _load_settings(self):
         """Load settings into the dialog controls."""
         if not self.current_settings:
             return
-        
+
         # Advanced settings
-        self.compensate_combo.setCurrentText(str(self.current_settings.get("compensate", "1.035")))
-        self.segment_size_combo.setCurrentText(str(self.current_settings.get("mdx_segment_size", "256")))
-        self.overlap_combo.setCurrentText(str(self.current_settings.get("overlap", "0.25")))
-        
+        self.compensate_combo.setCurrentText(
+            str(self.current_settings.get("compensate", "1.035"))
+        )
+        self.segment_size_combo.setCurrentText(
+            str(self.current_settings.get("mdx_segment_size", "256"))
+        )
+        self.overlap_combo.setCurrentText(
+            str(self.current_settings.get("overlap", "0.25"))
+        )
+
         # Pitch slider and label
         pitch_value = self.current_settings.get("semitone_shift", 0)
         self.pitch_slider.setValue(pitch_value)
         self.pitch_value_label.setText(str(pitch_value))
-        
-        self.denoise_combo.setCurrentText(self.current_settings.get("denoise_option", "None"))
-        
+
+        self.denoise_combo.setCurrentText(
+            self.current_settings.get("denoise_option", "None")
+        )
+
         # Processing options
-        self.match_frequency_check.setChecked(self.current_settings.get("is_match_frequency_pitch", False))
-        self.spectral_inversion_check.setChecked(self.current_settings.get("is_invert_spec", False))
-        
+        self.match_frequency_check.setChecked(
+            self.current_settings.get("is_match_frequency_pitch", False)
+        )
+        self.spectral_inversion_check.setChecked(
+            self.current_settings.get("is_invert_spec", False)
+        )
+
         # Secondary model settings
-        self.enable_secondary_check.setChecked(self.current_settings.get("is_secondary_model_activate", False))
-        
+        self.enable_secondary_check.setChecked(
+            self.current_settings.get("is_secondary_model_activate", False)
+        )
+
         # Load secondary model settings for each section
-        sections = ['vocals', 'bass', 'drums', 'other']
+        sections = ["vocals", "bass", "drums", "other"]
         for section in sections:
             # Load model selection
             model_key = f"{section}_secondary_model"
@@ -353,7 +391,7 @@ class MDXNetAdvancedDialog(QDialog):
                 index = combo.findText(model_text)
                 if index >= 0:
                     combo.setCurrentIndex(index)
-            
+
             # Load scale setting
             scale_key = f"{section}_secondary_scale"
             if scale_key in self.current_settings:
@@ -364,78 +402,104 @@ class MDXNetAdvancedDialog(QDialog):
                 percentage = int(float(scale_value) * 100)
                 slider.setValue(percentage)
                 label.setText(f"{percentage}%")
-        
+
         # MDX23 settings
-        self.batch_size_combo.setCurrentText(str(self.current_settings.get("mdx_batch_size", "1")))
+        self.batch_size_combo.setCurrentText(
+            str(self.current_settings.get("mdx_batch_size", "1"))
+        )
         self.overlap23_spin.setValue(self.current_settings.get("overlap_mdx23", 8))
-        self.segment_default_check.setChecked(self.current_settings.get("is_mdx_c_seg_def", True))
-        self.combine_stems_check.setChecked(self.current_settings.get("is_mdx23_combine_stems", False))
-        
+        self.segment_default_check.setChecked(
+            self.current_settings.get("is_mdx_c_seg_def", True)
+        )
+        self.combine_stems_check.setChecked(
+            self.current_settings.get("is_mdx23_combine_stems", False)
+        )
+
         # Vocal splitter settings
-        self.enable_vocal_split_check.setChecked(self.current_settings.get("is_vocal_split_mode", False))
-        
+        self.enable_vocal_split_check.setChecked(
+            self.current_settings.get("is_vocal_split_mode", False)
+        )
+
         # Load vocal model if exists
         vocal_model = self.current_settings.get("vocal_model", "No Model")
         vocal_index = self.vocal_model_combo.findText(vocal_model)
         if vocal_index >= 0:
             self.vocal_model_combo.setCurrentIndex(vocal_index)
-        
+
         # Load deverb option
         deverb_option = self.current_settings.get("deverb_option", "Main Vocals Only")
         deverb_index = self.deverb_combo.findText(deverb_option)
         if deverb_index >= 0:
             self.deverb_combo.setCurrentIndex(deverb_index)
-        
-        self.save_vocal_only_check.setChecked(self.current_settings.get("save_vocal_only", False))
-        self.save_inst_only_check.setChecked(self.current_settings.get("save_inst_only", False))
-    
+
+        self.save_vocal_only_check.setChecked(
+            self.current_settings.get("save_vocal_only", False)
+        )
+        self.save_inst_only_check.setChecked(
+            self.current_settings.get("save_inst_only", False)
+        )
+
     def _apply_settings(self):
         """Apply the current settings and emit the signal."""
         settings = {}
-        
+
         # Advanced settings
-        settings['compensate'] = self.compensate_combo.currentText()
-        settings['mdx_segment_size'] = int(self.segment_size_combo.currentText()) if self.segment_size_combo.currentText() != "Default" else 256
-        settings['overlap'] = float(self.overlap_combo.currentText()) if self.overlap_combo.currentText() != "Default" else 0.25
-        settings['semitone_shift'] = self.pitch_slider.value()
-        settings['denoise_option'] = self.denoise_combo.currentText()
-        
+        settings["compensate"] = self.compensate_combo.currentText()
+        settings["mdx_segment_size"] = (
+            int(self.segment_size_combo.currentText())
+            if self.segment_size_combo.currentText() != "Default"
+            else 256
+        )
+        settings["overlap"] = (
+            float(self.overlap_combo.currentText())
+            if self.overlap_combo.currentText() != "Default"
+            else 0.25
+        )
+        settings["semitone_shift"] = self.pitch_slider.value()
+        settings["denoise_option"] = self.denoise_combo.currentText()
+
         # Processing options
-        settings['is_match_frequency_pitch'] = self.match_frequency_check.isChecked()
-        settings['is_invert_spec'] = self.spectral_inversion_check.isChecked()
-        
+        settings["is_match_frequency_pitch"] = self.match_frequency_check.isChecked()
+        settings["is_invert_spec"] = self.spectral_inversion_check.isChecked()
+
         # Secondary model settings
-        settings['is_secondary_model_activate'] = self.enable_secondary_check.isChecked()
-        
+        settings["is_secondary_model_activate"] = (
+            self.enable_secondary_check.isChecked()
+        )
+
         # Secondary model settings for each section
-        sections = ['vocals', 'bass', 'drums', 'other']
+        sections = ["vocals", "bass", "drums", "other"]
         for section in sections:
             # Model selection
             combo = getattr(self, f"{section}_model_combo")
             settings[f"{section}_secondary_model"] = combo.currentText()
-            
+
             # Scale/percentage
             slider = getattr(self, f"{section}_scale_slider")
             # Convert from 10-100 percentage to 0.1-1.0
             percentage = slider.value()
             scale_value = percentage / 100.0
             settings[f"{section}_secondary_scale"] = scale_value
-        
+
         # MDX23 settings
-        settings['mdx_batch_size'] = int(self.batch_size_combo.currentText()) if self.batch_size_combo.currentText() != "Default" else 1
-        settings['overlap_mdx23'] = self.overlap23_spin.value()
-        settings['is_mdx_c_seg_def'] = self.segment_default_check.isChecked()
-        settings['is_mdx23_combine_stems'] = self.combine_stems_check.isChecked()
-        
+        settings["mdx_batch_size"] = (
+            int(self.batch_size_combo.currentText())
+            if self.batch_size_combo.currentText() != "Default"
+            else 1
+        )
+        settings["overlap_mdx23"] = self.overlap23_spin.value()
+        settings["is_mdx_c_seg_def"] = self.segment_default_check.isChecked()
+        settings["is_mdx23_combine_stems"] = self.combine_stems_check.isChecked()
+
         # Vocal splitter settings
-        settings['is_vocal_split_mode'] = self.enable_vocal_split_check.isChecked()
-        settings['vocal_model'] = self.vocal_model_combo.currentText()
-        settings['deverb_option'] = self.deverb_combo.currentText()
-        settings['save_vocal_only'] = self.save_vocal_only_check.isChecked()
-        settings['save_inst_only'] = self.save_inst_only_check.isChecked()
-        
+        settings["is_vocal_split_mode"] = self.enable_vocal_split_check.isChecked()
+        settings["vocal_model"] = self.vocal_model_combo.currentText()
+        settings["deverb_option"] = self.deverb_combo.currentText()
+        settings["save_vocal_only"] = self.save_vocal_only_check.isChecked()
+        settings["save_inst_only"] = self.save_inst_only_check.isChecked()
+
         logger.info(f"MDX-Net advanced settings updated: {settings}")
-        
+
         self.settings_updated.emit(settings)
         self.accept()
 
@@ -445,41 +509,41 @@ class MDXNetAdvancedDialog(QDialog):
         layout = QVBoxLayout(widget)
         layout.setSpacing(15)
         layout.setContentsMargins(15, 15, 15, 15)
-        
+
         # MDX23 Settings
         mdx23_group = QGroupBox("Advanced MDX23 Options")
         mdx23_layout = QFormLayout(mdx23_group)
         mdx23_layout.setSpacing(10)
-        
+
         # Batch Size
         self.batch_size_combo = QComboBox()
         self.batch_size_combo.addItems(["Default", "1", "2", "4", "8"])
         self.batch_size_combo.setCurrentText("1")
         mdx23_layout.addRow("Batch Size:", self.batch_size_combo)
-        
+
         # MDX23 Overlap
         self.overlap23_spin = QSpinBox()
         self.overlap23_spin.setRange(1, 32)
         self.overlap23_spin.setValue(8)
         mdx23_layout.addRow("Overlap:", self.overlap23_spin)
-        
+
         layout.addWidget(mdx23_group)
-        
+
         # MDX23 Options
         options_group = QGroupBox("MDX23 Options")
         options_layout = QVBoxLayout(options_group)
         options_layout.setSpacing(8)
-        
+
         self.segment_default_check = QCheckBox("Segment Default")
         self.segment_default_check.setChecked(True)
         options_layout.addWidget(self.segment_default_check)
-        
+
         self.combine_stems_check = QCheckBox("Combine Stems")
         options_layout.addWidget(self.combine_stems_check)
-        
+
         layout.addWidget(options_group)
         layout.addStretch()
-        
+
         tab_widget.addTab(widget, "MDX23 Options")
         return widget
 
@@ -489,61 +553,71 @@ class MDXNetAdvancedDialog(QDialog):
         layout = QVBoxLayout(widget)
         layout.setSpacing(10)
         layout.setContentsMargins(15, 15, 15, 15)
-        
+
         # Vocal Splitter Settings Group
         vocal_group = QGroupBox("Vocal Splitter Settings")
         vocal_layout = QFormLayout(vocal_group)
         vocal_layout.setSpacing(10)
-        
+
         # Enable Vocal Split
         self.enable_vocal_split_check = QCheckBox("Enable Vocal Split Mode")
         self.enable_vocal_split_check.setChecked(False)
         vocal_layout.addRow(self.enable_vocal_split_check)
-        
+
         # Vocal Model Selection
         self.vocal_model_combo = QComboBox()
-        self.vocal_model_combo.addItems([
-            "No Model", "2_HP-UVR.pth", "3_HP-Vocal-UVR.pth", 
-            "4_HP-Vocal-UVR.pth", "5_HP-Karaoke-UVR.pth"
-        ])
+        self.vocal_model_combo.addItems(
+            [
+                "No Model",
+                "2_HP-UVR.pth",
+                "3_HP-Vocal-UVR.pth",
+                "4_HP-Vocal-UVR.pth",
+                "5_HP-Karaoke-UVR.pth",
+            ]
+        )
         self.vocal_model_combo.setEnabled(False)
         vocal_layout.addRow("Model:", self.vocal_model_combo)
-        
+
         # Vocal Split Mode - DeVerberate Options
         self.deverb_combo = QComboBox()
-        self.deverb_combo.addItems([
-            "Main Vocals Only", "Lead Vocals Only", "Backing Vocals Only", "All Vocal Types"
-        ])
+        self.deverb_combo.addItems(
+            [
+                "Main Vocals Only",
+                "Lead Vocals Only",
+                "Backing Vocals Only",
+                "All Vocal Types",
+            ]
+        )
         self.deverb_combo.setEnabled(False)
         vocal_layout.addRow("DeVerberate Option:", self.deverb_combo)
-        
+
         layout.addWidget(vocal_group)
-        
+
         # Processing Options
         options_group = QGroupBox("Processing Options")
         options_layout = QVBoxLayout(options_group)
         options_layout.setSpacing(8)
-        
+
         self.save_vocal_only_check = QCheckBox("Save Vocals Only")
         self.save_vocal_only_check.setEnabled(False)
         options_layout.addWidget(self.save_vocal_only_check)
-        
+
         self.save_inst_only_check = QCheckBox("Save Instrumental Only")
         self.save_inst_only_check.setEnabled(False)
         options_layout.addWidget(self.save_inst_only_check)
-        
+
         layout.addWidget(options_group)
         layout.addStretch()
-        
+
         # Connect enable checkbox
         self.enable_vocal_split_check.toggled.connect(self._toggle_vocal_widgets)
-        
+
         tab_widget.addTab(widget, "Vocal Splitter")
         return widget
-    
+
     def _toggle_vocal_widgets(self, enabled):
         """Toggle vocal splitter widgets."""
         self.vocal_model_combo.setEnabled(enabled)
         self.deverb_combo.setEnabled(enabled)
         self.save_vocal_only_check.setEnabled(enabled)
-        self.save_inst_only_check.setEnabled(enabled) 
+        self.save_inst_only_check.setEnabled(enabled)

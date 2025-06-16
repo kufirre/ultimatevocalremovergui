@@ -16,8 +16,8 @@ from uvr_pyside6_ui.core import app_constants as ac
 from uvr_pyside6_ui.core.logger_utils import get_logger
 from uvr_pyside6_ui.core.uvr_core_adapter import UVRCoreAdapter
 
-from .settings_dialog_view import SettingsDialogView
 from .download_center_presenter import DownloadCenterPresenter
+from .settings_dialog_view import SettingsDialogView
 
 logger = get_logger(__name__)
 
@@ -70,7 +70,7 @@ class SettingsDialogPresenter(QObject):
         self.adapter = adapter
         self._settings_file_path = self._get_settings_file_path()
         self._current_settings = self._load_settings_from_store()
-        
+
         # Create download center presenter with settings file path
         self.download_center_presenter = DownloadCenterPresenter(
             adapter, self._settings_file_path, self
@@ -86,9 +86,12 @@ class SettingsDialogPresenter(QObject):
         self.view.advanced_settings_requested.connect(
             self._handle_advanced_settings_request
         )
-        
+
         # Set up download center view if it exists
-        if hasattr(self.view, 'download_center_view') and self.view.download_center_view:
+        if (
+            hasattr(self.view, "download_center_view")
+            and self.view.download_center_view
+        ):
             self.download_center_presenter.set_view(self.view.download_center_view)
 
     def _get_settings_file_path(self) -> Path:
@@ -374,234 +377,261 @@ class SettingsDialogPresenter(QObject):
     def _show_vr_advanced_settings(self):
         """Show comprehensive VR Architecture advanced settings dialog."""
         from .vr_arch_advanced_dialog import VRArchAdvancedDialog
-        
+
         # Get current VR settings from the main window if available
         current_settings = {}
         try:
             # Try to get current settings from the main UI's VR presenter
-            if hasattr(self, '_main_window_ref') and self._main_window_ref:
+            if hasattr(self, "_main_window_ref") and self._main_window_ref:
                 # This would need to be connected properly to the main window
                 pass
         except Exception as e:
             logger.debug(f"Could not get current VR settings: {e}")
-        
+
         # Determine if this is VR_ARCH_PM mode (could be passed as parameter)
         is_vr_mode = False  # This could be determined from the current model selection
-        
+
         dialog = VRArchAdvancedDialog(current_settings, is_vr_mode, self.view)
-        
+
         # Connect to handle settings updates
         def on_settings_updated(settings):
             logger.info("VR Architecture advanced settings updated")
             # Here we would update the main UI's VR presenter with new settings
             # This would need proper integration with the main application
-            
+
         dialog.settings_updated.connect(on_settings_updated)
         dialog.exec()
 
     def _show_mdx_advanced_settings(self):
         """Show comprehensive MDX-Net advanced settings dialog."""
         from .mdx_net_advanced_dialog import MDXNetAdvancedDialog
-        
+
         # Get current MDX settings from the main window if available
         current_settings = {}
         try:
             # Try to get current settings from the main UI's MDX presenter
-            if hasattr(self, '_main_window_ref') and self._main_window_ref:
+            if hasattr(self, "_main_window_ref") and self._main_window_ref:
                 # This would need to be connected properly to the main window
                 pass
         except Exception as e:
             logger.debug(f"Could not get current MDX settings: {e}")
-        
+
         dialog = MDXNetAdvancedDialog(current_settings, self.view)
-        
+
         # Connect to handle settings updates
         def on_settings_updated(settings):
             logger.info("MDX-Net advanced settings updated")
             # Here we would update the main UI's MDX presenter with new settings
             # This would need proper integration with the main application
-            
+
         dialog.settings_updated.connect(on_settings_updated)
         dialog.exec()
 
     def _show_demucs_advanced_settings(self):
         """Show comprehensive Demucs advanced settings dialog."""
         from .demucs_advanced_dialog import DemucsAdvancedDialog
-        
+
         # Get current Demucs settings from the main window if available
         current_settings = {}
         try:
             # Try to get current settings from the main UI's Demucs presenter
-            if hasattr(self, '_main_window_ref') and self._main_window_ref:
+            if hasattr(self, "_main_window_ref") and self._main_window_ref:
                 # This would need to be connected properly to the main window
                 pass
         except Exception as e:
             logger.debug(f"Could not get current Demucs settings: {e}")
-        
+
         dialog = DemucsAdvancedDialog(current_settings, self.view)
-        
+
         # Connect to handle settings updates
         def on_settings_updated(settings):
             logger.info("Demucs advanced settings updated")
             # Here we would update the main UI's Demucs presenter with new settings
             # This would need proper integration with the main application
-            
+
         dialog.settings_updated.connect(on_settings_updated)
         dialog.exec()
 
     def _show_ensemble_settings(self):
         """Show advanced ensemble configuration dialog."""
         from .ensemble_advanced_dialog import EnsembleAdvancedDialog
-        
+
         # Get current ensemble settings from the main window if available
         current_settings = {}
         try:
             # Try to get current settings from the main UI's ensemble presenter
-            if hasattr(self, '_main_window_ref') and self._main_window_ref:
+            if hasattr(self, "_main_window_ref") and self._main_window_ref:
                 # This would need to be connected properly to the main window
                 pass
         except Exception as e:
             logger.debug(f"Could not get current ensemble settings: {e}")
-        
+
         dialog = EnsembleAdvancedDialog(current_settings, self.view)
-        
+
         # Set available models if we have access to the adapter
-        if hasattr(self, 'adapter') and self.adapter:
+        if hasattr(self, "adapter") and self.adapter:
             try:
                 available_models = {
-                    ac.VR_ARCH_MODELS_KEY: self.adapter.get_available_models(ac.VR_ARCH_MODELS_KEY),
-                    ac.MDX_NET_MODELS_KEY: self.adapter.get_available_models(ac.MDX_NET_MODELS_KEY),
-                    ac.DEMUCS_MODELS_KEY: self.adapter.get_available_models(ac.DEMUCS_MODELS_KEY),
+                    ac.VR_ARCH_MODELS_KEY: self.adapter.get_available_models(
+                        ac.VR_ARCH_MODELS_KEY
+                    ),
+                    ac.MDX_NET_MODELS_KEY: self.adapter.get_available_models(
+                        ac.MDX_NET_MODELS_KEY
+                    ),
+                    ac.DEMUCS_MODELS_KEY: self.adapter.get_available_models(
+                        ac.DEMUCS_MODELS_KEY
+                    ),
                 }
                 dialog.set_available_models(available_models)
             except Exception as e:
-                logger.warning(f"Could not load available models for ensemble dialog: {e}")
-        
+                logger.warning(
+                    f"Could not load available models for ensemble dialog: {e}"
+                )
+
         # Connect to handle settings updates
         def on_settings_updated(settings):
             logger.info("Ensemble advanced settings updated")
             # Here we would update the main UI's ensemble presenter with new settings
             # This would need proper integration with the main application
-            
+
         dialog.settings_updated.connect(on_settings_updated)
         dialog.exec()
 
     def _show_audio_alignment_tool(self):
         """Show comprehensive audio alignment settings dialog."""
         from PySide6.QtWidgets import (
-            QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QGroupBox,
-            QCheckBox, QComboBox, QLabel, QPushButton, QSpinBox, QDoubleSpinBox, QSlider
+            QCheckBox,
+            QComboBox,
+            QDialog,
+            QFormLayout,
+            QGroupBox,
+            QHBoxLayout,
+            QLabel,
+            QPushButton,
+            QSlider,
+            QVBoxLayout,
         )
 
         dialog = QDialog(self.view)
         dialog.setWindowTitle("Audio Alignment Settings")  # Shorter title
         dialog.setModal(True)
         dialog.setFixedSize(360, 420)  # Compact size to fit content
-        
+
         layout = QVBoxLayout(dialog)
         layout.setSpacing(10)  # Reduced spacing
         layout.setContentsMargins(15, 15, 15, 10)  # Reduced margins
-        
+
         # Note: Removed unsupported algorithm dropdown - only includes real UVR.py functionality
-        
+
         # Phase Settings Group
         phase_group = QGroupBox("Phase Settings")
         phase_layout = QFormLayout(phase_group)
         phase_layout.setVerticalSpacing(8)  # Compact vertical spacing
-        
+
         # Secondary Phase
         secondary_phase_check = QCheckBox("Enable Secondary Phase Analysis")
         secondary_phase_check.setChecked(False)
         phase_layout.addRow(secondary_phase_check)
-        
+
         # Phase Options
         phase_options_combo = QComboBox()
-        phase_options_combo.addItems(["Automatic", "Positive Phase", "Negative Phase", "Native Phase"])
+        phase_options_combo.addItems(
+            ["Automatic", "Positive Phase", "Negative Phase", "Native Phase"]
+        )
         phase_options_combo.setCurrentText("Automatic")
         phase_layout.addRow("Phase Options:", phase_options_combo)
-        
+
         # Phase Shifts (Slider)
         phase_shift_container = QHBoxLayout()
         phase_shift_slider = QSlider()
         from PySide6.QtCore import Qt
+
         phase_shift_slider.setOrientation(Qt.Horizontal)
         phase_shift_slider.setMinimum(0)
         phase_shift_slider.setMaximum(6)
         phase_shift_slider.setValue(0)  # Default to "None"
         phase_shift_slider.setTickPosition(QSlider.TicksBelow)
         phase_shift_slider.setTickInterval(1)
-        
+
         phase_shift_label = QLabel("None")
-        phase_shift_values = ["None", "Very Low", "Low", "Medium", "High", "Very High", "Very Max"]
-        
+        phase_shift_values = [
+            "None",
+            "Very Low",
+            "Low",
+            "Medium",
+            "High",
+            "Very High",
+            "Very Max",
+        ]
+
         def update_phase_shift_label(value):
             phase_shift_label.setText(phase_shift_values[value])
-        
+
         phase_shift_slider.valueChanged.connect(update_phase_shift_label)
-        
+
         phase_shift_container.addWidget(phase_shift_slider)
         phase_shift_container.addWidget(phase_shift_label)
-        
+
         phase_layout.addRow("Phase Shifts:", phase_shift_container)
-        
+
         layout.addWidget(phase_group)
-        
+
         # Matching Settings Group (Based on actual UVR.py parameters)
         matching_group = QGroupBox("Matching Settings")
         matching_layout = QFormLayout(matching_group)
         matching_layout.setVerticalSpacing(8)  # Compact vertical spacing
-        
+
         # Match Silence (is_match_silence parameter)
         silence_matching_check = QCheckBox("Match Silence")
         silence_matching_check.setChecked(True)
         matching_layout.addRow(silence_matching_check)
-        
+
         # Spectral Matching (is_spec_match parameter)
         spectral_matching_check = QCheckBox("Spectral Matching")
         spectral_matching_check.setChecked(False)
         matching_layout.addRow(spectral_matching_check)
-        
+
         layout.addWidget(matching_group)
-        
+
         # Output Settings Group (Based on actual UVR.py parameters)
         output_group = QGroupBox("Output Settings")
         output_layout = QFormLayout(output_group)
         output_layout.setVerticalSpacing(8)  # Compact vertical spacing
-        
+
         # Save Aligned Audio (is_save_align parameter)
         save_aligned_check = QCheckBox("Save Aligned Audio")
         save_aligned_check.setChecked(True)
         output_layout.addRow(save_aligned_check)
-        
+
         layout.addWidget(output_group)
-        
+
         # Dialog buttons
         button_layout = QHBoxLayout()
         button_layout.addStretch()
-        
+
         apply_btn = QPushButton("Apply")
         close_btn = QPushButton("Close")
-        
+
         apply_btn.setFixedWidth(80)
         close_btn.setFixedWidth(80)
-        
+
         button_layout.addWidget(apply_btn)
         button_layout.addSpacing(5)
         button_layout.addWidget(close_btn)
-        
+
         layout.addLayout(button_layout)
-        
+
         # Connect buttons
         def apply_settings():
             logger.info("Audio alignment settings applied")
             dialog.accept()
-        
+
         def close_dialog():
             dialog.reject()
-        
+
         apply_btn.clicked.connect(apply_settings)
         close_btn.clicked.connect(close_dialog)
-        
+
         # Show dialog
         dialog.exec()
 

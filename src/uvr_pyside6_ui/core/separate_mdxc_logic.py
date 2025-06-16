@@ -1,19 +1,24 @@
 from __future__ import annotations
 
 import gc
+from typing import Any, Dict, Optional
+
 import numpy as np
 import torch
-from typing import Any, Dict, Optional
+
+from lib_v5 import spec_utils
+from lib_v5.tfc_tdf_v3 import TFC_TDF_net
 
 from . import app_constants as ac
 from .logger_utils import get_logger
 from .model_data import ModelData
-from .separate_logic_base import CPU_DEVICE, CUDA_AVAILABLE, SeparatorAttributesLogic, clear_gpu_cache_logic
-
-from lib_v5 import spec_utils
-from lib_v5.tfc_tdf_v3 import TFC_TDF_net
+from .separate_logic_base import (
+    CPU_DEVICE,
+    CUDA_AVAILABLE,
+    SeparatorAttributesLogic,
+    clear_gpu_cache_logic,
+)
 from .separate_vr_logic import vr_denoiser_logic
-
 
 logger = get_logger("separate_mdxc_logic")
 
@@ -97,7 +102,9 @@ class SeparateMDXCLogic(SeparatorAttributesLogic):
         ]
 
         estimated_sources_tensor = (
-            torch.zeros(num_target_instruments, *mix_tensor_padded.shape, device=self.device)
+            torch.zeros(
+                num_target_instruments, *mix_tensor_padded.shape, device=self.device
+            )
             if num_target_instruments > 1
             else torch.zeros_like(mix_tensor_padded)
         )
@@ -127,7 +134,9 @@ class SeparateMDXCLogic(SeparatorAttributesLogic):
 
                     # Skip invalid chunks but don't warn for end-of-audio edge cases
                     if actual_chunk_size <= 0:
-                        if start_frame < max_frames:  # Only warn if not expected end condition
+                        if (
+                            start_frame < max_frames
+                        ):  # Only warn if not expected end condition
                             logger.warning(
                                 f"Skipping chunk with invalid size: {actual_chunk_size} (start: {start_frame}, end: {end_frame}, max: {max_frames})"
                             )

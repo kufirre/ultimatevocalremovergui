@@ -102,7 +102,9 @@ class VRArchSettingsPresenter(QObject):
                 self.view.set_post_process(settings_dict["is_post_process"])
             if "post_process_threshold" in settings_dict:
                 self.set_post_process_threshold(settings_dict["post_process_threshold"])
-                self.view.set_post_process_threshold(settings_dict["post_process_threshold"])
+                self.view.set_post_process_threshold(
+                    settings_dict["post_process_threshold"]
+                )
             if "batch_size" in settings_dict:
                 self.set_batch_size(settings_dict["batch_size"])
                 self.view.set_batch_size(settings_dict["batch_size"])
@@ -110,20 +112,20 @@ class VRArchSettingsPresenter(QObject):
     def show_advanced_settings(self, is_vr_mode=False):
         """Show the advanced VR settings dialog."""
         from .vr_arch_advanced_dialog import VRArchAdvancedDialog
-        
+
         # Get current settings
         current_settings = self.get_settings()
-        
+
         # Create and show dialog
         dialog = VRArchAdvancedDialog(current_settings, is_vr_mode, self.view)
         dialog.settings_updated.connect(self.update_advanced_settings)
-        
+
         return dialog.exec()
 
     def update_advanced_settings(self, advanced_settings):
         """Update settings from the advanced dialog."""
         logger.debug(f"Updating VR advanced settings: {advanced_settings}")
-        
+
         # Update internal settings
         for key, value in advanced_settings.items():
             if key == "window_size":
@@ -147,6 +149,6 @@ class VRArchSettingsPresenter(QObject):
             elif key == "batch_size":
                 self.set_batch_size(value)
                 self.view.set_batch_size(value)
-        
+
         # Emit settings changed signal for any listeners
         self.settings_changed.emit(self.get_settings())

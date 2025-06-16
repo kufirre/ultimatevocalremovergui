@@ -1,9 +1,11 @@
 """View for the download center functionality."""
 
-from PySide6.QtCore import Qt, Signal, QSize
+from PySide6.QtCore import QSize, Signal
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QComboBox,
     QFormLayout,
+    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -11,9 +13,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QVBoxLayout,
     QWidget,
-    QGridLayout
 )
-from PySide6.QtGui import QIcon
 
 from uvr_pyside6_ui.core.logger_utils import get_logger
 
@@ -88,7 +88,9 @@ class DownloadCenterView(QWidget):
         # Progress info label with text wrapping
         self.dc_progress_info_label = QLabel("Ready to download")
         self.dc_progress_info_label.setWordWrap(True)
-        self.dc_progress_info_label.setMaximumHeight(60)  # Limit height to prevent UI stretching
+        self.dc_progress_info_label.setMaximumHeight(
+            60
+        )  # Limit height to prevent UI stretching
         progress_layout.addWidget(self.dc_progress_info_label)
 
         # Progress percentage and bar container
@@ -231,7 +233,7 @@ class DownloadCenterView(QWidget):
         """Set UI state for download progress."""
         self.dc_download_btn.setEnabled(not in_progress)
         self.dc_stop_btn.setEnabled(in_progress)
-        
+
         # Disable model selection during download
         self.dc_architecture_combo.setEnabled(not in_progress)
         self.dc_model_combo.setEnabled(not in_progress)
@@ -246,11 +248,11 @@ class DownloadCenterView(QWidget):
         else:
             display_message = message
             logger.info(f"Status: {message}")
-        
+
         # Update progress label if available
-        if hasattr(self, 'dc_progress_info_label'):
+        if hasattr(self, "dc_progress_info_label"):
             self.dc_progress_info_label.setText(display_message)
 
     def isVisible(self):
         """Check if the view is visible."""
-        return super().isVisible() and self.parent() is not None 
+        return super().isVisible() and self.parent() is not None

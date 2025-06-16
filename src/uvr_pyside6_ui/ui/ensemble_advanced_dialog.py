@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 from typing import Dict, List
 
-from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtCore import QSize, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -16,11 +16,9 @@ from PySide6.QtWidgets import (
     QInputDialog,
     QLabel,
     QListWidget,
-    QListWidgetItem,
     QMessageBox,
     QPushButton,
     QVBoxLayout,
-    QWidget,
 )
 
 from ..core import app_constants as ac
@@ -38,9 +36,15 @@ class EnsembleAdvancedDialog(QDialog):
         super().__init__(parent)
         self.current_settings = current_settings.copy()
         self._available_models_by_type: Dict[str, List[str]] = {}
-        self._current_main_stem_pair: str = current_settings.get("ensemble_main_stem_pair", ac.ENSEMBLE_MAIN_STEM_OPTIONS[0])
-        self._current_algorithm: str = current_settings.get("ensemble_algorithm", ac.ENSEMBLE_ALGORITHM_OPTIONS[0])
-        self._currently_selected_models: List[str] = current_settings.get("ensemble_selected_models", [])
+        self._current_main_stem_pair: str = current_settings.get(
+            "ensemble_main_stem_pair", ac.ENSEMBLE_MAIN_STEM_OPTIONS[0]
+        )
+        self._current_algorithm: str = current_settings.get(
+            "ensemble_algorithm", ac.ENSEMBLE_ALGORITHM_OPTIONS[0]
+        )
+        self._currently_selected_models: List[str] = current_settings.get(
+            "ensemble_selected_models", []
+        )
 
         self._setup_ui()
         self._setup_connections()
@@ -57,8 +61,6 @@ class EnsembleAdvancedDialog(QDialog):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(10, 10, 10, 10)
         main_layout.setSpacing(8)
-
-
 
         # Configuration Section
         config_group = QGroupBox("Ensemble Settings")
@@ -86,27 +88,39 @@ class EnsembleAdvancedDialog(QDialog):
 
         # Ensemble Options Checkboxes
         options_layout = QHBoxLayout()
-        
+
         # Save all outputs checkbox
         self.save_all_outputs_checkbox = QCheckBox(ac.SAVE_ALL_OUTPUTS_TEXT)
-        self.save_all_outputs_checkbox.setChecked(self.current_settings.get("save_all_outputs", True))
-        self.save_all_outputs_checkbox.setToolTip("Save all individual ensemble outputs")
-        
+        self.save_all_outputs_checkbox.setChecked(
+            self.current_settings.get("save_all_outputs", True)
+        )
+        self.save_all_outputs_checkbox.setToolTip(
+            "Save all individual ensemble outputs"
+        )
+
         # Append ensemble name checkbox
         self.append_ensemble_name_checkbox = QCheckBox(ac.APPEND_ENSEMBLE_NAME_TEXT)
-        self.append_ensemble_name_checkbox.setChecked(self.current_settings.get("append_ensemble_name", False))
-        self.append_ensemble_name_checkbox.setToolTip("Add ensemble name to output filename")
-        
+        self.append_ensemble_name_checkbox.setChecked(
+            self.current_settings.get("append_ensemble_name", False)
+        )
+        self.append_ensemble_name_checkbox.setToolTip(
+            "Add ensemble name to output filename"
+        )
+
         # Use waveform checkbox
         self.use_waveform_checkbox = QCheckBox(ac.WAVEFORM_ENSEMBLE_TEXT)
-        self.use_waveform_checkbox.setChecked(self.current_settings.get("use_waveform_ensemble", False))
-        self.use_waveform_checkbox.setToolTip("Use waveform ensemble instead of spectrogram")
-        
+        self.use_waveform_checkbox.setChecked(
+            self.current_settings.get("use_waveform_ensemble", False)
+        )
+        self.use_waveform_checkbox.setToolTip(
+            "Use waveform ensemble instead of spectrogram"
+        )
+
         options_layout.addWidget(self.save_all_outputs_checkbox)
         options_layout.addWidget(self.append_ensemble_name_checkbox)
         options_layout.addWidget(self.use_waveform_checkbox)
         options_layout.addStretch()
-        
+
         config_layout.addLayout(options_layout)
 
         main_layout.addWidget(config_group)
@@ -227,7 +241,9 @@ class EnsembleAdvancedDialog(QDialog):
         # Model transfer connections
         self.add_button.clicked.connect(self._add_models_to_ensemble)
         self.remove_button.clicked.connect(self._remove_models_from_ensemble)
-        self.available_models_list.itemDoubleClicked.connect(self._add_models_to_ensemble)
+        self.available_models_list.itemDoubleClicked.connect(
+            self._add_models_to_ensemble
+        )
 
         # Management connections
         self.load_ensemble_btn.clicked.connect(self._load_ensemble)
@@ -273,16 +289,16 @@ class EnsembleAdvancedDialog(QDialog):
     def _update_algorithm_options(self):
         """Update algorithm options based on stem pair selection."""
         self.algorithm_combo.clear()
-        
+
         if self._current_main_stem_pair == "4 Stem Ensemble":
             # 4-stem ensembles use simpler algorithm options
             algorithms = ac.ENSEMBLE_ALGORITHM_4_STEM_OPTIONS
         else:
             # Standard 2-stem ensembles use full algorithm options
             algorithms = ac.ENSEMBLE_ALGORITHM_OPTIONS
-            
+
         self.algorithm_combo.addItems(algorithms)
-        
+
         if self._current_algorithm in algorithms:
             self.algorithm_combo.setCurrentText(self._current_algorithm)
         else:
@@ -293,18 +309,19 @@ class EnsembleAdvancedDialog(QDialog):
     def _update_model_lists(self):
         """Update available models list based on stem pair selection."""
         self.available_models_list.clear()
-        
+
         # Determine which models are compatible with the selected stem pair
         compatible_models = []
-        
+
         # This logic should match the original ensemble filtering logic
         for model_type, models in self._available_models_by_type.items():
             compatible_models.extend(models)
-        
+
         # Sort naturally
         import natsort
+
         compatible_models = natsort.natsorted(compatible_models, key=str.lower)
-        
+
         for model in compatible_models:
             self.available_models_list.addItem(model)
 
@@ -321,7 +338,7 @@ class EnsembleAdvancedDialog(QDialog):
             model_name = item.text()
             if model_name not in self._currently_selected_models:
                 self._currently_selected_models.append(model_name)
-        
+
         self._update_selected_models()
 
     def _remove_models_from_ensemble(self):
@@ -331,7 +348,7 @@ class EnsembleAdvancedDialog(QDialog):
             model_name = item.text()
             if model_name in self._currently_selected_models:
                 self._currently_selected_models.remove(model_name)
-        
+
         self._update_selected_models()
 
     def _clear_selection(self):
@@ -343,7 +360,7 @@ class EnsembleAdvancedDialog(QDialog):
         """Load saved ensembles from filesystem."""
         self.saved_ensembles_combo.clear()
         self.saved_ensembles_combo.addItem("--- Select Saved Ensemble ---")
-        
+
         ensemble_cache_dir = Path("gui_data/saved_ensembles")
         if ensemble_cache_dir.exists():
             for json_file in ensemble_cache_dir.glob("*.json"):
@@ -358,29 +375,39 @@ class EnsembleAdvancedDialog(QDialog):
         ensemble_name = self.saved_ensembles_combo.currentText()
         if ensemble_name == "--- Select Saved Ensemble ---":
             return
-        
-        ensemble_file = f"gui_data/saved_ensembles/{ensemble_name.replace(' ', '_')}.json"
+
+        ensemble_file = (
+            f"gui_data/saved_ensembles/{ensemble_name.replace(' ', '_')}.json"
+        )
         if not os.path.exists(ensemble_file):
-            QMessageBox.warning(self, "Error", f"Ensemble file not found: {ensemble_name}")
+            QMessageBox.warning(
+                self, "Error", f"Ensemble file not found: {ensemble_name}"
+            )
             return
-        
+
         try:
-            with open(ensemble_file, 'r') as f:
+            with open(ensemble_file, "r") as f:
                 ensemble_data = json.load(f)
-            
-            self._current_main_stem_pair = ensemble_data.get("ensemble_main_stem", self._current_main_stem_pair)
-            self._current_algorithm = ensemble_data.get("ensemble_type", self._current_algorithm)
+
+            self._current_main_stem_pair = ensemble_data.get(
+                "ensemble_main_stem", self._current_main_stem_pair
+            )
+            self._current_algorithm = ensemble_data.get(
+                "ensemble_type", self._current_algorithm
+            )
             self._currently_selected_models = ensemble_data.get("selected_models", [])
-            
+
             # Update UI
             self.stem_pair_combo.setCurrentText(self._current_main_stem_pair)
             self._update_algorithm_options()
             self.algorithm_combo.setCurrentText(self._current_algorithm)
             self._update_model_lists()
             self._update_selected_models()
-            
-            QMessageBox.information(self, "Success", f"Loaded ensemble: {ensemble_name}")
-            
+
+            QMessageBox.information(
+                self, "Success", f"Loaded ensemble: {ensemble_name}"
+            )
+
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load ensemble: {e}")
 
@@ -389,36 +416,40 @@ class EnsembleAdvancedDialog(QDialog):
         if not self._currently_selected_models:
             QMessageBox.warning(self, "Warning", "No models selected for ensemble.")
             return
-        
+
         name, ok = QInputDialog.getText(self, "Save Ensemble", "Enter ensemble name:")
         if not ok or not name.strip():
             return
-        
+
         # Validate name
         if not all(c.isalnum() or c in " -_" for c in name):
-            QMessageBox.warning(self, "Invalid Name", "Only letters, numbers, spaces, and dashes allowed.")
+            QMessageBox.warning(
+                self,
+                "Invalid Name",
+                "Only letters, numbers, spaces, and dashes allowed.",
+            )
             return
-        
+
         name = name.strip()
         ensemble_data = {
             "ensemble_main_stem": self._current_main_stem_pair,
             "ensemble_type": self._current_algorithm,
-            "selected_models": self._currently_selected_models.copy()
+            "selected_models": self._currently_selected_models.copy(),
         }
-        
+
         # Ensure directory exists
         ensemble_dir = Path("gui_data/saved_ensembles")
         ensemble_dir.mkdir(parents=True, exist_ok=True)
-        
+
         ensemble_file = ensemble_dir / f"{name.replace(' ', '_')}.json"
-        
+
         try:
-            with open(ensemble_file, 'w') as f:
+            with open(ensemble_file, "w") as f:
                 json.dump(ensemble_data, f, indent=2)
-            
+
             QMessageBox.information(self, "Success", f"Ensemble saved as: {name}")
             self._load_saved_ensembles()  # Refresh the dropdown
-            
+
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save ensemble: {e}")
 
@@ -428,19 +459,24 @@ class EnsembleAdvancedDialog(QDialog):
         if ensemble_name == "--- Select Saved Ensemble ---":
             QMessageBox.warning(self, "Warning", "Please select an ensemble to delete.")
             return
-        
+
         reply = QMessageBox.question(
-            self, "Confirm Delete", 
+            self,
+            "Confirm Delete",
             f"Are you sure you want to delete the ensemble '{ensemble_name}'?",
-            QMessageBox.Yes | QMessageBox.No
+            QMessageBox.Yes | QMessageBox.No,
         )
-        
+
         if reply == QMessageBox.Yes:
-            ensemble_file = f"gui_data/saved_ensembles/{ensemble_name.replace(' ', '_')}.json"
+            ensemble_file = (
+                f"gui_data/saved_ensembles/{ensemble_name.replace(' ', '_')}.json"
+            )
             try:
                 if os.path.exists(ensemble_file):
                     os.remove(ensemble_file)
-                    QMessageBox.information(self, "Success", f"Deleted ensemble: {ensemble_name}")
+                    QMessageBox.information(
+                        self, "Success", f"Deleted ensemble: {ensemble_name}"
+                    )
                     self._load_saved_ensembles()  # Refresh the dropdown
                 else:
                     QMessageBox.warning(self, "Error", "Ensemble file not found.")
@@ -471,4 +507,4 @@ class EnsembleAdvancedDialog(QDialog):
     def set_available_models(self, models_by_type: Dict[str, List[str]]):
         """Set available models from external source."""
         self._available_models_by_type = models_by_type.copy()
-        self._update_model_lists() 
+        self._update_model_lists()

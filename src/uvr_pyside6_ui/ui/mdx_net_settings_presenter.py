@@ -7,6 +7,7 @@ from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QMessageBox
 
 from ..core.logger_utils import get_logger
+
 # Import removed - using mdx_net_advanced_dialog instead
 
 logger = get_logger(__name__)
@@ -34,11 +35,9 @@ class AdvancedMDXSettingsPresenter(QObject):
             "overlap": 0.25,
             "semitone_shift": 0,
             "denoise_option": "None",
-            
             # Processing options (matching original UVR variable names)
             "is_match_frequency_pitch": False,
             "is_invert_spec": False,
-            
             # MDX23 settings (matching original UVR variable names)
             "mdx_batch_size": 1,
             "overlap_mdx23": 8,
@@ -49,22 +48,22 @@ class AdvancedMDXSettingsPresenter(QObject):
     def show_settings_dialog(self):
         """Show the advanced MDX settings dialog."""
         from .mdx_net_advanced_dialog import MDXNetAdvancedDialog
-        
+
         dialog = MDXNetAdvancedDialog(self._current_settings, self.parent_window)
-        
+
         # Connect signals
         dialog.settings_updated.connect(self._on_settings_applied)
-        
+
         # Show dialog
         dialog.exec()
 
     def _on_settings_applied(self, settings):
         """Handle settings being applied."""
         logger.info(f"Advanced MDX settings applied: {settings}")
-        
+
         # Update current settings
         self._current_settings.update(settings)
-        
+
         # Emit signal for other components
         self.settings_changed.emit(settings)
 
@@ -76,7 +75,7 @@ class AdvancedMDXSettingsPresenter(QObject):
     def _on_clear_cache_requested(self):
         """Handle clear cache button click."""
         logger.info("Clear MDX cache requested")
-        
+
         # In a real implementation, this would clear the MDX model cache
         # For now, just show a confirmation message
         try:
@@ -84,37 +83,35 @@ class AdvancedMDXSettingsPresenter(QObject):
             # cache_dir = Path("models/MDX") / "cache"
             # if cache_dir.exists():
             #     shutil.rmtree(cache_dir)
-            
+
             if self.view:
                 QMessageBox.information(
                     self.view,
                     "Cache Cleared",
-                    "MDX-Net model cache has been cleared successfully."
+                    "MDX-Net model cache has been cleared successfully.",
                 )
         except Exception as e:
             logger.error(f"Error clearing cache: {e}")
             if self.view:
                 QMessageBox.warning(
-                    self.view,
-                    "Cache Clear Error",
-                    f"Failed to clear cache: {str(e)}"
+                    self.view, "Cache Clear Error", f"Failed to clear cache: {str(e)}"
                 )
 
     def _on_open_models_folder_requested(self):
         """Handle open models folder button click."""
         logger.info("Open MDX models folder requested")
-        
+
         try:
             # Determine the MDX models directory
             mdx_models_dir = Path.home() / "Documents" / "UVR_Models" / "MDX"
-            
+
             # Create the directory if it doesn't exist
             mdx_models_dir.mkdir(parents=True, exist_ok=True)
-            
+
             # Open the folder in the system file manager
             import platform
             import subprocess
-            
+
             system = platform.system()
             if system == "Windows":
                 os.startfile(str(mdx_models_dir))
@@ -128,16 +125,16 @@ class AdvancedMDXSettingsPresenter(QObject):
                     QMessageBox.information(
                         self.view,
                         "Models Folder",
-                        f"MDX models folder: {mdx_models_dir}"
+                        f"MDX models folder: {mdx_models_dir}",
                     )
-                    
+
         except Exception as e:
             logger.error(f"Error opening models folder: {e}")
             if self.view:
                 QMessageBox.warning(
                     self.view,
                     "Open Folder Error",
-                    f"Failed to open models folder: {str(e)}"
+                    f"Failed to open models folder: {str(e)}",
                 )
 
     def get_current_settings(self):
@@ -190,8 +187,6 @@ class MDXNetSettingsPresenter(QObject):
         logger.debug(f"MDX overlap changed: {value}")
         self._settings["overlap"] = value
         self.settings_changed.emit({"overlap": value})
-
-
 
     def get_settings(self):
         """Get current MDX-Net settings."""

@@ -128,14 +128,16 @@ class ExecutionControlPresenter(QObject):
 
             # Log collected settings
             self.view.append_log_message(ac.MSG_SETTINGS_HEADER)
-            
+
             # Filter out unnecessary keys for cleaner logging
             keys_to_skip = {
                 "ensemble_model",  # Usually empty or not needed in debug
                 "chosen_process_method",  # Already shown as method
-                "vr_model", "mdx_net_model", "demucs_model"  # Already shown as model name
+                "vr_model",
+                "mdx_net_model",
+                "demucs_model",  # Already shown as model name
             }
-            
+
             for k, v in settings_dict.items():
                 if k not in keys_to_skip and v:  # Skip empty values too
                     self.view.append_log_message(f"  {k}: {v}")

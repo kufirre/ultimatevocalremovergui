@@ -119,7 +119,11 @@ class UVRCoreAdapter(QObject):
         )
 
     def _construct_full_url(
-        self, path_or_url: str, model_type: str, is_config: bool = False, model_display_name: str = ""
+        self,
+        path_or_url: str,
+        model_type: str,
+        is_config: bool = False,
+        model_display_name: str = "",
     ) -> str:
         """Constructs a full URL if a relative path/filename is given."""
         if path_or_url.startswith("http://") or path_or_url.startswith("https://"):
@@ -127,7 +131,7 @@ class UVRCoreAdapter(QObject):
 
         # Determine appropriate base URL
         base_url_to_use = ac.MODEL_REPO_URL_BASE  # Default base
-        
+
         # Check if this is a VIP model and we have a VIP link
         if self._is_vip_model(model_display_name) and self._vip_link:
             base_url_to_use = self._vip_link
@@ -479,7 +483,10 @@ class UVRCoreAdapter(QObject):
                 )
             if raw_config_url_str:
                 config_url = self._construct_full_url(
-                    raw_config_url_str, model_type_ui_name, is_config=True, model_display_name=model_display_name
+                    raw_config_url_str,
+                    model_type_ui_name,
+                    is_config=True,
+                    model_display_name=model_display_name,
                 )
 
             if model_url and model_url.endswith(".yaml") and model_url == config_url:

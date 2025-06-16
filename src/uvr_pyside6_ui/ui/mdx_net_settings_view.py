@@ -1,14 +1,12 @@
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QCheckBox,
-    QComboBox,
+    QDoubleSpinBox,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QSpinBox,
     QVBoxLayout,
     QWidget,
-    QDoubleSpinBox,
 )
 
 
@@ -25,8 +23,10 @@ class MDXNetSettingsView(QWidget):
         layout.setContentsMargins(0, 5, 0, 5)
 
         settings_group = QGroupBox("MDX-Net Settings")
-        settings_layout = QHBoxLayout(settings_group)  # Changed to horizontal to save height
-        
+        settings_layout = QHBoxLayout(
+            settings_group
+        )  # Changed to horizontal to save height
+
         # Segment Size
         seg_label = QLabel("Segment Size:")
         self.seg_spin = QSpinBox()
@@ -35,7 +35,7 @@ class MDXNetSettingsView(QWidget):
         self.seg_spin.setSingleStep(64)
         self.seg_spin.setValue(256)
         self.seg_spin.valueChanged.connect(self.segment_size_changed)
-        
+
         # Overlap
         overlap_label = QLabel("Overlap:")
         self.overlap_spin = QDoubleSpinBox()
@@ -45,7 +45,7 @@ class MDXNetSettingsView(QWidget):
         self.overlap_spin.setValue(0.25)
         self.overlap_spin.setDecimals(2)
         self.overlap_spin.valueChanged.connect(self.overlap_changed)
-        
+
         # Add all elements in a single row to save vertical space
         settings_layout.addWidget(seg_label)
         settings_layout.addWidget(self.seg_spin)
@@ -60,13 +60,13 @@ class MDXNetSettingsView(QWidget):
     def get_settings(self):
         """Get current settings values."""
         return {
-            'mdx_segment_size': self.seg_spin.value(),
-            'overlap': self.overlap_spin.value()
+            "mdx_segment_size": self.seg_spin.value(),
+            "overlap": self.overlap_spin.value(),
         }
 
     def set_settings(self, settings):
         """Set settings values."""
-        if 'mdx_segment_size' in settings:
-            self.seg_spin.setValue(settings['mdx_segment_size'])
-        if 'overlap' in settings:
-            self.overlap_spin.setValue(settings['overlap'])
+        if "mdx_segment_size" in settings:
+            self.seg_spin.setValue(settings["mdx_segment_size"])
+        if "overlap" in settings:
+            self.overlap_spin.setValue(settings["overlap"])

@@ -7,20 +7,23 @@ from typing import Any, Dict, Optional
 import numpy as np
 import torch
 
-from . import app_constants as ac
-from .logger_utils import get_logger
-from .model_data import ModelData
-from .separate_logic_base import  CPU_DEVICE, SeparatorAttributesLogic, clear_gpu_cache_logic
-
-
 from demucs.apply import apply_model as demucs_apply_model
 from demucs.apply import demucs_segments
+
 # from demucs.hdemucs import HDemucs
 from demucs.pretrained import get_model as demucs_get_model
 from demucs.utils import apply_model_v1 as demucs_apply_model_v1
 from demucs.utils import apply_model_v2 as demucs_apply_model_v2
 from lib_v5 import spec_utils
 
+from . import app_constants as ac
+from .logger_utils import get_logger
+from .model_data import ModelData
+from .separate_logic_base import (
+    CPU_DEVICE,
+    SeparatorAttributesLogic,
+    clear_gpu_cache_logic,
+)
 
 logger = get_logger("separate_demucs_logic")
 

@@ -33,12 +33,10 @@ class AdvancedDemucsSettingsPresenter(QObject):
             "shifts": 2,
             "overlap": 0.25,
             "semitone_shift": 0,
-            
             # Processing options (matching original UVR variable names)
             "is_split_mode": False,
             "is_demucs_combine_stems": False,
             "is_invert_spec": False,
-            
             # Pre-processing model settings (matching original UVR variable names)
             "demucs_pre_proc_model": "No Pre-processing Model",
             "is_demucs_pre_proc_model_activate": False,
@@ -48,26 +46,30 @@ class AdvancedDemucsSettingsPresenter(QObject):
     def show_settings_dialog(self, is_demucs_mode=False):
         """Show the advanced Demucs settings dialog."""
         # Pass is_demucs_mode to control segments visibility
-        self.view = AdvancedDemucsSettingsView(self.parent_window, is_demucs_mode=is_demucs_mode)
-        
+        self.view = AdvancedDemucsSettingsView(
+            self.parent_window, is_demucs_mode=is_demucs_mode
+        )
+
         # Load current settings
         self.view.set_settings(self._current_settings)
-        
+
         # Connect signals
         self.view.settings_applied.connect(self._on_settings_applied)
         self.view.vocal_splitter_requested.connect(self._on_vocal_splitter_requested)
-        self.view.open_models_folder_requested.connect(self._on_open_models_folder_requested)
-        
+        self.view.open_models_folder_requested.connect(
+            self._on_open_models_folder_requested
+        )
+
         # Show dialog
         self.view.exec()
 
     def _on_settings_applied(self, settings):
         """Handle settings being applied."""
         logger.info(f"Advanced Demucs settings applied: {settings}")
-        
+
         # Update current settings
         self._current_settings.update(settings)
-        
+
         # Emit signal for other components
         self.settings_changed.emit(settings)
 
@@ -79,18 +81,18 @@ class AdvancedDemucsSettingsPresenter(QObject):
     def _on_open_models_folder_requested(self):
         """Handle open models folder button click."""
         logger.info("Open Demucs models folder requested")
-        
+
         try:
             # Determine the Demucs models directory
             demucs_models_dir = Path.home() / "Documents" / "UVR_Models" / "Demucs"
-            
+
             # Create the directory if it doesn't exist
             demucs_models_dir.mkdir(parents=True, exist_ok=True)
-            
+
             # Open the folder in the system file manager
             import platform
             import subprocess
-            
+
             system = platform.system()
             if system == "Windows":
                 os.startfile(str(demucs_models_dir))
@@ -104,16 +106,16 @@ class AdvancedDemucsSettingsPresenter(QObject):
                     QMessageBox.information(
                         self.view,
                         "Models Folder",
-                        f"Demucs models folder: {demucs_models_dir}"
+                        f"Demucs models folder: {demucs_models_dir}",
                     )
-                    
+
         except Exception as e:
             logger.error(f"Error opening models folder: {e}")
             if self.view:
                 QMessageBox.warning(
                     self.view,
                     "Open Folder Error",
-                    f"Failed to open models folder: {str(e)}"
+                    f"Failed to open models folder: {str(e)}",
                 )
 
     def get_current_settings(self):
@@ -142,7 +144,6 @@ class DemucsSettingsPresenter(QObject):
             "stems": "All Stems",
             "demucs_stems": "All Stems",  # For compatibility
             "segments": "Default",  # Also a simple setting in UVR
-            
             # Advanced settings with sensible defaults (controlled by advanced dialog)
             "shifts": 2,
             "overlap": 0.25,
@@ -150,32 +151,29 @@ class DemucsSettingsPresenter(QObject):
             "is_split_mode": False,
             "is_demucs_combine_stems": False,
             "is_invert_spec": False,
-            
             # Secondary model settings (defaults)
             "is_secondary_model_activate": False,
             "voc_inst_secondary_model": "No Model",
-            "other_secondary_model": "No Model", 
+            "other_secondary_model": "No Model",
             "bass_secondary_model": "No Model",
             "drums_secondary_model": "No Model",
             "voc_inst_secondary_model_scale": 0.9,
             "other_secondary_model_scale": 0.7,
             "bass_secondary_model_scale": 0.5,
             "drums_secondary_model_scale": 0.5,
-            
             # Preprocess model settings (defaults)
             "is_demucs_pre_proc_model_activate": False,
             "demucs_pre_proc_model": "No Model",
             "is_demucs_pre_proc_model_inst_mix": False,
-            
             # Vocal splitter settings (defaults)
             "is_karaoke": False,
             "is_bv_model": False,
-            "is_bv_model_rebalanced": False
+            "is_bv_model_rebalanced": False,
         }
 
         # Connect to view signals
         self._connect_signals()
-        
+
         # Set initial values
         self._sync_view_to_settings()
 
@@ -232,64 +230,90 @@ class DemucsSettingsPresenter(QObject):
                 self._settings["demucs_stems"] = settings_dict["demucs_stems"]
             if "segments" in settings_dict:
                 self._settings["segments"] = settings_dict["segments"]
-            
+
             # Update advanced settings while preserving defaults for missing keys
             advanced_keys = [
-                "shifts", "overlap", "semitone_shift", "is_split_mode", 
-                "is_demucs_combine_stems", "is_invert_spec",
-                "is_secondary_model_activate", "voc_inst_secondary_model",
-                "other_secondary_model", "bass_secondary_model", "drums_secondary_model",
-                "voc_inst_secondary_model_scale", "other_secondary_model_scale",
-                "bass_secondary_model_scale", "drums_secondary_model_scale",
-                "is_demucs_pre_proc_model_activate", "demucs_pre_proc_model",
-                "is_demucs_pre_proc_model_inst_mix", "is_karaoke", "is_bv_model",
-                "is_bv_model_rebalanced"
+                "shifts",
+                "overlap",
+                "semitone_shift",
+                "is_split_mode",
+                "is_demucs_combine_stems",
+                "is_invert_spec",
+                "is_secondary_model_activate",
+                "voc_inst_secondary_model",
+                "other_secondary_model",
+                "bass_secondary_model",
+                "drums_secondary_model",
+                "voc_inst_secondary_model_scale",
+                "other_secondary_model_scale",
+                "bass_secondary_model_scale",
+                "drums_secondary_model_scale",
+                "is_demucs_pre_proc_model_activate",
+                "demucs_pre_proc_model",
+                "is_demucs_pre_proc_model_inst_mix",
+                "is_karaoke",
+                "is_bv_model",
+                "is_bv_model_rebalanced",
             ]
-            
+
             for key in advanced_keys:
                 if key in settings_dict:
                     self._settings[key] = settings_dict[key]
-            
+
             self._sync_view_to_settings()
             self.settings_changed.emit(self._settings.copy())
 
     def update_advanced_settings(self, advanced_settings):
         """Update advanced settings from the advanced dialog."""
         logger.debug(f"Updating advanced Demucs settings: {advanced_settings}")
-        
+
         # Update internal settings
         for key, value in advanced_settings.items():
             if key in self._settings:
                 self._settings[key] = value
-        
+
         # Emit settings changed signal for any listeners
         self.settings_changed.emit(self._settings.copy())
-        
+
     def get_advanced_settings(self):
         """Get only the advanced settings for the advanced dialog."""
         advanced_keys = [
-            "shifts", "overlap", "semitone_shift", "is_split_mode", 
-            "is_demucs_combine_stems", "is_invert_spec",
-            "is_secondary_model_activate", "voc_inst_secondary_model",
-            "other_secondary_model", "bass_secondary_model", "drums_secondary_model",
-            "voc_inst_secondary_model_scale", "other_secondary_model_scale",
-            "bass_secondary_model_scale", "drums_secondary_model_scale",
-            "is_demucs_pre_proc_model_activate", "demucs_pre_proc_model",
-            "is_demucs_pre_proc_model_inst_mix", "is_karaoke", "is_bv_model",
-            "is_bv_model_rebalanced"
+            "shifts",
+            "overlap",
+            "semitone_shift",
+            "is_split_mode",
+            "is_demucs_combine_stems",
+            "is_invert_spec",
+            "is_secondary_model_activate",
+            "voc_inst_secondary_model",
+            "other_secondary_model",
+            "bass_secondary_model",
+            "drums_secondary_model",
+            "voc_inst_secondary_model_scale",
+            "other_secondary_model_scale",
+            "bass_secondary_model_scale",
+            "drums_secondary_model_scale",
+            "is_demucs_pre_proc_model_activate",
+            "demucs_pre_proc_model",
+            "is_demucs_pre_proc_model_inst_mix",
+            "is_karaoke",
+            "is_bv_model",
+            "is_bv_model_rebalanced",
         ]
-        
-        return {key: self._settings[key] for key in advanced_keys if key in self._settings}
-        
+
+        return {
+            key: self._settings[key] for key in advanced_keys if key in self._settings
+        }
+
     def show_advanced_settings(self):
         """Show the advanced settings dialog."""
         from .demucs_advanced_dialog import DemucsAdvancedDialog
-        
+
         # Get current advanced settings
         current_settings = self.get_advanced_settings()
-        
+
         # Create and show dialog
         dialog = DemucsAdvancedDialog(current_settings, self.view)
         dialog.settings_updated.connect(self.update_advanced_settings)
-        
+
         return dialog.exec()

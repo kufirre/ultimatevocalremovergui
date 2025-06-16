@@ -4,18 +4,18 @@ Model data structure for UVR processing.
 
 import hashlib
 import json
-import torch
-import yaml
-
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+import torch
+import yaml
 from ml_collections import ConfigDict
+
+from lib_v5.vr_network.model_param_init import ModelParameters
 
 from . import app_constants as ac
 from .logger_utils import get_logger
-from lib_v5.vr_network.model_param_init import ModelParameters
-
 
 logger = get_logger(__name__)
 
@@ -263,14 +263,14 @@ class ModelData:
             if _process_method_override
             else settings.get("chosen_process_method", ac.VR_ARCH_TYPE)
         )
-        
+
         # This instance is the ensemble master if:
-        # 1. process_method is ENSEMBLE_MODE AND 
+        # 1. process_method is ENSEMBLE_MODE AND
         # 2. it's NOT an ensemble member (i.e., it's the master orchestrator)
         init_kwargs["is_ensemble_mode"] = (
             process_method == ac.ENSEMBLE_MODE and not _is_ensemble_member
         )
-        
+
         init_kwargs["process_method"] = process_method
 
         model_name = ""
@@ -683,20 +683,24 @@ class ModelData:
                     with open(mapper_path, encoding="utf-8") as f:
                         name_mapper = json.load(f)
                     logger.info(f"Loaded name mapper with {len(name_mapper)} entries")
-                    
+
                     # Find the actual filename from the display name
                     for fname, dname in name_mapper.items():
                         if dname == current_display_name:
                             demucs_model_actual_filename = fname
-                            logger.info(f"Found mapping: '{current_display_name}' -> '{fname}'")
+                            logger.info(
+                                f"Found mapping: '{current_display_name}' -> '{fname}'"
+                            )
                             break
-                    
+
                     if not demucs_model_actual_filename:
-                        logger.warning(f"No mapping found for '{current_display_name}' in mapper")
+                        logger.warning(
+                            f"No mapping found for '{current_display_name}' in mapper"
+                        )
                         # Log some sample mappings for debugging
                         sample_mappings = list(name_mapper.items())[:5]
                         logger.info(f"Sample mapper entries: {sample_mappings}")
-                        
+
                 except Exception as e:
                     logger.error(f"Error processing Demucs model name mapper: {e}")
             else:
@@ -706,7 +710,7 @@ class ModelData:
 
             if demucs_model_actual_filename:
                 logger.info(f"Using mapped filename: {demucs_model_actual_filename}")
-                
+
                 # Determine Demucs version from display name to select correct directory
                 # This helps differentiate between older models in root Demucs_Models and newer in v3_v4_repo
                 demucs_version_for_path = ac.DEMUCS_V4  # Default assumption
@@ -717,7 +721,9 @@ class ModelData:
                 elif "v3 |" in current_display_name:
                     demucs_version_for_path = ac.DEMUCS_V3
 
-                logger.info(f"Determined version for path selection: {demucs_version_for_path}")
+                logger.info(
+                    f"Determined version for path selection: {demucs_version_for_path}"
+                )
 
                 demucs_specific_dir = (
                     DEMUCS_NEWER_REPO_DIR_PATH
@@ -730,7 +736,7 @@ class ModelData:
                 potential_path = demucs_specific_dir / demucs_model_actual_filename
                 logger.info(f"Checking path: {potential_path}")
                 logger.info(f"Path exists: {potential_path.exists()}")
-                
+
                 if potential_path.exists():
                     logger.info(f"Found Demucs model via name mapper: {potential_path}")
                     return str(potential_path)
@@ -743,13 +749,15 @@ class ModelData:
                         else DEMUCS_NEWER_REPO_DIR_PATH
                     )
                     logger.info(f"Trying fallback directory: {fallback_dir}")
-                    
+
                     potential_fallback_path = (
                         fallback_dir / demucs_model_actual_filename
                     )
                     logger.info(f"Checking fallback path: {potential_fallback_path}")
-                    logger.info(f"Fallback path exists: {potential_fallback_path.exists()}")
-                    
+                    logger.info(
+                        f"Fallback path exists: {potential_fallback_path.exists()}"
+                    )
+
                     if potential_fallback_path.exists():
                         logger.info(
                             f"Found Demucs model via name mapper in fallback directory: {potential_fallback_path}"
@@ -759,15 +767,21 @@ class ModelData:
                         logger.error(
                             f"Demucs model file (from mapper: {demucs_model_actual_filename}) not found in primary ({demucs_specific_dir}) or fallback ({fallback_dir}) directories."
                         )
-                        
+
                         # List contents of both directories for debugging
                         if demucs_specific_dir.exists():
-                            dir_contents = [f.name for f in demucs_specific_dir.iterdir()]
-                            logger.info(f"Primary directory contents: {dir_contents[:10]}{'...' if len(dir_contents) > 10 else ''}")
+                            dir_contents = [
+                                f.name for f in demucs_specific_dir.iterdir()
+                            ]
+                            logger.info(
+                                f"Primary directory contents: {dir_contents[:10]}{'...' if len(dir_contents) > 10 else ''}"
+                            )
                         if fallback_dir.exists():
                             fallback_contents = [f.name for f in fallback_dir.iterdir()]
-                            logger.info(f"Fallback directory contents: {fallback_contents[:10]}{'...' if len(fallback_contents) > 10 else ''}")
-                            
+                            logger.info(
+                                f"Fallback directory contents: {fallback_contents[:10]}{'...' if len(fallback_contents) > 10 else ''}"
+                            )
+
                         return None  # Model in mapper but file missing
             else:
                 # This case means the display name was not in the mapper.
@@ -780,7 +794,7 @@ class ModelData:
                 # This handles cases where current_display_name is "htdemucs_ft.yaml" or "abc123hash.th"
                 path_in_newer_repo = DEMUCS_NEWER_REPO_DIR_PATH / current_display_name
                 logger.info(f"Checking direct path in newer repo: {path_in_newer_repo}")
-                
+
                 if path_in_newer_repo.exists():
                     logger.info(
                         f"Found Demucs model by direct name in v3_v4_repo: {path_in_newer_repo}"
@@ -789,7 +803,7 @@ class ModelData:
 
                 path_in_root_demucs = DEMUCS_MODELS_DIR_PATH / current_display_name
                 logger.info(f"Checking direct path in root: {path_in_root_demucs}")
-                
+
                 if path_in_root_demucs.exists():
                     logger.info(
                         f"Found Demucs model by direct name in root Demucs_Models: {path_in_root_demucs}"
@@ -799,19 +813,29 @@ class ModelData:
                 # If current_display_name was a display string not in mapper, and not a direct filename, this will likely fail.
                 # One last attempt: if it's a stem, try adding common extensions.
                 current_model_basename_for_fallback = Path(current_display_name).stem
-                logger.info(f"Trying basename with extensions: {current_model_basename_for_fallback}")
-                
+                logger.info(
+                    f"Trying basename with extensions: {current_model_basename_for_fallback}"
+                )
+
                 for ext in (
                     ac.DEMUCS_LEGACY_SCAN_EXTENSIONS + ac.DEMUCS_V3_V4_SCAN_EXTENSIONS
                 ):
-                    test_path_root = DEMUCS_MODELS_DIR_PATH / f"{current_model_basename_for_fallback}{ext}"
-                    test_path_newer = DEMUCS_NEWER_REPO_DIR_PATH / f"{current_model_basename_for_fallback}{ext}"
-                    
+                    test_path_root = (
+                        DEMUCS_MODELS_DIR_PATH
+                        / f"{current_model_basename_for_fallback}{ext}"
+                    )
+                    test_path_newer = (
+                        DEMUCS_NEWER_REPO_DIR_PATH
+                        / f"{current_model_basename_for_fallback}{ext}"
+                    )
+
                     if test_path_root.exists():
                         logger.info(f"Found by extension in root: {test_path_root}")
                         return str(test_path_root)
                     if test_path_newer.exists():
-                        logger.info(f"Found by extension in newer repo: {test_path_newer}")
+                        logger.info(
+                            f"Found by extension in newer repo: {test_path_newer}"
+                        )
                         return str(test_path_newer)
 
                 logger.error(
@@ -894,10 +918,12 @@ class ModelData:
         try:
             with open(model_path_obj, "rb") as f:
                 f.seek(-10000 * 1024, 2)
-                return hashlib.md5(f.read()).hexdigest()
+                return hashlib.md5(f.read(), usedforsecurity=False).hexdigest()
         except OSError:
             try:
-                return hashlib.md5(model_path_obj.read_bytes()).hexdigest()
+                return hashlib.md5(
+                    model_path_obj.read_bytes(), usedforsecurity=False
+                ).hexdigest()
             except Exception:
                 return None
         except Exception:
@@ -1336,8 +1362,12 @@ class ModelData:
             self.ensemble_models = []
             selected_models = settings.get("ensemble_selected_models", [])
 
-            logger.info(f"Creating live ensemble with {len(selected_models)} selected models: {selected_models}")
-            logger.info(f"Ensemble configuration - Primary: {self.ensemble_primary_stem}, Secondary: {self.ensemble_secondary_stem}, Type: {self.ensemble_type}")
+            logger.info(
+                f"Creating live ensemble with {len(selected_models)} selected models: {selected_models}"
+            )
+            logger.info(
+                f"Ensemble configuration - Primary: {self.ensemble_primary_stem}, Secondary: {self.ensemble_secondary_stem}, Type: {self.ensemble_type}"
+            )
 
             for model_name in selected_models:
                 if not model_name:
@@ -1362,7 +1392,9 @@ class ModelData:
                         )
                     else:
                         # Other methods use generic keys
-                        member_settings["is_primary_stem_only"] = ensemble_primary_stem_only
+                        member_settings["is_primary_stem_only"] = (
+                            ensemble_primary_stem_only
+                        )
                         member_settings["is_secondary_stem_only"] = (
                             ensemble_secondary_stem_only
                         )
@@ -1377,7 +1409,9 @@ class ModelData:
 
                     if member_model_data.model_status:
                         self.ensemble_models.append(member_model_data)
-                        logger.info(f"✓ Added ensemble member: {model_name} ({model_process_method})")
+                        logger.info(
+                            f"✓ Added ensemble member: {model_name} ({model_process_method})"
+                        )
                     else:
                         logger.warning(
                             f"Warning: Failed to load ensemble member: {model_name}"
@@ -1398,6 +1432,7 @@ class ModelData:
         except Exception as e:
             logger.error(f"Error creating live ensemble from UI settings: {e}")
             import traceback
+
             logger.error(f"Traceback: {traceback.format_exc()}")
             self.model_status = False
 

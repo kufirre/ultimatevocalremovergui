@@ -4,21 +4,20 @@ import math
 from typing import Any, Dict, Optional
 
 import numpy as np
-import torch
-
 import onnxruntime
+import torch
+from onnx import load as onnx_load
+from onnx2pytorch import ConvertModel as onnx_ConvertModel
+
+from lib_v5 import mdxnet as MdxnetSet
+from lib_v5 import spec_utils
+from lib_v5.tfc_tdf_v3 import STFT as LibV5_STFT
 
 from . import app_constants as ac
 from .logger_utils import get_logger
 from .model_data import ModelData
 from .separate_logic_base import SeparatorAttributesLogic, clear_gpu_cache_logic
-from lib_v5 import mdxnet as MdxnetSet
-from lib_v5 import spec_utils
-from lib_v5.tfc_tdf_v3 import STFT as LibV5_STFT
-from onnx import load as onnx_load
-from onnx2pytorch import ConvertModel as onnx_ConvertModel
 from .separate_vr_logic import vr_denoiser_logic
-
 
 logger = get_logger("separate_mdx_logic")
 
@@ -68,7 +67,9 @@ class SeparateMDXLogic(SeparatorAttributesLogic):
         self.trim = md.mdx_n_fft_scale_set // 2
         self.chunk_size = self.hop_length * (md.mdx_segment_size - 1)
         self.gen_size = self.chunk_size - 2 * self.trim
-        self.stft_tool = LibV5_STFT(md.mdx_n_fft_scale_set, self.hop_length, md.mdx_dim_f_set, self.device)
+        self.stft_tool = LibV5_STFT(
+            md.mdx_n_fft_scale_set, self.hop_length, md.mdx_dim_f_set, self.device
+        )
 
     def _run_model_onnx_pytorch(
         self, mix_part_torch: torch.Tensor, is_match_freq_cut: bool
@@ -86,7 +87,9 @@ class SeparateMDXLogic(SeparatorAttributesLogic):
         if md.is_mdx_ckpt:
             spec_pred = self.model_run_instance(spec)
         elif self.is_onnx_model:
-            if md.mdx_segment_size == md.mdx_dim_t_set and not (self.device.type == "mps"):
+            if md.mdx_segment_size == md.mdx_dim_t_set and not (
+                self.device.type == "mps"
+            ):
                 # For ONNX Runtime inference
                 input_name = self.model_run_instance.get_inputs()[0].name
                 output_name = self.model_run_instance.get_outputs()[0].name

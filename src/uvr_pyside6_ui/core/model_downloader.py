@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Tuple
 
+import requests
+
 from . import app_constants as ac
 from .logger_utils import get_logger
 
@@ -166,4 +168,3 @@ if __name__ == "__main__":
                 logger.info(f"  {key}: {list(value.keys())[:3]}...")
             else:
                 logger.info(f"  {key}: {str(value)[:100]}...")
-

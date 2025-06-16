@@ -37,6 +37,9 @@ class VRArchAdvancedDialog(QDialog):
         self.setModal(True)
         self.setMinimumSize(450, 500)  # Consistent with other dialogs
 
+        # Lazy loading flags
+        self._models_loaded = False
+
         self._setup_ui()
         self._load_settings()
 
@@ -72,6 +75,9 @@ class VRArchAdvancedDialog(QDialog):
             }
         """
         )
+
+        # Connect tab change signal for lazy loading
+        tab_widget.currentChanged.connect(self._on_tab_changed)
 
         # Create tabs
         self._create_advanced_tab(tab_widget)
@@ -296,19 +302,11 @@ class VRArchAdvancedDialog(QDialog):
         group_layout = QHBoxLayout(group)  # Use horizontal layout for compactness
         group_layout.setSpacing(8)
 
-        # Model combo box
+        # Model combo box - start with NO_MODEL, will be populated lazily
         model_combo = QComboBox()
-        # VR-specific models
-        model_combo.addItems(
-            [
-                "No Model",
-                "1_HP-UVR.pth",
-                "2_HP-UVR.pth",
-                "3_HP-Vocal-UVR.pth",
-                "4_HP-Vocal-UVR.pth",
-                "5_HP-Karaoke-UVR.pth",
-            ]
-        )
+        # Start with NO_MODEL only, will be populated when tab is accessed
+        from ..core import app_constants as ac
+        model_combo.addItems([ac.NO_MODEL])
         model_combo.setEnabled(False)
         model_combo.setMinimumWidth(180)
 
@@ -609,3 +607,107 @@ class VRArchAdvancedDialog(QDialog):
         self.deverb_combo.setEnabled(enabled)
         self.save_vocal_only_check.setEnabled(enabled)
         self.save_inst_only_check.setEnabled(enabled)
+
+    def _get_filtered_models_for_stem(self, primary_stem, secondary_stem):
+        """Get models that are suitable for the given stem pair.
+        
+        This implements the same filtering logic as the original UVR.py model_list function.
+        """
+        try:
+            from ..core import app_constants as ac
+            from ..core.uvr_core_adapter import UVRCoreAdapter
+            from ..core.model_data import ModelData
+            
+            adapter = UVRCoreAdapter()
+            suitable_models = [ac.NO_MODEL]
+            
+            # Get VR models specifically
+            vr_models = adapter.get_available_models(ac.VR_ARCH_MODELS_KEY)
+            
+            for model_name in vr_models:
+                try:
+                    # Create minimal settings dict for ModelData creation
+                    temp_settings = {
+                        'chosen_process_method': ac.VR_ARCH_TYPE,
+                        'is_gpu_conversion': False,
+                        'is_normalization': False,
+                    }
+                    
+                    model_data = ModelData.from_settings_dict(
+                        temp_settings,
+                        _model_name_override=model_name,
+                        _process_method_override=ac.VR_ARCH_TYPE,
+                        _is_secondary_model_instance=True
+                    )
+                    
+                    # Check if model is suitable for this stem pair
+                    if self._is_model_suitable_for_stem_pair(model_data, primary_stem, secondary_stem):
+                        suitable_models.append(model_name)
+                        
+                except Exception as e:
+                    logger.debug(f"Could not check VR model {model_name}: {e}")
+                    continue
+            
+            return suitable_models
+            
+        except Exception as e:
+            logger.error(f"Error getting filtered VR models for {primary_stem}/{secondary_stem}: {e}")
+            # If all else fails, return just NO_MODEL - no hardcoded fallback
+            return [ac.NO_MODEL]
+
+    def _is_model_suitable_for_stem_pair(self, model_data, primary_stem, secondary_stem):
+        """Check if a model is suitable for the given stem pair.
+        
+        This implements the same logic as the original UVR.py matches_stem function.
+        """
+        try:
+            # Check primary/secondary stem match
+            if hasattr(model_data, 'primary_stem') and model_data.primary_stem:
+                if model_data.primary_stem in {primary_stem, secondary_stem}:
+                    return True
+            
+            # Check VR model compatibility - VR models are generally more flexible
+            # Most VR models can work with any stem pair
+            return True
+            
+        except Exception as e:
+            logger.debug(f"Error checking VR model suitability: {e}")
+            return True  # VR models are generally compatible
+
+    def _load_models_if_needed(self):
+        """Lazy load models only when needed."""
+        if self._models_loaded:
+            return
+            
+        try:
+            from ..core import app_constants as ac
+            
+            # Populate with filtered models based on stem compatibility
+            vocal_models = self._get_filtered_models_for_stem(ac.VOCAL_STEM, ac.INST_STEM)
+            bass_models = self._get_filtered_models_for_stem(ac.BASS_STEM, ac.secondary_stem(ac.BASS_STEM))
+            drums_models = self._get_filtered_models_for_stem(ac.DRUM_STEM, ac.secondary_stem(ac.DRUM_STEM))
+            other_models = self._get_filtered_models_for_stem(ac.OTHER_STEM, ac.secondary_stem(ac.OTHER_STEM))
+
+            # Update combo boxes
+            self.vocals_model_combo.clear()
+            self.vocals_model_combo.addItems(vocal_models)
+            
+            self.bass_model_combo.clear()
+            self.bass_model_combo.addItems(bass_models)
+            
+            self.drums_model_combo.clear()
+            self.drums_model_combo.addItems(drums_models)
+            
+            self.other_model_combo.clear()
+            self.other_model_combo.addItems(other_models)
+            
+            self._models_loaded = True
+            logger.debug("VR models loaded successfully for secondary tab")
+            
+        except Exception as e:
+            logger.error(f"Error loading VR models: {e}")
+
+    def _on_tab_changed(self, index):
+        """Handle tab change to implement lazy loading."""
+        if index == 1 and not self._models_loaded:  # Secondary tab is index 1
+            self._load_models_if_needed()

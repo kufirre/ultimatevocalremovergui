@@ -16,7 +16,7 @@ import numpy as np
 import pytest
 
 from uvr_pyside6_ui.core import app_constants as ac
-from uvr_pyside6_ui.core.separate_demucs_logic import SeperateDemucsLogic
+from uvr_pyside6_ui.core.separate_demucs_logic import SeparateDemucsLogic
 
 
 @pytest.mark.unit
@@ -128,7 +128,7 @@ class TestDemucsSecondaryStemFix:
             "input_audio_array": np.random.random((44100, 2)),  # 1 second stereo
         }
 
-        separator = SeperateDemucsLogic(mock_model_data, process_data)
+        separator = SeparateDemucsLogic(mock_model_data, process_data)
 
         # Mock the _write_stem method to verify behavior
         with patch.object(separator, "_write_stem") as mock_write_stem:
@@ -166,7 +166,7 @@ class TestDemucsSecondaryStemFix:
             "input_audio_array": np.random.random((44100, 2)),  # 1 second stereo
         }
 
-        separator = SeperateDemucsLogic(mock_model_data, process_data)
+        separator = SeparateDemucsLogic(mock_model_data, process_data)
 
         # Mock the _write_stem method to verify behavior
         with patch.object(separator, "_write_stem") as mock_write_stem:

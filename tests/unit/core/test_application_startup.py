@@ -307,8 +307,8 @@ def test_enhanced_settings_dialog():
         "Advanced VR Options",
         "Advanced MDX-Net Options",
         "Advanced Demucs Options",
-        "Ensemble Customization Options",
-        "Audio Alignment Tool",
+        "Ensemble Settings",
+        "Audio Alignment Settings",
         "Open Information Guide",
         "Open Error Log",
     ]
@@ -335,43 +335,45 @@ def test_enhanced_settings_dialog():
     tab_widget.setCurrentIndex(2)
 
     # Verify download center components exist (newer UI may have different structure)
+    # The download center is embedded as a separate view
+    assert hasattr(presenter.view, "download_center_view")
+    download_center = presenter.view.download_center_view
+
     # Check for dropdowns first
-    assert presenter.view.dc_model_combo is not None
-    assert presenter.view.dc_model_combo is not None  # Same combo for all types
-    assert presenter.view.dc_model_combo is not None  # Same combo for all types
+    assert download_center.dc_model_combo is not None
+    assert download_center.dc_architecture_combo is not None
 
     # Check for download control buttons
-    assert presenter.view.dc_download_btn is not None
-    assert presenter.view.dc_stop_btn is not None
-    assert presenter.view.dc_refresh_btn is not None
+    assert download_center.dc_download_btn is not None
+    assert download_center.dc_stop_btn is not None
+    assert download_center.dc_refresh_btn is not None
 
     # Check for progress widgets
-    assert presenter.view.dc_progress_info_label is not None
-    assert presenter.view.dc_progress_percent_label is not None
-    assert presenter.view.dc_progress_bar is not None
+    assert download_center.dc_progress_info_label is not None
+    assert download_center.dc_progress_percent_label is not None
+    assert download_center.dc_progress_bar is not None
 
     # Check for radio buttons (these might be optional in newer UI)
     # If radio buttons don't exist, verify other selection methods work
     if (
-        hasattr(presenter.view, "vr_radio")
-        and hasattr(presenter.view, "mdx_radio")
-        and hasattr(presenter.view, "demucs_radio")
+        hasattr(download_center, "vr_radio")
+        and hasattr(download_center, "mdx_radio")
+        and hasattr(download_center, "demucs_radio")
     ):
         # Legacy radio button interface
-        assert presenter.view.vr_radio is not None
-        assert presenter.view.mdx_radio is not None
-        assert presenter.view.demucs_radio is not None
+        assert download_center.vr_radio is not None
+        assert download_center.mdx_radio is not None
+        assert download_center.demucs_radio is not None
 
         # Test that VR is selected by default
-        assert presenter.view.vr_radio.isChecked()
-        assert not presenter.view.mdx_radio.isChecked()
-        assert not presenter.view.demucs_radio.isChecked()
+        assert download_center.vr_radio.isChecked()
+        assert not download_center.mdx_radio.isChecked()
+        assert not download_center.demucs_radio.isChecked()
     else:
-        # Newer interface might use different selection mechanism
+        # Newer interface uses combo box for architecture selection
         # Just verify the combo boxes work as selection mechanisms
-        assert presenter.view.dc_model_combo.count() >= 0
-        assert presenter.view.dc_model_combo.count() >= 0
-        assert presenter.view.dc_model_combo.count() >= 0
+        assert download_center.dc_architecture_combo.count() >= 0
+        assert download_center.dc_model_combo.count() >= 0
 
     # Test settings load/save functionality
     test_settings = {

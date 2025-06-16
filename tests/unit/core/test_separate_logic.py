@@ -21,7 +21,7 @@ except ImportError:
 from uvr_pyside6_ui.core import app_constants as ac
 from uvr_pyside6_ui.core.model_data import ModelData
 from uvr_pyside6_ui.core.separate_demucs_logic import (
-    SeperateDemucsLogic,
+    SeparateDemucsLogic,
 )
 
 # Import from the new split modules
@@ -35,13 +35,13 @@ from uvr_pyside6_ui.core.separate_logic_base import (
     write_audio_logic,
 )
 from uvr_pyside6_ui.core.separate_mdx_logic import (
-    SeperateMDXLogic,
+    SeparateMDXLogic,
 )
 from uvr_pyside6_ui.core.separate_mdxc_logic import (
-    SeperateMDXCLogic,
+    SeparateMDXCLogic,
 )
 from uvr_pyside6_ui.core.separate_vr_logic import (
-    SeperateVRLogic,
+    SeparateVRLogic,
     vr_denoiser_logic,
 )
 
@@ -54,10 +54,10 @@ class separate_logic:
     prepare_mix_logic = prepare_mix_logic
     write_audio_logic = write_audio_logic
     SeparatorAttributesLogic = SeparatorAttributesLogic
-    SeperateVRLogic = SeperateVRLogic
-    SeperateMDXLogic = SeperateMDXLogic
-    SeperateMDXCLogic = SeperateMDXCLogic
-    SeperateDemucsLogic = SeperateDemucsLogic
+    SeparateVRLogic = SeparateVRLogic
+    SeparateMDXLogic = SeparateMDXLogic
+    SeparateMDXCLogic = SeparateMDXCLogic
+    SeparateDemucsLogic = SeparateDemucsLogic
     vr_denoiser_logic = vr_denoiser_logic
     MPS_AVAILABLE = MPS_AVAILABLE
     CUDA_AVAILABLE = CUDA_AVAILABLE
@@ -78,10 +78,10 @@ class TestSeparateLogicStructure:
     @pytest.mark.parametrize(
         "class_name",
         [
-            "SeperateVRLogic",
-            "SeperateMDXLogic",
-            "SeperateMDXCLogic",
-            "SeperateDemucsLogic",
+            "SeparateVRLogic",
+            "SeparateMDXLogic",
+            "SeparateMDXCLogic",
+            "SeparateDemucsLogic",
         ],
     )
     def test_separator_classes_exist(self, class_name):
@@ -406,7 +406,7 @@ class TestSeparateLogicMocked:
                 mock_torch_load.return_value = {"param": {}}
 
                 try:
-                    separator = separate_logic.SeperateVRLogic(model_data, process_data)
+                    separator = separate_logic.SeparateVRLogic(model_data, process_data)
                     assert separator.md == model_data
                     assert separator.md.primary_stem == ac.VOCAL_STEM
                     assert separator.md.secondary_stem == ac.INST_STEM
@@ -431,7 +431,7 @@ class TestSeparateLogicMocked:
             "_is_running_check": Mock(return_value=True),
         }
 
-        separator = separate_logic.SeperateMDXLogic(model_data, process_data)
+        separator = separate_logic.SeparateMDXLogic(model_data, process_data)
 
         assert separator.md == model_data
         assert separator.process_data == process_data
@@ -454,7 +454,7 @@ class TestSeparateLogicMocked:
             mock_get_model.return_value = Mock()
 
             try:
-                separator = separate_logic.SeperateDemucsLogic(model_data, process_data)
+                separator = separate_logic.SeparateDemucsLogic(model_data, process_data)
                 assert separator.md == model_data
                 assert separator.md.primary_stem == ac.VOCAL_STEM
                 assert separator.md.secondary_stem == ac.INST_STEM
@@ -468,9 +468,9 @@ class TestSeparateLogicMocked:
         process_data = {}
 
         # Test that separator classes have separate method
-        assert hasattr(separate_logic.SeperateVRLogic, "separate")
-        assert hasattr(separate_logic.SeperateMDXLogic, "separate")
-        assert hasattr(separate_logic.SeperateDemucsLogic, "separate")
+        assert hasattr(separate_logic.SeparateVRLogic, "separate")
+        assert hasattr(separate_logic.SeparateMDXLogic, "separate")
+        assert hasattr(separate_logic.SeparateDemucsLogic, "separate")
 
     def test_mock_demucs_4_stem_output(self):
         """Test 4-stem output structure for Demucs."""
@@ -599,8 +599,8 @@ class TestSeparateLogicIntegration:
 
 
 @pytest.mark.unit
-class TestSeperateVRLogic:
-    """Comprehensive tests for SeperateVRLogic class."""
+class TestSeparateVRLogic:
+    """Comprehensive tests for SeparateVRLogic class."""
 
     def setup_method(self):
         """Setup common test data."""
@@ -630,7 +630,7 @@ class TestSeperateVRLogic:
 
     def test_vr_logic_initialization_complete(self):
         """Test comprehensive VR separator initialization."""
-        separator = separate_logic.SeperateVRLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateVRLogic(self.model_data, self.process_data)
 
         assert separator.md == self.model_data
         assert separator.process_data == self.process_data
@@ -646,7 +646,7 @@ class TestSeperateVRLogic:
         # Mock CUDA availability and disable MPS for this test
         with patch("uvr_pyside6_ui.core.separate_logic_base.CUDA_AVAILABLE", True):
             with patch("uvr_pyside6_ui.core.separate_logic_base.MPS_AVAILABLE", False):
-                separator = separate_logic.SeperateVRLogic(
+                separator = separate_logic.SeparateVRLogic(
                     self.model_data, self.process_data
                 )
                 assert "cuda" in str(separator.device)
@@ -658,7 +658,7 @@ class TestSeperateVRLogic:
         # Mock MPS availability
         with patch("uvr_pyside6_ui.core.separate_logic_base.MPS_AVAILABLE", True):
             with patch("uvr_pyside6_ui.core.separate_logic_base.CUDA_AVAILABLE", False):
-                separator = separate_logic.SeperateVRLogic(
+                separator = separate_logic.SeparateVRLogic(
                     self.model_data, self.process_data
                 )
                 assert "mps" in str(separator.device)
@@ -677,7 +677,7 @@ class TestSeperateVRLogic:
                         mock_vr_param = Mock()
                         self.model_data.vr_model_param = mock_vr_param
 
-                        separator = separate_logic.SeperateVRLogic(
+                        separator = separate_logic.SeparateVRLogic(
                             self.model_data, self.process_data
                         )
                         result = separator.separate()
@@ -691,7 +691,7 @@ class TestSeperateVRLogic:
         mock_prepare_mix.return_value = np.random.rand(44100, 2)
         self.process_data["_is_running_check"] = Mock(return_value=False)
 
-        separator = separate_logic.SeperateVRLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateVRLogic(self.model_data, self.process_data)
 
         # Mock the dependencies to avoid import errors
         with patch("uvr_pyside6_ui.core.separate_vr_logic.nets_new_vr"):
@@ -711,7 +711,7 @@ class TestSeperateVRLogic:
         """Test VR separator with missing VR model parameters."""
         self.model_data.vr_model_param = None
 
-        separator = separate_logic.SeperateVRLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateVRLogic(self.model_data, self.process_data)
         result = separator.separate()
 
         assert result is None
@@ -736,7 +736,7 @@ class TestSeperateVRLogic:
         self.model_data.vr_model_param = mock_vr_param
         self.model_data.model_capacity = [32, 128]
 
-        separator = separate_logic.SeperateVRLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateVRLogic(self.model_data, self.process_data)
 
         # Mock model loading and inference
         with patch("torch.load", return_value={}):
@@ -779,7 +779,7 @@ class TestSeperateVRLogic:
         self.model_data.is_high_end_process = True
         mock_prepare_mix.return_value = np.random.rand(44100, 2)
 
-        separator = separate_logic.SeperateVRLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateVRLogic(self.model_data, self.process_data)
 
         # Should initialize with high-end processing flag
         assert separator.md.is_high_end_process == True
@@ -790,19 +790,19 @@ class TestSeperateVRLogic:
         self.model_data.is_primary_stem_only = True
         self.model_data.is_secondary_stem_only = False
 
-        separator = separate_logic.SeperateVRLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateVRLogic(self.model_data, self.process_data)
         assert separator.md.is_primary_stem_only == True
 
         # Test secondary stem only
         self.model_data.is_primary_stem_only = False
         self.model_data.is_secondary_stem_only = True
 
-        separator = separate_logic.SeperateVRLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateVRLogic(self.model_data, self.process_data)
         assert separator.md.is_secondary_stem_only == True
 
     def test_vr_logic_progress_tracking(self):
         """Test VR separator progress tracking functionality."""
-        separator = separate_logic.SeperateVRLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateVRLogic(self.model_data, self.process_data)
 
         # Test progress update
         separator._update_progress(0.5, "Test progress")
@@ -815,7 +815,7 @@ class TestSeperateVRLogic:
         """Test VR separator handles empty audio input."""
         mock_prepare_mix.return_value = np.array([])
 
-        separator = separate_logic.SeperateVRLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateVRLogic(self.model_data, self.process_data)
 
         # Should handle empty audio gracefully
         # The actual behavior depends on implementation details
@@ -824,7 +824,7 @@ class TestSeperateVRLogic:
         """Test VR separator with different aggression settings."""
         for aggression in [1, 5, 10, 15, 20]:
             self.model_data.aggression_setting = aggression
-            separator = separate_logic.SeperateVRLogic(
+            separator = separate_logic.SeparateVRLogic(
                 self.model_data, self.process_data
             )
             assert separator.md.aggression_setting == aggression
@@ -833,7 +833,7 @@ class TestSeperateVRLogic:
         """Test VR separator with different window sizes."""
         for window_size in [256, 512, 1024, 2048]:
             self.model_data.window_size = window_size
-            separator = separate_logic.SeperateVRLogic(
+            separator = separate_logic.SeparateVRLogic(
                 self.model_data, self.process_data
             )
             assert separator.md.window_size == window_size
@@ -842,7 +842,7 @@ class TestSeperateVRLogic:
         """Test VR separator with different batch sizes."""
         for batch_size in [1, 2, 4, 8, 16]:
             self.model_data.batch_size = batch_size
-            separator = separate_logic.SeperateVRLogic(
+            separator = separate_logic.SeparateVRLogic(
                 self.model_data, self.process_data
             )
             assert separator.md.batch_size == batch_size
@@ -854,14 +854,14 @@ class TestSeperateVRLogic:
         self.model_data.post_process_threshold = 0.1
         mock_prepare_mix.return_value = np.random.rand(44100, 2)
 
-        separator = separate_logic.SeperateVRLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateVRLogic(self.model_data, self.process_data)
         assert separator.md.is_post_process == True
         assert separator.md.post_process_threshold == 0.1
 
 
 @pytest.mark.unit
-class TestSeperateMDXLogic:
-    """Comprehensive tests for SeperateMDXLogic class."""
+class TestSeparateMDXLogic:
+    """Comprehensive tests for SeparateMDXLogic class."""
 
     def setup_method(self):
         """Setup common test data."""
@@ -891,7 +891,7 @@ class TestSeperateMDXLogic:
 
     def test_mdx_logic_initialization_onnx(self):
         """Test MDX separator initialization with ONNX model."""
-        separator = separate_logic.SeperateMDXLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateMDXLogic(self.model_data, self.process_data)
 
         assert separator.md == self.model_data
         assert separator.process_data == self.process_data
@@ -910,14 +910,14 @@ class TestSeperateMDXLogic:
             "audio": {"hop_length": 1024},
         }
 
-        separator = separate_logic.SeperateMDXLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateMDXLogic(self.model_data, self.process_data)
         assert separator.md.is_mdx_ckpt == True
 
     def test_mdx_logic_different_segment_sizes(self):
         """Test MDX separator with different segment sizes."""
         for segment_size in [128, 256, 512, 1024]:
             self.model_data.mdx_segment_size = segment_size
-            separator = separate_logic.SeperateMDXLogic(
+            separator = separate_logic.SeparateMDXLogic(
                 self.model_data, self.process_data
             )
             assert separator.md.mdx_segment_size == segment_size
@@ -926,7 +926,7 @@ class TestSeperateMDXLogic:
         """Test MDX separator with different overlap settings."""
         for overlap in [0.0, 0.125, 0.25, 0.5, 0.75]:
             self.model_data.overlap_mdx = overlap
-            separator = separate_logic.SeperateMDXLogic(
+            separator = separate_logic.SeparateMDXLogic(
                 self.model_data, self.process_data
             )
             assert separator.md.overlap_mdx == overlap
@@ -938,7 +938,7 @@ class TestSeperateMDXLogic:
         for n_fft, dim_f in fft_settings:
             self.model_data.mdx_n_fft_scale_set = n_fft
             self.model_data.mdx_dim_f_set = dim_f
-            separator = separate_logic.SeperateMDXLogic(
+            separator = separate_logic.SeparateMDXLogic(
                 self.model_data, self.process_data
             )
             assert separator.md.mdx_n_fft_scale_set == n_fft
@@ -949,7 +949,7 @@ class TestSeperateMDXLogic:
         """Test MDX separator handles audio loading failure."""
         mock_prepare_mix.return_value = None
 
-        separator = separate_logic.SeperateMDXLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateMDXLogic(self.model_data, self.process_data)
         result = separator.separate()
 
         assert result is None
@@ -957,7 +957,7 @@ class TestSeperateMDXLogic:
     def test_mdx_logic_missing_mdx_dependencies(self):
         """Test MDX separator with missing dependencies."""
         with patch("uvr_pyside6_ui.core.separate_mdx_logic.MdxnetSet", None):
-            separator = separate_logic.SeperateMDXLogic(
+            separator = separate_logic.SeparateMDXLogic(
                 self.model_data, self.process_data
             )
             result = separator.separate()
@@ -965,8 +965,8 @@ class TestSeperateMDXLogic:
 
     def test_mdx_logic_missing_onnx_dependencies(self):
         """Test MDX separator with missing ONNX dependencies."""
-        with patch("uvr_pyside6_ui.core.separate_mdx_logic.ort", None):
-            separator = separate_logic.SeperateMDXLogic(
+        with patch("uvr_pyside6_ui.core.separate_mdx_logic.onnxruntime", None):
+            separator = separate_logic.SeparateMDXLogic(
                 self.model_data, self.process_data
             )
             result = separator.separate()
@@ -984,7 +984,7 @@ class TestSeperateMDXLogic:
         mock_convert_model.return_value = Mock()  # Mock converted model
         self.process_data["_is_running_check"] = Mock(return_value=False)
 
-        separator = separate_logic.SeperateMDXLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateMDXLogic(self.model_data, self.process_data)
 
         # The separator should raise InterruptedError when user interruption happens
         with pytest.raises(InterruptedError, match="Processing stopped by user"):
@@ -996,7 +996,7 @@ class TestSeperateMDXLogic:
 
         for option in denoise_options:
             self.model_data.denoise_option = option
-            separator = separate_logic.SeperateMDXLogic(
+            separator = separate_logic.SeparateMDXLogic(
                 self.model_data, self.process_data
             )
             assert separator.md.denoise_option == option
@@ -1007,7 +1007,7 @@ class TestSeperateMDXLogic:
 
         for compensate in compensate_values:
             self.model_data.compensate = compensate
-            separator = separate_logic.SeperateMDXLogic(
+            separator = separate_logic.SeparateMDXLogic(
                 self.model_data, self.process_data
             )
             assert separator.md.compensate == compensate
@@ -1018,7 +1018,7 @@ class TestSeperateMDXLogic:
         """Test MDX separator model settings initialization."""
         mock_prepare_mix.return_value = np.random.rand(44100, 2)
 
-        separator = separate_logic.SeperateMDXLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateMDXLogic(self.model_data, self.process_data)
 
         # Test initialization of model settings
         try:
@@ -1041,14 +1041,14 @@ class TestSeperateMDXLogic:
         self.model_data.is_primary_stem_only = True
         self.model_data.is_secondary_stem_only = False
 
-        separator = separate_logic.SeperateMDXLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateMDXLogic(self.model_data, self.process_data)
         assert separator.md.is_primary_stem_only == True
 
         # Test secondary stem only
         self.model_data.is_primary_stem_only = False
         self.model_data.is_secondary_stem_only = True
 
-        separator = separate_logic.SeperateMDXLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateMDXLogic(self.model_data, self.process_data)
         assert separator.md.is_secondary_stem_only == True
 
     def test_mdx_logic_pitch_change_support(self):
@@ -1056,7 +1056,7 @@ class TestSeperateMDXLogic:
         self.model_data.is_pitch_change = True
         self.model_data.semitone_shift = 2
 
-        separator = separate_logic.SeperateMDXLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateMDXLogic(self.model_data, self.process_data)
         assert separator.md.is_pitch_change == True
         assert separator.md.semitone_shift == 2
 
@@ -1064,7 +1064,7 @@ class TestSeperateMDXLogic:
         """Test MDX separator with missing FFT parameters."""
         self.model_data.mdx_n_fft_scale_set = None
 
-        separator = separate_logic.SeperateMDXLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateMDXLogic(self.model_data, self.process_data)
 
         try:
             separator._initialize_model_settings()
@@ -1082,7 +1082,7 @@ class TestSeperateMDXLogic:
 
         with patch("uvr_pyside6_ui.core.separate_logic_base.CUDA_AVAILABLE", True):
             with patch("uvr_pyside6_ui.core.separate_logic_base.MPS_AVAILABLE", False):
-                separator = separate_logic.SeperateMDXLogic(
+                separator = separate_logic.SeparateMDXLogic(
                     self.model_data, self.process_data
                 )
                 assert "cuda" in str(separator.device)
@@ -1090,7 +1090,7 @@ class TestSeperateMDXLogic:
 
     def test_mdx_logic_progress_tracking(self):
         """Test MDX separator progress tracking."""
-        separator = separate_logic.SeperateMDXLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateMDXLogic(self.model_data, self.process_data)
 
         # Test progress update
         separator._update_progress(0.7, "MDX processing...")
@@ -1105,14 +1105,14 @@ class TestSeperateMDXLogic:
         self.model_data.DENOISER_MODEL_PATH = "/path/to/denoiser.pth"
         mock_prepare_mix.return_value = np.random.rand(44100, 2)
 
-        separator = separate_logic.SeperateMDXLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateMDXLogic(self.model_data, self.process_data)
         assert separator.md.is_denoise_model == True
         assert separator.md.DENOISER_MODEL_PATH is not None
 
 
 @pytest.mark.unit
-class TestSeperateMDXCLogic:
-    """Comprehensive tests for SeperateMDXCLogic class."""
+class TestSeparateMDXCLogic:
+    """Comprehensive tests for SeparateMDXCLogic class."""
 
     def setup_method(self):
         """Setup common test data."""
@@ -1146,7 +1146,7 @@ class TestSeperateMDXCLogic:
 
     def test_mdxc_logic_initialization_multi_stem(self):
         """Test MDX-C separator initialization with multi-stem model."""
-        separator = separate_logic.SeperateMDXCLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateMDXCLogic(self.model_data, self.process_data)
 
         assert separator.md == self.model_data
         assert separator.process_data == self.process_data
@@ -1159,7 +1159,7 @@ class TestSeperateMDXCLogic:
         self.model_data.mdx_model_stems = [ac.VOCAL_STEM]
         self.model_data.mdxnet_stem_select = ac.VOCAL_STEM
 
-        separator = separate_logic.SeperateMDXCLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateMDXCLogic(self.model_data, self.process_data)
         assert separator.md.mdx_model_stems == [ac.VOCAL_STEM]
         assert separator.md.mdxnet_stem_select == ac.VOCAL_STEM
 
@@ -1167,7 +1167,7 @@ class TestSeperateMDXCLogic:
         """Test MDX-C separator with different batch sizes."""
         for batch_size in [1, 2, 4, 8, 16]:
             self.model_data.mdx_batch_size = batch_size
-            separator = separate_logic.SeperateMDXCLogic(
+            separator = separate_logic.SeparateMDXCLogic(
                 self.model_data, self.process_data
             )
             assert separator.md.mdx_batch_size == batch_size
@@ -1176,7 +1176,7 @@ class TestSeperateMDXCLogic:
         """Test MDX-C separator with different overlap settings."""
         for overlap in [1.0, 4.0, 8.0, 16.0, 32.0]:
             self.model_data.overlap_mdx23 = overlap
-            separator = separate_logic.SeperateMDXCLogic(
+            separator = separate_logic.SeparateMDXCLogic(
                 self.model_data, self.process_data
             )
             assert separator.md.overlap_mdx23 == overlap
@@ -1185,7 +1185,7 @@ class TestSeperateMDXCLogic:
         """Test MDX-C separator with different segment sizes."""
         for segment_size in [128, 256, 512, 1024]:
             self.model_data.mdx_segment_size = segment_size
-            separator = separate_logic.SeperateMDXCLogic(
+            separator = separate_logic.SeparateMDXCLogic(
                 self.model_data, self.process_data
             )
             assert separator.md.mdx_segment_size == segment_size
@@ -1194,12 +1194,12 @@ class TestSeperateMDXCLogic:
         """Test MDX-C separator with different segment definition modes."""
         # Test default segment mode
         self.model_data.is_mdx_c_seg_def = True
-        separator = separate_logic.SeperateMDXCLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateMDXCLogic(self.model_data, self.process_data)
         assert separator.md.is_mdx_c_seg_def == True
 
         # Test custom segment mode
         self.model_data.is_mdx_c_seg_def = False
-        separator = separate_logic.SeperateMDXCLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateMDXCLogic(self.model_data, self.process_data)
         assert separator.md.is_mdx_c_seg_def == False
 
     @patch("uvr_pyside6_ui.core.separate_logic_base.prepare_mix_logic")
@@ -1207,7 +1207,7 @@ class TestSeperateMDXCLogic:
         """Test MDX-C separator handles audio loading failure."""
         mock_prepare_mix.return_value = None
 
-        separator = separate_logic.SeperateMDXCLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateMDXCLogic(self.model_data, self.process_data)
         result = separator.separate()
 
         assert result is None
@@ -1215,7 +1215,7 @@ class TestSeperateMDXCLogic:
     def test_mdxc_logic_missing_dependencies(self):
         """Test MDX-C separator with missing dependencies."""
         with patch("uvr_pyside6_ui.core.separate_mdxc_logic.TFC_TDF_net", None):
-            separator = separate_logic.SeperateMDXCLogic(
+            separator = separate_logic.SeparateMDXCLogic(
                 self.model_data, self.process_data
             )
             result = separator.separate()
@@ -1225,7 +1225,7 @@ class TestSeperateMDXCLogic:
         """Test MDX-C separator with missing configurations."""
         self.model_data.mdx_c_configs = None
 
-        separator = separate_logic.SeperateMDXCLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateMDXCLogic(self.model_data, self.process_data)
         result = separator.separate()
         assert result is None
 
@@ -1235,7 +1235,7 @@ class TestSeperateMDXCLogic:
         mock_prepare_mix.return_value = np.random.rand(44100, 2)
         self.process_data["_is_running_check"] = Mock(return_value=False)
 
-        separator = separate_logic.SeperateMDXCLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateMDXCLogic(self.model_data, self.process_data)
 
         # Mock dependencies
         with patch("uvr_pyside6_ui.core.separate_mdxc_logic.TFC_TDF_net"):
@@ -1254,7 +1254,7 @@ class TestSeperateMDXCLogic:
 
         for stem_option in stem_options:
             self.model_data.mdxnet_stem_select = stem_option
-            separator = separate_logic.SeperateMDXCLogic(
+            separator = separate_logic.SeparateMDXCLogic(
                 self.model_data, self.process_data
             )
             assert separator.md.mdxnet_stem_select == stem_option
@@ -1265,14 +1265,14 @@ class TestSeperateMDXCLogic:
         self.model_data.is_primary_stem_only = True
         self.model_data.is_secondary_stem_only = False
 
-        separator = separate_logic.SeperateMDXCLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateMDXCLogic(self.model_data, self.process_data)
         assert separator.md.is_primary_stem_only == True
 
         # Test secondary stem only
         self.model_data.is_primary_stem_only = False
         self.model_data.is_secondary_stem_only = True
 
-        separator = separate_logic.SeperateMDXCLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateMDXCLogic(self.model_data, self.process_data)
         assert separator.md.is_secondary_stem_only == True
 
     def test_mdxc_logic_pitch_change_support(self):
@@ -1280,7 +1280,7 @@ class TestSeperateMDXCLogic:
         self.model_data.is_pitch_change = True
         self.model_data.semitone_shift = -3
 
-        separator = separate_logic.SeperateMDXCLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateMDXCLogic(self.model_data, self.process_data)
         assert separator.md.is_pitch_change == True
         assert separator.md.semitone_shift == -3
 
@@ -1291,14 +1291,14 @@ class TestSeperateMDXCLogic:
 
         with patch("uvr_pyside6_ui.core.separate_logic_base.CUDA_AVAILABLE", True):
             with patch("uvr_pyside6_ui.core.separate_logic_base.MPS_AVAILABLE", False):
-                separator = separate_logic.SeperateMDXCLogic(
+                separator = separate_logic.SeparateMDXCLogic(
                     self.model_data, self.process_data
                 )
                 assert "cuda" in str(separator.device)
 
     def test_mdxc_logic_progress_tracking(self):
         """Test MDX-C separator progress tracking."""
-        separator = separate_logic.SeperateMDXCLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateMDXCLogic(self.model_data, self.process_data)
 
         # Test progress update
         separator._update_progress(0.8, "MDX-C processing...")
@@ -1313,7 +1313,7 @@ class TestSeperateMDXCLogic:
         self.model_data.DENOISER_MODEL_PATH = "/path/to/denoiser.pth"
         mock_prepare_mix.return_value = np.random.rand(44100, 2)
 
-        separator = separate_logic.SeperateMDXCLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateMDXCLogic(self.model_data, self.process_data)
         assert separator.md.is_denoise_model == True
         assert separator.md.DENOISER_MODEL_PATH is not None
 
@@ -1321,7 +1321,7 @@ class TestSeperateMDXCLogic:
         """Test MDX-C separator handles zero overlap gracefully."""
         self.model_data.overlap_mdx23 = 0.0
 
-        separator = separate_logic.SeperateMDXCLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateMDXCLogic(self.model_data, self.process_data)
         # Should handle zero overlap by defaulting to 1
         assert separator.md.overlap_mdx23 == 0.0
 
@@ -1335,7 +1335,7 @@ class TestSeperateMDXCLogic:
         ]
         self.model_data.mdxnet_stem_select = ac.ALL_STEMS
 
-        separator = separate_logic.SeperateMDXCLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateMDXCLogic(self.model_data, self.process_data)
         assert len(separator.md.mdx_model_stems) == 4
 
     @patch("uvr_pyside6_ui.core.separate_logic_base.prepare_mix_logic")
@@ -1345,7 +1345,7 @@ class TestSeperateMDXCLogic:
         mock_prepare_mix.return_value = np.random.rand(44100, 2)
         mock_tfc_tdf.side_effect = Exception("Model loading failed")
 
-        separator = separate_logic.SeperateMDXCLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateMDXCLogic(self.model_data, self.process_data)
         result = separator.separate()
 
         assert result is None
@@ -1361,7 +1361,7 @@ class TestSeperateMDXCLogic:
         mock_prepare_mix.return_value = np.random.rand(44100, 2)
         mock_exists.side_effect = Exception("Checkpoint loading failed")
 
-        separator = separate_logic.SeperateMDXCLogic(self.model_data, self.process_data)
+        separator = separate_logic.SeparateMDXCLogic(self.model_data, self.process_data)
 
         with patch("uvr_pyside6_ui.core.separate_mdxc_logic.TFC_TDF_net"):
             result = separator.separate()
@@ -1369,8 +1369,8 @@ class TestSeperateMDXCLogic:
 
 
 @pytest.mark.unit
-class TestSeperateDemucsLogic:
-    """Comprehensive tests for SeperateDemucsLogic class."""
+class TestSeparateDemucsLogic:
+    """Comprehensive tests for SeparateDemucsLogic class."""
 
     def setup_method(self):
         """Setup common test data."""
@@ -1412,7 +1412,7 @@ class TestSeperateDemucsLogic:
 
     def test_demucs_logic_initialization_v4(self):
         """Test Demucs separator initialization with v4 model."""
-        separator = separate_logic.SeperateDemucsLogic(
+        separator = separate_logic.SeparateDemucsLogic(
             self.model_data, self.process_data
         )
 
@@ -1425,7 +1425,7 @@ class TestSeperateDemucsLogic:
     def test_demucs_logic_initialization_v3(self):
         """Test Demucs separator initialization with v3 model."""
         self.model_data.demucs_version = ac.DEMUCS_V3
-        separator = separate_logic.SeperateDemucsLogic(
+        separator = separate_logic.SeparateDemucsLogic(
             self.model_data, self.process_data
         )
         assert separator.md.demucs_version == ac.DEMUCS_V3
@@ -1433,7 +1433,7 @@ class TestSeperateDemucsLogic:
     def test_demucs_logic_initialization_v2(self):
         """Test Demucs separator initialization with v2 model."""
         self.model_data.demucs_version = ac.DEMUCS_V2
-        separator = separate_logic.SeperateDemucsLogic(
+        separator = separate_logic.SeparateDemucsLogic(
             self.model_data, self.process_data
         )
         assert separator.md.demucs_version == ac.DEMUCS_V2
@@ -1441,7 +1441,7 @@ class TestSeperateDemucsLogic:
     def test_demucs_logic_initialization_v1(self):
         """Test Demucs separator initialization with v1 model."""
         self.model_data.demucs_version = ac.DEMUCS_V1
-        separator = separate_logic.SeperateDemucsLogic(
+        separator = separate_logic.SeparateDemucsLogic(
             self.model_data, self.process_data
         )
         assert separator.md.demucs_version == ac.DEMUCS_V1
@@ -1449,7 +1449,7 @@ class TestSeperateDemucsLogic:
     def test_demucs_logic_all_stems_mode(self):
         """Test Demucs separator with ALL_STEMS mode."""
         self.model_data.demucs_stems = ac.ALL_STEMS
-        separator = separate_logic.SeperateDemucsLogic(
+        separator = separate_logic.SeparateDemucsLogic(
             self.model_data, self.process_data
         )
         assert separator.md.demucs_stems == ac.ALL_STEMS
@@ -1460,7 +1460,7 @@ class TestSeperateDemucsLogic:
 
         for stem in single_stems:
             self.model_data.demucs_stems = stem
-            separator = separate_logic.SeperateDemucsLogic(
+            separator = separate_logic.SeparateDemucsLogic(
                 self.model_data, self.process_data
             )
             assert separator.md.demucs_stems == stem
@@ -1469,7 +1469,7 @@ class TestSeperateDemucsLogic:
         """Test Demucs separator with different shift values."""
         for shifts in [0, 1, 2, 4, 8]:
             self.model_data.shifts = shifts
-            separator = separate_logic.SeperateDemucsLogic(
+            separator = separate_logic.SeparateDemucsLogic(
                 self.model_data, self.process_data
             )
             assert separator.md.shifts == shifts
@@ -1478,7 +1478,7 @@ class TestSeperateDemucsLogic:
         """Test Demucs separator with different overlap values."""
         for overlap in [0.0, 0.125, 0.25, 0.5, 0.75]:
             self.model_data.overlap = overlap
-            separator = separate_logic.SeperateDemucsLogic(
+            separator = separate_logic.SeparateDemucsLogic(
                 self.model_data, self.process_data
             )
             assert separator.md.overlap == overlap
@@ -1487,7 +1487,7 @@ class TestSeperateDemucsLogic:
         """Test Demucs separator with different segment values."""
         for segment in [1, 2, 4, 8, 16]:
             self.model_data.segment = segment
-            separator = separate_logic.SeperateDemucsLogic(
+            separator = separate_logic.SeparateDemucsLogic(
                 self.model_data, self.process_data
             )
             assert separator.md.segment == segment
@@ -1496,14 +1496,14 @@ class TestSeperateDemucsLogic:
         """Test Demucs separator with split mode on/off."""
         # Test split mode enabled
         self.model_data.is_split_mode = True
-        separator = separate_logic.SeperateDemucsLogic(
+        separator = separate_logic.SeparateDemucsLogic(
             self.model_data, self.process_data
         )
         assert separator.md.is_split_mode == True
 
         # Test split mode disabled
         self.model_data.is_split_mode = False
-        separator = separate_logic.SeperateDemucsLogic(
+        separator = separate_logic.SeparateDemucsLogic(
             self.model_data, self.process_data
         )
         assert separator.md.is_split_mode == False
@@ -1512,14 +1512,14 @@ class TestSeperateDemucsLogic:
         """Test Demucs separator with stem combining on/off."""
         # Test stem combining enabled
         self.model_data.is_demucs_combine_stems = True
-        separator = separate_logic.SeperateDemucsLogic(
+        separator = separate_logic.SeparateDemucsLogic(
             self.model_data, self.process_data
         )
         assert separator.md.is_demucs_combine_stems == True
 
         # Test stem combining disabled
         self.model_data.is_demucs_combine_stems = False
-        separator = separate_logic.SeperateDemucsLogic(
+        separator = separate_logic.SeparateDemucsLogic(
             self.model_data, self.process_data
         )
         assert separator.md.is_demucs_combine_stems == False
@@ -1529,7 +1529,7 @@ class TestSeperateDemucsLogic:
         """Test Demucs separator handles missing model file."""
         mock_exists.return_value = False
 
-        separator = separate_logic.SeperateDemucsLogic(
+        separator = separate_logic.SeparateDemucsLogic(
             self.model_data, self.process_data
         )
         result = separator.separate()
@@ -1547,7 +1547,7 @@ class TestSeperateDemucsLogic:
         mock_stat_obj.st_size = 0
         mock_stat.return_value = mock_stat_obj
 
-        separator = separate_logic.SeperateDemucsLogic(
+        separator = separate_logic.SeparateDemucsLogic(
             self.model_data, self.process_data
         )
         result = separator.separate()
@@ -1557,7 +1557,7 @@ class TestSeperateDemucsLogic:
     def test_demucs_logic_missing_demucs_dependencies(self):
         """Test Demucs separator with missing Demucs dependencies."""
         with patch("uvr_pyside6_ui.core.separate_demucs_logic.demucs_get_model", None):
-            separator = separate_logic.SeperateDemucsLogic(
+            separator = separate_logic.SeparateDemucsLogic(
                 self.model_data, self.process_data
             )
             result = separator.separate()
@@ -1588,7 +1588,7 @@ class TestSeperateDemucsLogic:
                     mock_stat_obj.st_size = 1000000
                     mock_stat.return_value = mock_stat_obj
 
-                    separator = separate_logic.SeperateDemucsLogic(
+                    separator = separate_logic.SeparateDemucsLogic(
                         model_data, process_data
                     )
                     result = separator.separate()
@@ -1602,7 +1602,7 @@ class TestSeperateDemucsLogic:
         mock_prepare_mix.return_value = np.random.rand(44100, 2)
         self.process_data["_is_running_check"] = Mock(return_value=False)
 
-        separator = separate_logic.SeperateDemucsLogic(
+        separator = separate_logic.SeparateDemucsLogic(
             self.model_data, self.process_data
         )
 
@@ -1624,14 +1624,14 @@ class TestSeperateDemucsLogic:
 
         with patch("uvr_pyside6_ui.core.separate_logic_base.CUDA_AVAILABLE", True):
             with patch("uvr_pyside6_ui.core.separate_logic_base.MPS_AVAILABLE", False):
-                separator = separate_logic.SeperateDemucsLogic(
+                separator = separate_logic.SeparateDemucsLogic(
                     self.model_data, self.process_data
                 )
                 assert "cuda" in str(separator.device)
 
     def test_demucs_logic_stem_source_mapping(self):
         """Test Demucs separator source mapping consistency."""
-        separator = separate_logic.SeperateDemucsLogic(
+        separator = separate_logic.SeparateDemucsLogic(
             self.model_data, self.process_data
         )
 
@@ -1643,7 +1643,7 @@ class TestSeperateDemucsLogic:
 
     def test_demucs_logic_progress_tracking(self):
         """Test Demucs separator progress tracking."""
-        separator = separate_logic.SeperateDemucsLogic(
+        separator = separate_logic.SeparateDemucsLogic(
             self.model_data, self.process_data
         )
 
@@ -1659,7 +1659,7 @@ class TestSeperateDemucsLogic:
         self.model_data.is_primary_stem_only = True
         self.model_data.is_secondary_stem_only = False
 
-        separator = separate_logic.SeperateDemucsLogic(
+        separator = separate_logic.SeparateDemucsLogic(
             self.model_data, self.process_data
         )
         assert separator.md.is_primary_stem_only == True
@@ -1668,7 +1668,7 @@ class TestSeperateDemucsLogic:
         self.model_data.is_primary_stem_only = False
         self.model_data.is_secondary_stem_only = True
 
-        separator = separate_logic.SeperateDemucsLogic(
+        separator = separate_logic.SeparateDemucsLogic(
             self.model_data, self.process_data
         )
         assert separator.md.is_secondary_stem_only == True
@@ -1678,7 +1678,7 @@ class TestSeperateDemucsLogic:
         self.model_data.is_pitch_change = True
         self.model_data.semitone_shift = 4
 
-        separator = separate_logic.SeperateDemucsLogic(
+        separator = separate_logic.SeparateDemucsLogic(
             self.model_data, self.process_data
         )
         assert separator.md.is_pitch_change == True
@@ -1701,7 +1701,7 @@ class TestSeperateDemucsLogic:
         mock_stat.return_value = mock_stat_obj
         mock_get_model.side_effect = Exception("Model loading failed")
 
-        separator = separate_logic.SeperateDemucsLogic(
+        separator = separate_logic.SeparateDemucsLogic(
             self.model_data, self.process_data
         )
         result = separator.separate()
@@ -1725,7 +1725,7 @@ class TestSeperateDemucsLogic:
         mock_stat_obj.st_size = 1000000
         mock_stat.return_value = mock_stat_obj
 
-        separator = separate_logic.SeperateDemucsLogic(
+        separator = separate_logic.SeparateDemucsLogic(
             self.model_data, self.process_data
         )
 
@@ -1740,7 +1740,7 @@ class TestSeperateDemucsLogic:
         custom_sources = [ac.VOCAL_STEM, ac.BASS_STEM]
         self.model_data.demucs_source_list = custom_sources
 
-        separator = separate_logic.SeperateDemucsLogic(
+        separator = separate_logic.SeparateDemucsLogic(
             self.model_data, self.process_data
         )
         assert separator.md.demucs_source_list == custom_sources
@@ -1749,7 +1749,7 @@ class TestSeperateDemucsLogic:
         """Test Demucs separator with empty source list."""
         self.model_data.demucs_source_list = []
 
-        separator = separate_logic.SeperateDemucsLogic(
+        separator = separate_logic.SeparateDemucsLogic(
             self.model_data, self.process_data
         )
         # Should handle empty source list gracefully
@@ -1758,7 +1758,7 @@ class TestSeperateDemucsLogic:
         """Test Demucs separator with 'No' secondary stem."""
         self.model_data.secondary_stem = "No Other"
 
-        separator = separate_logic.SeperateDemucsLogic(
+        separator = separate_logic.SeparateDemucsLogic(
             self.model_data, self.process_data
         )
         assert separator.md.secondary_stem.startswith("No")
@@ -1770,14 +1770,14 @@ class TestSeperateDemucsLogic:
         mono_audio = np.random.rand(44100)
         mock_prepare_mix.return_value = mono_audio
 
-        separator = separate_logic.SeperateDemucsLogic(
+        separator = separate_logic.SeparateDemucsLogic(
             self.model_data, self.process_data
         )
         # Should handle mono audio conversion to stereo
 
     def test_demucs_logic_source_swapping(self):
         """Test Demucs separator implements source swapping correctly."""
-        separator = separate_logic.SeperateDemucsLogic(
+        separator = separate_logic.SeparateDemucsLogic(
             self.model_data, self.process_data
         )
 

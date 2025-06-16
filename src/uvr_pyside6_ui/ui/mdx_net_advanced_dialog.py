@@ -669,6 +669,16 @@ class MDXNetAdvancedDialog(QDialog):
             # If all else fails, return just NO_MODEL - no hardcoded fallback
             return [ac.NO_MODEL]
 
+    def _get_process_method_for_arch(self, arch_key):
+        """Get the process method string for the given architecture key."""
+        from ..core import app_constants as ac
+        arch_map = {
+            ac.VR_ARCH_MODELS_KEY: ac.VR_ARCH_TYPE,
+            ac.MDX_NET_MODELS_KEY: ac.MDX_ARCH_TYPE,
+            ac.DEMUCS_MODELS_KEY: ac.DEMUCS_ARCH_TYPE,
+        }
+        return arch_map.get(arch_key, ac.MDX_ARCH_TYPE)
+
     def _is_model_suitable_for_stem_pair(self, model_data, primary_stem, secondary_stem):
         """Check if a model is suitable for the given stem pair.
         
@@ -689,10 +699,21 @@ class MDXNetAdvancedDialog(QDialog):
                     # For multi-stem models, just check if primary stem is supported
                     return True
             
+            # Check Demucs source compatibility
+            if hasattr(model_data, 'demucs_source_list') and model_data.demucs_source_list:
+                if primary_stem.lower() in [s.lower() for s in model_data.demucs_source_list]:
+                    return True
+            
+            # VR models are generally more flexible - most can work with any stem pair
+            if hasattr(model_data, 'process_method'):
+                from ..core import app_constants as ac
+                if model_data.process_method == ac.VR_ARCH_TYPE:
+                    return True
+            
             return False
             
         except Exception as e:
-            logger.debug(f"Error checking MDX model suitability: {e}")
+            logger.debug(f"Error checking model suitability: {e}")
             return False
 
     def _load_models_if_needed(self):
@@ -705,35 +726,36 @@ class MDXNetAdvancedDialog(QDialog):
             from ..core.uvr_core_adapter import UVRCoreAdapter
             from ..core.model_data import ModelData
             
-            # Load MDX models once and cache them
+            # Load all models once and cache them
             adapter = UVRCoreAdapter()
             all_suitable_models = []
             
-            # Get MDX models specifically (only need MDX for MDX dialog)
-            mdx_models = adapter.get_available_models(ac.MDX_NET_MODELS_KEY)
-            
-            for model_name in mdx_models:
-                try:
-                    # Create minimal settings dict for ModelData creation
-                    temp_settings = {
-                        'chosen_process_method': ac.MDX_ARCH_TYPE,
-                        'is_gpu_conversion': False,
-                        'is_normalization': False,
-                    }
-                    
-                    model_data = ModelData.from_settings_dict(
-                        temp_settings,
-                        _model_name_override=model_name,
-                        _process_method_override=ac.MDX_ARCH_TYPE,
-                        _is_secondary_model_instance=True
-                    )
-                    
-                    # Store model with its data for filtering
-                    all_suitable_models.append((model_name, model_data))
-                    
-                except Exception as e:
-                    logger.debug(f"Could not check MDX model {model_name}: {e}")
-                    continue
+            # Get all available models from all architectures (do this once)
+            for arch_key in [ac.VR_ARCH_MODELS_KEY, ac.MDX_NET_MODELS_KEY, ac.DEMUCS_MODELS_KEY]:
+                arch_models = adapter.get_available_models(arch_key)
+                
+                for model_name in arch_models:
+                    try:
+                        # Create minimal settings dict for ModelData creation
+                        temp_settings = {
+                            'chosen_process_method': self._get_process_method_for_arch(arch_key),
+                            'is_gpu_conversion': False,
+                            'is_normalization': False,
+                        }
+                        
+                        model_data = ModelData.from_settings_dict(
+                            temp_settings,
+                            _model_name_override=model_name,
+                            _process_method_override=self._get_process_method_for_arch(arch_key),
+                            _is_secondary_model_instance=True
+                        )
+                        
+                        # Store model with its data for filtering
+                        all_suitable_models.append((model_name, model_data))
+                        
+                    except Exception as e:
+                        logger.debug(f"Could not check MDX model {model_name}: {e}")
+                        continue
             
             # Now filter for each stem pair efficiently
             stem_pairs = [

@@ -127,6 +127,7 @@ BASS_STEM = "Bass"
 DRUM_STEM = "Drums"
 GUITAR_STEM = "Guitar"
 PIANO_STEM = "Piano"
+SECTIONS = ["vocals", "bass", "drums", "other"]
 
 # Non-accompaniment stems (everything except instrumental)
 NON_ACCOM_STEMS = [

@@ -3,7 +3,6 @@
 import os
 import platform
 import subprocess
-from pathlib import Path
 
 from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtWidgets import (
@@ -21,14 +20,12 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QTabWidget,
     QVBoxLayout,
-    QWidget,
 )
 
 from ..core import app_constants as ac
 from ..core.logger_utils import get_logger
 from ..core.model_data import ModelData
 from ..core.uvr_core_adapter import UVRCoreAdapter
-
 
 logger = get_logger(__name__)
 
@@ -362,7 +359,7 @@ class DemucsAdvancedDialog(QDialog):
         # Store secondary model widgets for enable/disable
         self.secondary_widgets = []
 
-        # Create compact vertical layout for the four sections
+        # Create compact vertical layout for the four ac.SECTIONS
         # 1. Vocals/Instruments Section
         vocals_group = self._create_secondary_section("Vocals/Instruments", "vocals")
         layout.addWidget(vocals_group)
@@ -444,14 +441,28 @@ class DemucsAdvancedDialog(QDialog):
 
         # Preprocess Model Selection
         self.preprocess_model_combo = QComboBox()
-        self.preprocess_model_combo.addItems(
-            [
-                "No Model",
-                "UVR_MDXNET_1_9703.onnx",
-                "UVR_MDXNET_2_9682.onnx",
-                "UVR_MDXNET_3_9662.onnx",
-            ]
-        )
+        # Load MDX preprocess models dynamically
+        try:
+            from ..core.uvr_core_adapter import UVRCoreAdapter
+
+            adapter = UVRCoreAdapter()
+
+            preprocess_models = [ac.NO_MODEL]
+            # Get MDX models for preprocessing (typically used for preprocess)
+            mdx_models = adapter.get_available_models(ac.MDX_NET_MODELS_KEY)
+            for model_name in mdx_models:
+                # Common preprocess models (based on UVR.py patterns)
+                if any(
+                    x in model_name.lower()
+                    for x in ["mdxnet", "uvr_mdxnet", "preprocess"]
+                ):
+                    preprocess_models.append(model_name)
+
+            self.preprocess_model_combo.addItems(preprocess_models)
+        except Exception as e:
+            logger.error(f"Error loading preprocess models: {e}")
+            self.preprocess_model_combo.addItems([ac.NO_MODEL])
+
         self.preprocess_model_combo.setEnabled(False)
         layout.addRow("Preprocess Model:", self.preprocess_model_combo)
 
@@ -488,9 +499,28 @@ class DemucsAdvancedDialog(QDialog):
         vocal_form = QFormLayout()
 
         self.vocal_splitter_combo = QComboBox()
-        self.vocal_splitter_combo.addItems(
-            ["No Model", "UVR_MDXNET_KARA_2.onnx", "Kim_Vocal_2.onnx"]
-        )
+        # Load karaokee models dynamically for vocal splitting
+        try:
+            from ..core.uvr_core_adapter import UVRCoreAdapter
+
+            adapter = UVRCoreAdapter()
+
+            # Get karaokee models (models with is_karaoke or is_bv_model = True)
+            karaokee_models = [ac.NO_MODEL]
+            all_models = adapter.get_all_available_models()
+
+            for model_name, model_info in all_models.items():
+                if model_info and isinstance(model_info, dict):
+                    is_karaoke = model_info.get("is_karaoke", False)
+                    is_bv_model = model_info.get("is_bv_model", False)
+                    if is_karaoke or is_bv_model:
+                        karaokee_models.append(model_name)
+
+            self.vocal_splitter_combo.addItems(karaokee_models)
+        except Exception as e:
+            logger.error(f"Error loading karaokee models for vocal splitter: {e}")
+            self.vocal_splitter_combo.addItems([ac.NO_MODEL])
+
         self.vocal_splitter_combo.setEnabled(False)
         vocal_form.addRow("Vocal Splitter Model:", self.vocal_splitter_combo)
         self.vocal_widgets.append(self.vocal_splitter_combo)
@@ -513,7 +543,35 @@ class DemucsAdvancedDialog(QDialog):
 
         # Deverb Model
         self.deverb_model_combo = QComboBox()
-        self.deverb_model_combo.addItems(["No Model", "Reverb_HQ_By_FoxJoy.onnx"])
+        # Load deverb models dynamically
+        try:
+            from pathlib import Path
+
+            from ..core.uvr_core_adapter import UVRCoreAdapter
+
+            adapter = UVRCoreAdapter()
+
+            deverb_models = [ac.NO_MODEL]
+            # Check for known deverb models
+            vr_models = adapter.get_available_models(ac.VR_ARCH_MODELS_KEY)
+            for model_name in vr_models:
+                # Look for deverb/reverb models
+                if any(x in model_name.lower() for x in ["deverb", "reverb", "deecho"]):
+                    deverb_models.append(model_name)
+
+            # Check if the standard deverb model exists
+            deverb_model_path = Path(ac.VR_MODELS_DIR_PATH) / "UVR-DeEcho-DeReverb.pth"
+            if (
+                deverb_model_path.exists()
+                and "UVR-DeEcho-DeReverb.pth" not in deverb_models
+            ):
+                deverb_models.append("UVR-DeEcho-DeReverb.pth")
+
+            self.deverb_model_combo.addItems(deverb_models)
+        except Exception as e:
+            logger.error(f"Error loading deverb models: {e}")
+            self.deverb_model_combo.addItems([ac.NO_MODEL])
+
         self.deverb_model_combo.setEnabled(False)
         deverb_layout.addRow("Deverb Model:", self.deverb_model_combo)
         self.deverb_widgets.append(self.deverb_model_combo)
@@ -762,8 +820,7 @@ class DemucsAdvancedDialog(QDialog):
         if not self.current_settings:
             return
 
-        sections = ["vocals", "bass", "drums", "other"]
-        for section in sections:
+        for section in ac.SECTIONS:
             # Model selection - Demucs uses nested structure
             model_key = f"demucs_{section}_secondary_model"
             if model_key in self.current_settings:

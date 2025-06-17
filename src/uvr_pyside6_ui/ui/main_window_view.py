@@ -21,7 +21,6 @@ from .ensemble_simple_view import EnsembleSimpleView
 from .execution_control_presenter import ExecutionControlPresenter
 from .execution_control_view import ExecutionControlView
 from .file_io_presenter import FileIOPresenter
-
 from .file_io_view import FileIOView
 from .mdx_net_settings_presenter import MDXNetSettingsPresenter
 from .mdx_net_settings_view import MDXNetSettingsView

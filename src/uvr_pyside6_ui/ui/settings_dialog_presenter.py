@@ -4,6 +4,9 @@ import base64
 import json
 from pathlib import Path
 
+from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from PySide6.QtCore import QObject, QStandardPaths, QTimer, Slot
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -22,9 +25,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from cryptography.fernet import Fernet
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from uvr_pyside6_ui.core import app_constants as ac
 from uvr_pyside6_ui.core.logger_utils import get_logger
 from uvr_pyside6_ui.core.uvr_core_adapter import UVRCoreAdapter
@@ -32,7 +32,6 @@ from uvr_pyside6_ui.core.uvr_core_adapter import UVRCoreAdapter
 from ..core import app_constants as ac
 from .download_center_presenter import DownloadCenterPresenter
 from .settings_dialog_view import SettingsDialogView
-
 
 logger = get_logger(__name__)
 

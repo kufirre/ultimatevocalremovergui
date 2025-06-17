@@ -9,7 +9,6 @@ from PySide6.QtWidgets import QMessageBox
 from ..core.logger_utils import get_logger
 from .mdx_net_advanced_dialog import MDXNetAdvancedDialog
 
-
 logger = get_logger(__name__)
 
 

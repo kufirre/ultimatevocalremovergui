@@ -21,10 +21,8 @@ from PySide6.QtWidgets import (
 )
 
 from ..core import app_constants as ac
-from ..core.model_data import VR_MODELS_DIR_PATH
-from ..core.model_data import ModelData
+from ..core.model_data import VR_MODELS_DIR_PATH, ModelData
 from ..core.uvr_core_adapter import UVRCoreAdapter
-
 
 logger = logging.getLogger(__name__)
 
@@ -243,24 +241,168 @@ class VRArchAdvancedDialog(QDialog):
     def _vocal_splitter_options(self):
         """Open vocal splitter options dialog."""
         logger.info("Vocal splitter options requested")
-        # TODO: Implement vocal splitter options dialog
-        from PySide6.QtWidgets import QMessageBox
 
-        QMessageBox.information(
-            self,
-            "Vocal Splitter Options",
-            "Vocal splitter options dialog will be implemented here.",
+        from PySide6.QtWidgets import (
+            QCheckBox,
+            QComboBox,
+            QDialog,
+            QFormLayout,
+            QGroupBox,
+            QHBoxLayout,
+            QLabel,
+            QPushButton,
+            QVBoxLayout,
         )
+
+        # Create vocal splitter dialog
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Vocal Split Options")
+        dialog.setModal(True)
+        dialog.resize(400, 300)
+
+        layout = QVBoxLayout(dialog)
+
+        # Vocal Split Mode Options
+        vocal_split_group = QGroupBox("Vocal Split Mode Options")
+        vocal_split_layout = QFormLayout(vocal_split_group)
+
+        # Enable Vocal Split Mode
+        enable_vocal_split = QCheckBox("Enable Vocal Split Mode")
+        vocal_split_layout.addRow(enable_vocal_split)
+
+        # Select Model
+        model_label = QLabel("Select Model:")
+        model_combo = QComboBox()
+
+        # Get karaokee models using UVR.py logic
+        try:
+            from ..core.uvr_core_adapter import UVRCoreAdapter
+
+            adapter = UVRCoreAdapter()
+
+            # Get karaokee models (models with is_karaoke or is_bv_model = True)
+            karaokee_models = [ac.NO_MODEL]
+            all_models = adapter.get_all_available_models()
+
+            for model_name, model_info in all_models.items():
+                if model_info and isinstance(model_info, dict):
+                    is_karaoke = model_info.get("is_karaoke", False)
+                    is_bv_model = model_info.get("is_bv_model", False)
+                    if is_karaoke or is_bv_model:
+                        karaokee_models.append(model_name)
+
+            model_combo.addItems(karaokee_models)
+        except Exception as e:
+            logger.error(f"Error loading karaokee models: {e}")
+            model_combo.addItems([ac.NO_MODEL])
+
+        vocal_split_layout.addRow(model_label, model_combo)
+
+        # Save Split Vocal Instrumentals
+        save_inst_check = QCheckBox("Save Split Vocal Instrumentals")
+        save_inst_check.setEnabled(False)
+        vocal_split_layout.addRow(save_inst_check)
+
+        layout.addWidget(vocal_split_group)
+
+        # Vocal Deverb Options
+        deverb_group = QGroupBox("Vocal Deverb Options")
+        deverb_layout = QFormLayout(deverb_group)
+
+        # Select Vocal Type to Deverb
+        deverb_label = QLabel("Select Vocal Type to Deverb:")
+        deverb_combo = QComboBox()
+        deverb_options = [
+            "Main Vocals Only",
+            "Lead Vocals Only",
+            "Backing Vocals Only",
+            "All Vocal Types",
+        ]
+        deverb_combo.addItems(deverb_options)
+        deverb_combo.setEnabled(False)
+        deverb_layout.addRow(deverb_label, deverb_combo)
+
+        # Deverb Vocals
+        deverb_check = QCheckBox("Deverb Vocals")
+        deverb_check.setEnabled(False)
+        deverb_layout.addRow(deverb_check)
+
+        # Check if deverb model exists
+        try:
+            from pathlib import Path
+
+            deverb_model_path = Path(ac.VR_MODELS_DIR_PATH) / "UVR-DeEcho-DeReverb.pth"
+            if not deverb_model_path.exists():
+                deverb_check.setEnabled(False)
+                deverb_combo.setEnabled(False)
+        except Exception:
+            deverb_check.setEnabled(False)
+            deverb_combo.setEnabled(False)
+
+        layout.addWidget(deverb_group)
+
+        # Button layout
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(dialog.accept)
+        button_layout.addWidget(close_btn)
+
+        layout.addLayout(button_layout)
+
+        # Connect enable checkbox logic
+        def toggle_vocal_widgets(enabled):
+            model_combo.setEnabled(enabled)
+            save_inst_check.setEnabled(enabled)
+
+        def toggle_deverb_widgets(enabled):
+            deverb_combo.setEnabled(enabled)
+
+        enable_vocal_split.toggled.connect(toggle_vocal_widgets)
+        deverb_check.toggled.connect(toggle_deverb_widgets)
+
+        # Show dialog
+        dialog.exec()
 
     def _clear_autoset_cache(self):
         """Clear the autoset cache."""
         logger.info("Clear autoset cache requested")
-        # TODO: Implement cache clearing functionality
+
+        import os
+
         from PySide6.QtWidgets import QMessageBox
 
-        QMessageBox.information(
-            self, "Clear Cache", "AutoSet cache cleared successfully."
-        )
+        try:
+            # Clear VR cache directory (same logic as UVR.py clear_cache)
+            from ..core.model_data import VR_MODELS_DIR_PATH
+
+            vr_hash_dir = VR_MODELS_DIR_PATH.parent / "vr_hash_dirs"
+
+            if vr_hash_dir.exists():
+                for filename in os.listdir(vr_hash_dir):
+                    filepath = os.path.join(vr_hash_dir, filename)
+                    if filename not in [
+                        "model_data.json",
+                        "model_name_mapper.json",
+                    ] and not os.path.isdir(filepath):
+                        try:
+                            os.remove(filepath)
+                        except (OSError, PermissionError) as e:
+                            logger.warning(
+                                f"Could not remove cache file {filepath}: {e}"
+                            )
+
+            QMessageBox.information(
+                self, "Clear Cache", "VR AutoSet cache cleared successfully."
+            )
+            logger.info("VR cache cleared successfully")
+
+        except Exception as e:
+            logger.error(f"Error clearing cache: {e}")
+            QMessageBox.warning(
+                self, "Clear Cache Error", f"Failed to clear cache: {str(e)}"
+            )
 
     def _create_secondary_model_tab(self, tab_widget):
         """Create the secondary model tab with vertical layout to fit without scrolling."""
@@ -277,7 +419,7 @@ class VRArchAdvancedDialog(QDialog):
         # Store secondary model widgets for enable/disable
         self.secondary_widgets = []
 
-        # Create vertical layout for the four sections
+        # Create vertical layout for the four ac.SECTIONS
         # 1. Vocals/Instruments Section
         vocals_group = self._create_secondary_section("Vocals/Instruments", "vocals")
         layout.addWidget(vocals_group)
@@ -413,8 +555,7 @@ class VRArchAdvancedDialog(QDialog):
         )
 
         # Load secondary model settings for each section
-        sections = ["vocals", "bass", "drums", "other"]
-        for section in sections:
+        for section in ac.SECTIONS:
             # Model selection
             model_key = f"vr_{section}_secondary_model"
             if model_key in self.current_settings:
@@ -488,8 +629,7 @@ class VRArchAdvancedDialog(QDialog):
         )
 
         # Secondary model settings for each section
-        sections = ["vocals", "bass", "drums", "other"]
-        for section in sections:
+        for section in ac.SECTIONS:
             # Model selection
             combo = getattr(self, f"{section}_model_combo")
             settings[f"vr_{section}_secondary_model"] = combo.currentText()
@@ -554,16 +694,28 @@ class VRArchAdvancedDialog(QDialog):
 
         # Vocal Model Selection
         self.vocal_model_combo = QComboBox()
-        self.vocal_model_combo.addItems(
-            [
-                "No Model",
-                "1_HP-UVR.pth",
-                "2_HP-UVR.pth",
-                "3_HP-Vocal-UVR.pth",
-                "4_HP-Vocal-UVR.pth",
-                "5_HP-Karaoke-UVR.pth",
-            ]
-        )
+        # Load karaokee models dynamically
+        try:
+            from ..core.uvr_core_adapter import UVRCoreAdapter
+
+            adapter = UVRCoreAdapter()
+
+            # Get karaokee models (models with is_karaoke or is_bv_model = True)
+            karaokee_models = [ac.NO_MODEL]
+            all_models = adapter.get_all_available_models()
+
+            for model_name, model_info in all_models.items():
+                if model_info and isinstance(model_info, dict):
+                    is_karaoke = model_info.get("is_karaoke", False)
+                    is_bv_model = model_info.get("is_bv_model", False)
+                    if is_karaoke or is_bv_model:
+                        karaokee_models.append(model_name)
+
+            self.vocal_model_combo.addItems(karaokee_models)
+        except Exception as e:
+            logger.error(f"Error loading karaokee models for vocal combo: {e}")
+            self.vocal_model_combo.addItems([ac.NO_MODEL])
+
         self.vocal_model_combo.setEnabled(False)
         vocal_layout.addRow("Model:", self.vocal_model_combo)
 
@@ -660,8 +812,6 @@ class VRArchAdvancedDialog(QDialog):
 
     def _get_process_method_for_arch(self, arch_key):
         """Get the process method string for the given architecture key."""
-        from ..core import app_constants as ac
-
         arch_map = {
             ac.VR_ARCH_MODELS_KEY: ac.VR_ARCH_TYPE,
             ac.MDX_NET_MODELS_KEY: ac.MDX_ARCH_TYPE,
@@ -811,8 +961,7 @@ class VRArchAdvancedDialog(QDialog):
         if not self.current_settings:
             return
 
-        sections = ["vocals", "bass", "drums", "other"]
-        for section in sections:
+        for section in ac.SECTIONS:
             # Model selection
             model_key = f"vr_{section}_secondary_model"
             if model_key in self.current_settings:
@@ -823,8 +972,6 @@ class VRArchAdvancedDialog(QDialog):
                     combo.setCurrentIndex(index)
                 else:
                     # If model not found, default to NO_MODEL
-                    from ..core import app_constants as ac
-
                     no_model_index = combo.findText(ac.NO_MODEL)
                     if no_model_index >= 0:
                         combo.setCurrentIndex(no_model_index)

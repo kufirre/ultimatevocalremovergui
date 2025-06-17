@@ -22,7 +22,6 @@ from .execution_control_presenter import ExecutionControlPresenter
 from .execution_control_view import ExecutionControlView
 from .file_io_presenter import FileIOPresenter
 
-# ... (all other view/presenter imports as in response #37) ...
 from .file_io_view import FileIOView
 from .mdx_net_settings_presenter import MDXNetSettingsPresenter
 from .mdx_net_settings_view import MDXNetSettingsView
@@ -136,6 +135,9 @@ class MainWindowView(QMainWindow):
         self.model_selection_view.add_settings_panel("Ensemble", self.ensemble_view)
         self.main_layout.addWidget(self.model_selection_view)
         self.main_layout.addWidget(self.processing_settings_view)
+
+        # Connect presenters to settings dialog for advanced settings persistence
+        self.settings_dialog_presenter.set_main_window_presenters(self.presenters)
 
         # --- Execution Control and Settings Button Row ---
         bottom_controls_layout = QHBoxLayout()

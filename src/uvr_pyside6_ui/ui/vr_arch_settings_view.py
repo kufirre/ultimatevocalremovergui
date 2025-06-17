@@ -166,8 +166,10 @@ class VRArchSettingsView(QWidget):
     @Slot(int)
     def set_aggression(self, value: int):
         self.agg_slider.blockSignals(True)
-        self.agg_slider.setValue(value)
-        self.agg_value_label.setText(f"{value:3d}")
+        # Ensure value is an integer for formatting
+        int_value = int(value) if isinstance(value, (int, float)) else value
+        self.agg_slider.setValue(int_value)
+        self.agg_value_label.setText(f"{int_value:3d}")
         self.agg_slider.blockSignals(False)
 
     @Slot(bool)

@@ -7,8 +7,8 @@ from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QMessageBox
 
 from ..core.logger_utils import get_logger
+from .mdx_net_advanced_dialog import MDXNetAdvancedDialog
 
-# Import removed - using mdx_net_advanced_dialog instead
 
 logger = get_logger(__name__)
 
@@ -47,7 +47,6 @@ class AdvancedMDXSettingsPresenter(QObject):
 
     def show_settings_dialog(self):
         """Show the advanced MDX settings dialog."""
-        from .mdx_net_advanced_dialog import MDXNetAdvancedDialog
 
         dialog = MDXNetAdvancedDialog(self._current_settings, self.parent_window)
 
@@ -158,6 +157,7 @@ class MDXNetSettingsPresenter(QObject):
         super().__init__(parent)
         self.view = view
         self._settings = {
+            # Basic settings
             "segment_size": 256,
             "overlap": 0.25,
             "match_method": "Nearest",
@@ -167,6 +167,27 @@ class MDXNetSettingsPresenter(QObject):
             "is_invert_spec": False,
             "semitone_shift": 0,
             "denoise_option": "None",
+            # Advanced settings from dialog
+            "mdx_segment_size": 256,
+            "overlap_mdx23": 8,
+            "is_mdx_c_seg_def": True,
+            "is_mdx23_combine_stems": False,
+            # Secondary model settings
+            "is_secondary_model_activate": False,
+            "vocals_secondary_model": "No Model",
+            "bass_secondary_model": "No Model",
+            "drums_secondary_model": "No Model",
+            "other_secondary_model": "No Model",
+            "vocals_secondary_scale": 0.9,
+            "bass_secondary_scale": 0.5,
+            "drums_secondary_scale": 0.5,
+            "other_secondary_scale": 0.7,
+            # Vocal splitter settings
+            "is_vocal_split_mode": False,
+            "vocal_model": "No Model",
+            "deverb_option": "Main Vocals Only",
+            "save_vocal_only": False,
+            "save_inst_only": False,
         }
         self._setup_connections()
 
@@ -191,3 +212,39 @@ class MDXNetSettingsPresenter(QObject):
     def get_settings(self):
         """Get current MDX-Net settings."""
         return self._settings.copy()
+
+    def show_advanced_settings(self):
+        """Show the advanced MDX settings dialog."""
+
+        # Get current settings
+        current_settings = self.get_settings()
+
+        # Create and show dialog
+        dialog = MDXNetAdvancedDialog(current_settings, self.view)
+        dialog.settings_updated.connect(self.update_advanced_settings)
+
+        return dialog.exec()
+
+    def update_advanced_settings(self, advanced_settings):
+        """Update settings from the advanced dialog."""
+        logger.debug(f"Updating MDX advanced settings: {advanced_settings}")
+
+        # Update internal settings
+        self._settings.update(advanced_settings)
+
+        # Emit settings changed signal for any listeners
+        self.settings_changed.emit(self._settings.copy())
+
+    def load_settings(self, settings_dict):
+        """Load settings from saved configuration."""
+        if settings_dict:
+            # Update settings with loaded data
+            self._settings.update(settings_dict)
+            logger.debug(f"Loaded MDX settings: {settings_dict}")
+
+            # Update view if applicable (basic settings only)
+            if self.view:
+                if "segment_size" in settings_dict:
+                    self.view.set_segment_size(settings_dict["segment_size"])
+                if "overlap" in settings_dict:
+                    self.view.set_overlap(settings_dict["overlap"])

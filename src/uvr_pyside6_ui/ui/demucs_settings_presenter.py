@@ -269,7 +269,48 @@ class DemucsSettingsPresenter(QObject):
 
         # Update internal settings
         for key, value in advanced_settings.items():
-            if key in self._settings:
+            if key == "secondary_models" and isinstance(value, dict):
+                # Handle nested secondary models structure from dialog
+                self._settings["voc_inst_secondary_model"] = value.get(
+                    "vocals", "No Model"
+                )
+                self._settings["bass_secondary_model"] = value.get("bass", "No Model")
+                self._settings["drums_secondary_model"] = value.get("drums", "No Model")
+                self._settings["other_secondary_model"] = value.get("other", "No Model")
+            elif key == "secondary_scales" and isinstance(value, dict):
+                # Handle nested secondary scales structure from dialog
+                self._settings["voc_inst_secondary_model_scale"] = value.get(
+                    "vocals", 0.9
+                )
+                self._settings["bass_secondary_model_scale"] = value.get("bass", 0.5)
+                self._settings["drums_secondary_model_scale"] = value.get("drums", 0.5)
+                self._settings["other_secondary_model_scale"] = value.get("other", 0.7)
+            elif key == "enable_secondary":
+                # Map dialog key to presenter key
+                self._settings["is_secondary_model_activate"] = value
+            elif key == "pitch":
+                # Map dialog key to presenter key
+                self._settings["semitone_shift"] = value
+            elif key == "split_mode":
+                # Map dialog key to presenter key
+                self._settings["is_split_mode"] = value
+            elif key == "combine_stems":
+                # Map dialog key to presenter key
+                self._settings["is_demucs_combine_stems"] = value
+            elif key == "invert_spec":
+                # Map dialog key to presenter key
+                self._settings["is_invert_spec"] = value
+            elif key == "enable_preprocess":
+                # Map dialog key to presenter key
+                self._settings["is_demucs_pre_proc_model_activate"] = value
+            elif key == "preprocess_model":
+                # Map dialog key to presenter key
+                self._settings["demucs_pre_proc_model"] = value
+            elif key == "save_inst_mix":
+                # Map dialog key to presenter key
+                self._settings["is_demucs_pre_proc_model_inst_mix"] = value
+            elif key in self._settings:
+                # Direct mapping for other keys
                 self._settings[key] = value
 
         # Emit settings changed signal for any listeners
@@ -277,33 +318,55 @@ class DemucsSettingsPresenter(QObject):
 
     def get_advanced_settings(self):
         """Get only the advanced settings for the advanced dialog."""
-        advanced_keys = [
-            "shifts",
-            "overlap",
-            "semitone_shift",
-            "is_split_mode",
-            "is_demucs_combine_stems",
-            "is_invert_spec",
-            "is_secondary_model_activate",
-            "voc_inst_secondary_model",
-            "other_secondary_model",
-            "bass_secondary_model",
-            "drums_secondary_model",
-            "voc_inst_secondary_model_scale",
-            "other_secondary_model_scale",
-            "bass_secondary_model_scale",
-            "drums_secondary_model_scale",
-            "is_demucs_pre_proc_model_activate",
-            "demucs_pre_proc_model",
-            "is_demucs_pre_proc_model_inst_mix",
-            "is_karaoke",
-            "is_bv_model",
-            "is_bv_model_rebalanced",
-        ]
-
-        return {
-            key: self._settings[key] for key in advanced_keys if key in self._settings
+        # Convert presenter format to dialog format
+        dialog_settings = {
+            # Basic advanced settings
+            "shifts": self._settings.get("shifts", 2),
+            "overlap": self._settings.get("overlap", 0.25),
+            "pitch": self._settings.get("semitone_shift", 0),  # Map to dialog key
+            "split_mode": self._settings.get(
+                "is_split_mode", False
+            ),  # Map to dialog key
+            "combine_stems": self._settings.get(
+                "is_demucs_combine_stems", False
+            ),  # Map to dialog key
+            "invert_spec": self._settings.get(
+                "is_invert_spec", False
+            ),  # Map to dialog key
+            # Secondary model settings (nested structure for dialog)
+            "enable_secondary": self._settings.get(
+                "is_secondary_model_activate", False
+            ),
+            "secondary_models": {
+                "vocals": self._settings.get("voc_inst_secondary_model", "No Model"),
+                "bass": self._settings.get("bass_secondary_model", "No Model"),
+                "drums": self._settings.get("drums_secondary_model", "No Model"),
+                "other": self._settings.get("other_secondary_model", "No Model"),
+            },
+            "secondary_scales": {
+                "vocals": self._settings.get("voc_inst_secondary_model_scale", 0.9),
+                "bass": self._settings.get("bass_secondary_model_scale", 0.5),
+                "drums": self._settings.get("drums_secondary_model_scale", 0.5),
+                "other": self._settings.get("other_secondary_model_scale", 0.7),
+            },
+            # Preprocess settings
+            "enable_preprocess": self._settings.get(
+                "is_demucs_pre_proc_model_activate", False
+            ),
+            "preprocess_model": self._settings.get("demucs_pre_proc_model", "No Model"),
+            "save_inst_mix": self._settings.get(
+                "is_demucs_pre_proc_model_inst_mix", False
+            ),
+            # Vocal splitter settings (these keys might need mapping too)
+            "enable_vocal": self._settings.get("is_karaoke", False),
+            "vocal_splitter_model": self._settings.get(
+                "set_vocal_splitter", "No Model"
+            ),
+            "enable_deverb": self._settings.get("is_bv_model", False),
+            "deverb_model": self._settings.get("deverb_vocal_opt", "Main Vocals Only"),
         }
+
+        return dialog_settings
 
     def show_advanced_settings(self):
         """Show the advanced settings dialog."""

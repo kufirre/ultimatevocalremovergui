@@ -14,12 +14,18 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QMessageBox,
     QPushButton,
     QSlider,
     QSpinBox,
     QTabWidget,
     QVBoxLayout,
 )
+
+from ..core import app_constants as ac
+from ..core.model_data import ModelData
+from ..core.uvr_core_adapter import UVRCoreAdapter
+
 
 logger = logging.getLogger(__name__)
 
@@ -36,10 +42,10 @@ class MDXNetAdvancedDialog(QDialog):
         self.setMinimumSize(450, 500)
 
         self.current_settings = current_settings or {}
-        
+
         # Lazy loading flags
         self._models_loaded = False
-        
+
         self._setup_ui()
         self._load_settings()
 
@@ -115,8 +121,6 @@ class MDXNetAdvancedDialog(QDialog):
         """Open vocal splitter options dialog."""
         logger.info("Vocal splitter options requested")
         # TODO: Implement vocal splitter options dialog
-        from PySide6.QtWidgets import QMessageBox
-
         QMessageBox.information(
             self,
             "Vocal Splitter Options",
@@ -127,8 +131,6 @@ class MDXNetAdvancedDialog(QDialog):
         """Clear the autoset cache."""
         logger.info("Clear autoset cache requested")
         # TODO: Implement cache clearing functionality
-        from PySide6.QtWidgets import QMessageBox
-
         QMessageBox.information(
             self, "Clear Cache", "AutoSet cache cleared successfully."
         )
@@ -274,6 +276,7 @@ class MDXNetAdvancedDialog(QDialog):
         # Model dropdown - start with NO_MODEL, will be populated lazily
         model_combo = QComboBox()
         from ..core import app_constants as ac
+
         model_combo.addItems([ac.NO_MODEL])
         model_combo.setEnabled(False)
         model_combo.setMinimumWidth(180)
@@ -624,54 +627,59 @@ class MDXNetAdvancedDialog(QDialog):
 
     def _get_filtered_models_for_stem(self, primary_stem, secondary_stem):
         """Get models that are suitable for the given stem pair.
-        
+
         This implements the same filtering logic as the original UVR.py model_list function.
         """
         try:
             from ..core import app_constants as ac
-            from ..core.uvr_core_adapter import UVRCoreAdapter
             from ..core.model_data import ModelData
-            
+            from ..core.uvr_core_adapter import UVRCoreAdapter
+
             adapter = UVRCoreAdapter()
             suitable_models = [ac.NO_MODEL]
-            
+
             # Get MDX models specifically
             mdx_models = adapter.get_available_models(ac.MDX_NET_MODELS_KEY)
-            
+
             for model_name in mdx_models:
                 try:
                     # Create minimal settings dict for ModelData creation
                     temp_settings = {
-                        'chosen_process_method': ac.MDX_ARCH_TYPE,
-                        'is_gpu_conversion': False,
-                        'is_normalization': False,
+                        "chosen_process_method": ac.MDX_ARCH_TYPE,
+                        "is_gpu_conversion": False,
+                        "is_normalization": False,
                     }
-                    
+
                     model_data = ModelData.from_settings_dict(
                         temp_settings,
                         _model_name_override=model_name,
                         _process_method_override=ac.MDX_ARCH_TYPE,
-                        _is_secondary_model_instance=True
+                        _is_secondary_model_instance=True,
                     )
-                    
+
                     # Check if model is suitable for this stem pair
-                    if self._is_model_suitable_for_stem_pair(model_data, primary_stem, secondary_stem):
+                    if self._is_model_suitable_for_stem_pair(
+                        model_data, primary_stem, secondary_stem
+                    ):
                         suitable_models.append(model_name)
-                        
+
                 except Exception as e:
                     logger.debug(f"Could not check MDX model {model_name}: {e}")
                     continue
-            
+
             return suitable_models
-            
+
         except Exception as e:
-            logger.error(f"Error getting filtered MDX models for {primary_stem}/{secondary_stem}: {e}")
+            logger.error(
+                f"Error getting filtered MDX models for {primary_stem}/{secondary_stem}: {e}"
+            )
             # If all else fails, return just NO_MODEL - no hardcoded fallback
             return [ac.NO_MODEL]
 
     def _get_process_method_for_arch(self, arch_key):
         """Get the process method string for the given architecture key."""
         from ..core import app_constants as ac
+
         arch_map = {
             ac.VR_ARCH_MODELS_KEY: ac.VR_ARCH_TYPE,
             ac.MDX_NET_MODELS_KEY: ac.MDX_ARCH_TYPE,
@@ -679,121 +687,166 @@ class MDXNetAdvancedDialog(QDialog):
         }
         return arch_map.get(arch_key, ac.MDX_ARCH_TYPE)
 
-    def _is_model_suitable_for_stem_pair(self, model_data, primary_stem, secondary_stem):
+    def _is_model_suitable_for_stem_pair(
+        self, model_data, primary_stem, secondary_stem
+    ):
         """Check if a model is suitable for the given stem pair.
-        
-        This implements the same logic as the original UVR.py matches_stem function.
+
+        This implements the exact logic as the original UVR.py matches_stem function.
         """
         try:
-            # Check primary/secondary stem match
-            if hasattr(model_data, 'primary_stem') and model_data.primary_stem:
-                if model_data.primary_stem in {primary_stem, secondary_stem}:
-                    return True
-            
-            # Check MDX stem compatibility
-            if hasattr(model_data, 'mdx_model_stems') and model_data.mdx_model_stems:
-                if primary_stem in model_data.mdx_model_stems:
-                    # For 2-stem models, check stem count
-                    if hasattr(model_data, 'mdx_stem_count') and model_data.mdx_stem_count <= 2:
-                        return True
-                    # For multi-stem models, just check if primary stem is supported
-                    return True
-            
-            # Check Demucs source compatibility
-            if hasattr(model_data, 'demucs_source_list') and model_data.demucs_source_list:
-                if primary_stem.lower() in [s.lower() for s in model_data.demucs_source_list]:
-                    return True
-            
-            # VR models are generally more flexible - most can work with any stem pair
-            if hasattr(model_data, 'process_method'):
-                from ..core import app_constants as ac
-                if model_data.process_method == ac.VR_ARCH_TYPE:
-                    return True
-            
-            return False
-            
+            # PRIMARY MATCH: Check if model's primary stem matches either primary or secondary stem
+            primary_match = False
+            if hasattr(model_data, "primary_stem") and model_data.primary_stem:
+                primary_match = model_data.primary_stem in {
+                    primary_stem,
+                    secondary_stem,
+                }
+
+            # MDX STEM MATCH: Check MDX stem compatibility (for 2-stem models only)
+            mdx_stem_match = False
+            if hasattr(model_data, "mdx_model_stems") and model_data.mdx_model_stems:
+                if (
+                    hasattr(model_data, "mdx_stem_count")
+                    and model_data.mdx_stem_count <= 2
+                ):
+                    mdx_stem_match = primary_stem in model_data.mdx_model_stems
+
+            # DEMUCS SOURCE MATCH: Check Demucs source compatibility
+            demucs_source_match = False
+            if (
+                hasattr(model_data, "demucs_source_list")
+                and model_data.demucs_source_list
+            ):
+                demucs_source_match = primary_stem.lower() in [
+                    s.lower() for s in model_data.demucs_source_list
+                ]
+
+            # Apply the exact UVR.py matches_stem logic:
+            # return primary_match or mdx_stem_match if is_no_demucs else primary_match or primary_stem in model.mdx_model_stems
+            # Since we're checking secondary models (not main models), we apply the full logic
+            return primary_match or mdx_stem_match or demucs_source_match
+
         except Exception as e:
             logger.debug(f"Error checking model suitability: {e}")
             return False
 
     def _load_models_if_needed(self):
-        """Lazy load models only when needed - optimized to load MDX models once."""
+        """Lazy load models only when needed - optimized to load all models once."""
         if self._models_loaded:
             return
-            
+
         try:
-            from ..core import app_constants as ac
-            from ..core.uvr_core_adapter import UVRCoreAdapter
-            from ..core.model_data import ModelData
-            
+
             # Load all models once and cache them
             adapter = UVRCoreAdapter()
             all_suitable_models = []
-            
+
             # Get all available models from all architectures (do this once)
-            for arch_key in [ac.VR_ARCH_MODELS_KEY, ac.MDX_NET_MODELS_KEY, ac.DEMUCS_MODELS_KEY]:
+            for arch_key in [
+                ac.VR_ARCH_MODELS_KEY,
+                ac.MDX_NET_MODELS_KEY,
+                ac.DEMUCS_MODELS_KEY,
+            ]:
                 arch_models = adapter.get_available_models(arch_key)
-                
+
                 for model_name in arch_models:
                     try:
                         # Create minimal settings dict for ModelData creation
                         temp_settings = {
-                            'chosen_process_method': self._get_process_method_for_arch(arch_key),
-                            'is_gpu_conversion': False,
-                            'is_normalization': False,
+                            "chosen_process_method": self._get_process_method_for_arch(
+                                arch_key
+                            ),
+                            "is_gpu_conversion": False,
+                            "is_normalization": False,
                         }
-                        
+
                         model_data = ModelData.from_settings_dict(
                             temp_settings,
                             _model_name_override=model_name,
-                            _process_method_override=self._get_process_method_for_arch(arch_key),
-                            _is_secondary_model_instance=True
+                            _process_method_override=self._get_process_method_for_arch(
+                                arch_key
+                            ),
+                            _is_secondary_model_instance=True,
                         )
-                        
+
                         # Store model with its data for filtering
                         all_suitable_models.append((model_name, model_data))
-                        
+
                     except Exception as e:
-                        logger.debug(f"Could not check MDX model {model_name}: {e}")
+                        logger.debug(f"Could not check model {model_name}: {e}")
                         continue
-            
+
             # Now filter for each stem pair efficiently
             stem_pairs = [
                 (ac.VOCAL_STEM, ac.INST_STEM),
                 (ac.BASS_STEM, ac.secondary_stem(ac.BASS_STEM)),
                 (ac.DRUM_STEM, ac.secondary_stem(ac.DRUM_STEM)),
-                (ac.OTHER_STEM, ac.secondary_stem(ac.OTHER_STEM))
+                (ac.OTHER_STEM, ac.secondary_stem(ac.OTHER_STEM)),
             ]
-            
+
             combo_boxes = [
                 self.vocals_model_combo,
                 self.bass_model_combo,
                 self.drums_model_combo,
-                self.other_model_combo
+                self.other_model_combo,
             ]
-            
+
             # Filter models for each stem pair
             for i, (primary_stem, secondary_stem) in enumerate(stem_pairs):
                 suitable_models = [ac.NO_MODEL]
-                
+
                 for model_name, model_data in all_suitable_models:
-                    if self._is_model_suitable_for_stem_pair(model_data, primary_stem, secondary_stem):
+                    if self._is_model_suitable_for_stem_pair(
+                        model_data, primary_stem, secondary_stem
+                    ):
                         suitable_models.append(model_name)
-                
+
                 # Update combo box
                 combo_boxes[i].clear()
                 combo_boxes[i].addItems(suitable_models)
-            
+
             self._models_loaded = True
+
+            # After loading models, restore saved selections
+            self._load_saved_secondary_model_selections()
+
             logger.debug("MDX models loaded successfully for secondary tab (optimized)")
-            
+
         except Exception as e:
             logger.error(f"Error loading MDX models: {e}")
             # Fallback: populate with just NO_MODEL
-            for combo in [self.vocals_model_combo, self.bass_model_combo, 
-                         self.drums_model_combo, self.other_model_combo]:
+            for combo in [
+                self.vocals_model_combo,
+                self.bass_model_combo,
+                self.drums_model_combo,
+                self.other_model_combo,
+            ]:
                 combo.clear()
                 combo.addItems([ac.NO_MODEL])
+
+    def _load_saved_secondary_model_selections(self):
+        """Load saved secondary model selections after models are loaded."""
+        if not self.current_settings:
+            return
+
+        sections = ["vocals", "bass", "drums", "other"]
+        for section in sections:
+            # Model selection
+            model_key = f"mdx_{section}_secondary_model"
+            if model_key in self.current_settings:
+                combo = getattr(self, f"{section}_model_combo")
+                model = self.current_settings[model_key]
+                index = combo.findText(model)
+                if index >= 0:
+                    combo.setCurrentIndex(index)
+                else:
+                    # If model not found, default to NO_MODEL
+                    from ..core import app_constants as ac
+
+                    no_model_index = combo.findText(ac.NO_MODEL)
+                    if no_model_index >= 0:
+                        combo.setCurrentIndex(no_model_index)
 
     def _on_tab_changed(self, index):
         """Handle tab change to implement lazy loading."""

@@ -7,30 +7,34 @@ from pathlib import Path
 from PySide6.QtCore import QObject, QStandardPaths, QTimer, Slot
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
+    QDialog,
+    QFormLayout,
     QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
     QMessageBox,
+    QPushButton,
+    QSlider,
+    QTextEdit,
+    QVBoxLayout,
     QWidget,
 )
 
+from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from uvr_pyside6_ui.core import app_constants as ac
 from uvr_pyside6_ui.core.logger_utils import get_logger
 from uvr_pyside6_ui.core.uvr_core_adapter import UVRCoreAdapter
 
+from ..core import app_constants as ac
 from .download_center_presenter import DownloadCenterPresenter
 from .settings_dialog_view import SettingsDialogView
 
+
 logger = get_logger(__name__)
-
-# VIP functionality imports
-try:
-    from cryptography.fernet import Fernet
-    from cryptography.hazmat.primitives import hashes
-    from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-
-    CRYPTO_AVAILABLE = True
-except ImportError:
-    logger.warning("Cryptography library not available - VIP verification disabled")
-    CRYPTO_AVAILABLE = False
 
 # VIP Constants - matching original UVR.py
 VIP_REPO = (
@@ -42,9 +46,6 @@ NO_CODE = "incorrect_code"
 
 def vip_downloads(password, link_type=VIP_REPO):
     """Attempts to decrypt VIP model link with given input codex"""
-    if not CRYPTO_AVAILABLE:
-        return NO_CODE
-
     try:
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
@@ -75,6 +76,104 @@ class SettingsDialogPresenter(QObject):
         self.download_center_presenter = DownloadCenterPresenter(
             adapter, self._settings_file_path, self
         )
+
+        # Reference to main window presenters for advanced settings
+        self._main_window_presenters = None
+
+    def set_main_window_presenters(self, presenters: dict):
+        """Set reference to main window presenters for advanced settings."""
+        self._main_window_presenters = presenters
+
+        # Connect presenter settings_changed signals to persistence system
+        self._connect_presenter_settings_to_persistence()
+
+    def _connect_presenter_settings_to_persistence(self):
+        """Connect presenter settings_changed signals to the persistence system."""
+        if not self._main_window_presenters:
+            return
+
+        from ..core import app_constants as ac
+
+        # Connect VR presenter
+        if ac.VR_ARCH_PRESENTER_KEY in self._main_window_presenters:
+            vr_presenter = self._main_window_presenters[ac.VR_ARCH_PRESENTER_KEY]
+            vr_presenter.settings_changed.connect(self._save_presenter_settings)
+            # Load existing settings for VR presenter
+            self._load_presenter_settings(vr_presenter, "vr_arch_settings")
+
+        # Connect MDX presenter
+        if ac.MDX_NET_PRESENTER_KEY in self._main_window_presenters:
+            mdx_presenter = self._main_window_presenters[ac.MDX_NET_PRESENTER_KEY]
+            mdx_presenter.settings_changed.connect(self._save_presenter_settings)
+            # Load existing settings for MDX presenter
+            self._load_presenter_settings(mdx_presenter, "mdx_net_settings")
+
+        # Connect Demucs presenter
+        if ac.DEMUCS_PRESENTER_KEY in self._main_window_presenters:
+            demucs_presenter = self._main_window_presenters[ac.DEMUCS_PRESENTER_KEY]
+            demucs_presenter.settings_changed.connect(self._save_presenter_settings)
+            # Load existing settings for Demucs presenter
+            self._load_presenter_settings(demucs_presenter, "demucs_settings")
+
+        # Connect Model Selection presenter
+        if ac.MODEL_SELECTION_PRESENTER_KEY in self._main_window_presenters:
+            model_presenter = self._main_window_presenters[
+                ac.MODEL_SELECTION_PRESENTER_KEY
+            ]
+            model_presenter.settings_changed.connect(self._save_presenter_settings)
+            # Load existing settings for Model Selection presenter
+            self._load_presenter_settings(model_presenter, "model_selection_settings")
+
+    def _save_presenter_settings(self, settings_dict):
+        """Save presenter settings to persistent storage."""
+        # Determine which presenter sent the signal
+        sender = self.sender()
+        if not sender:
+            return
+
+        from ..core import app_constants as ac
+
+        # Map sender to settings key
+        settings_key = None
+        if (
+            ac.VR_ARCH_PRESENTER_KEY in self._main_window_presenters
+            and sender == self._main_window_presenters[ac.VR_ARCH_PRESENTER_KEY]
+        ):
+            settings_key = "vr_arch_settings"
+        elif (
+            ac.MDX_NET_PRESENTER_KEY in self._main_window_presenters
+            and sender == self._main_window_presenters[ac.MDX_NET_PRESENTER_KEY]
+        ):
+            settings_key = "mdx_net_settings"
+        elif (
+            ac.DEMUCS_PRESENTER_KEY in self._main_window_presenters
+            and sender == self._main_window_presenters[ac.DEMUCS_PRESENTER_KEY]
+        ):
+            settings_key = "demucs_settings"
+        elif (
+            ac.MODEL_SELECTION_PRESENTER_KEY in self._main_window_presenters
+            and sender == self._main_window_presenters[ac.MODEL_SELECTION_PRESENTER_KEY]
+        ):
+            settings_key = "model_selection_settings"
+
+        if settings_key:
+            # Update current settings with the new data
+            self._current_settings[settings_key] = settings_dict
+            # Save to persistent storage
+            try:
+                with open(self._settings_file_path, "w", encoding="utf-8") as f:
+                    json.dump(self._current_settings, f, indent=4)
+                logger.debug(f"Saved {settings_key} to persistent storage")
+            except OSError as e:
+                logger.error(f"Error saving {settings_key}: {e}")
+
+    def _load_presenter_settings(self, presenter, settings_key):
+        """Load settings for a specific presenter from persistent storage."""
+        if settings_key in self._current_settings:
+            settings_data = self._current_settings[settings_key]
+            if hasattr(presenter, "load_settings"):
+                presenter.load_settings(settings_data)
+                logger.debug(f"Loaded {settings_key} from persistent storage")
 
     def _setup_view_connections(self):
         """Set up signal connections for the view."""
@@ -376,81 +475,55 @@ class SettingsDialogPresenter(QObject):
 
     def _show_vr_advanced_settings(self):
         """Show comprehensive VR Architecture advanced settings dialog."""
-        from .vr_arch_advanced_dialog import VRArchAdvancedDialog
 
-        # Get current VR settings from the main window if available
-        current_settings = {}
-        try:
-            # Try to get current settings from the main UI's VR presenter
-            if hasattr(self, "_main_window_ref") and self._main_window_ref:
-                # This would need to be connected properly to the main window
-                pass
-        except Exception as e:
-            logger.debug(f"Could not get current VR settings: {e}")
+        if (
+            self._main_window_presenters
+            and ac.VR_ARCH_PRESENTER_KEY in self._main_window_presenters
+        ):
+            # Use the main window's VR presenter which has proper settings persistence
+            vr_presenter = self._main_window_presenters[ac.VR_ARCH_PRESENTER_KEY]
+            vr_presenter.show_advanced_settings(is_vr_mode=False)
+        else:
+            logger.warning("VR presenter not available for advanced settings")
+            # Fallback to standalone dialog (without persistence)
+            from .vr_arch_advanced_dialog import VRArchAdvancedDialog
 
-        # Determine if this is VR_ARCH_PM mode (could be passed as parameter)
-        is_vr_mode = False  # This could be determined from the current model selection
-
-        dialog = VRArchAdvancedDialog(current_settings, is_vr_mode, self.view)
-
-        # Connect to handle settings updates
-        def on_settings_updated(settings):
-            logger.info("VR Architecture advanced settings updated")
-            # Here we would update the main UI's VR presenter with new settings
-            # This would need proper integration with the main application
-
-        dialog.settings_updated.connect(on_settings_updated)
-        dialog.exec()
+            dialog = VRArchAdvancedDialog({}, False, self.view)
+            dialog.exec()
 
     def _show_mdx_advanced_settings(self):
         """Show comprehensive MDX-Net advanced settings dialog."""
-        from .mdx_net_advanced_dialog import MDXNetAdvancedDialog
+        if (
+            self._main_window_presenters
+            and ac.MDX_NET_PRESENTER_KEY in self._main_window_presenters
+        ):
+            # Use the main window's MDX presenter which has proper settings persistence
+            mdx_presenter = self._main_window_presenters[ac.MDX_NET_PRESENTER_KEY]
+            mdx_presenter.show_advanced_settings()
+        else:
+            logger.warning("MDX presenter not available for advanced settings")
+            # Fallback to standalone dialog (without persistence)
+            from .mdx_net_advanced_dialog import MDXNetAdvancedDialog
 
-        # Get current MDX settings from the main window if available
-        current_settings = {}
-        try:
-            # Try to get current settings from the main UI's MDX presenter
-            if hasattr(self, "_main_window_ref") and self._main_window_ref:
-                # This would need to be connected properly to the main window
-                pass
-        except Exception as e:
-            logger.debug(f"Could not get current MDX settings: {e}")
-
-        dialog = MDXNetAdvancedDialog(current_settings, self.view)
-
-        # Connect to handle settings updates
-        def on_settings_updated(settings):
-            logger.info("MDX-Net advanced settings updated")
-            # Here we would update the main UI's MDX presenter with new settings
-            # This would need proper integration with the main application
-
-        dialog.settings_updated.connect(on_settings_updated)
-        dialog.exec()
+            dialog = MDXNetAdvancedDialog({}, self.view)
+            dialog.exec()
 
     def _show_demucs_advanced_settings(self):
         """Show comprehensive Demucs advanced settings dialog."""
-        from .demucs_advanced_dialog import DemucsAdvancedDialog
+        if (
+            self._main_window_presenters
+            and ac.DEMUCS_PRESENTER_KEY in self._main_window_presenters
+        ):
+            # Use the main window's Demucs presenter which has proper settings persistence
+            demucs_presenter = self._main_window_presenters[ac.DEMUCS_PRESENTER_KEY]
+            demucs_presenter.show_advanced_settings()
+        else:
+            logger.warning("Demucs presenter not available for advanced settings")
+            # Fallback to standalone dialog (without persistence)
+            from .demucs_advanced_dialog import DemucsAdvancedDialog
 
-        # Get current Demucs settings from the main window if available
-        current_settings = {}
-        try:
-            # Try to get current settings from the main UI's Demucs presenter
-            if hasattr(self, "_main_window_ref") and self._main_window_ref:
-                # This would need to be connected properly to the main window
-                pass
-        except Exception as e:
-            logger.debug(f"Could not get current Demucs settings: {e}")
-
-        dialog = DemucsAdvancedDialog(current_settings, self.view)
-
-        # Connect to handle settings updates
-        def on_settings_updated(settings):
-            logger.info("Demucs advanced settings updated")
-            # Here we would update the main UI's Demucs presenter with new settings
-            # This would need proper integration with the main application
-
-        dialog.settings_updated.connect(on_settings_updated)
-        dialog.exec()
+            dialog = DemucsAdvancedDialog({}, self.view)
+            dialog.exec()
 
     def _show_ensemble_settings(self):
         """Show advanced ensemble configuration dialog."""
@@ -499,19 +572,6 @@ class SettingsDialogPresenter(QObject):
 
     def _show_audio_alignment_tool(self):
         """Show comprehensive audio alignment settings dialog."""
-        from PySide6.QtWidgets import (
-            QCheckBox,
-            QComboBox,
-            QDialog,
-            QFormLayout,
-            QGroupBox,
-            QHBoxLayout,
-            QLabel,
-            QPushButton,
-            QSlider,
-            QVBoxLayout,
-        )
-
         dialog = QDialog(self.view)
         dialog.setWindowTitle("Audio Alignment Settings")  # Shorter title
         dialog.setModal(True)
@@ -637,15 +697,6 @@ class SettingsDialogPresenter(QObject):
 
     def _show_information_guide(self):
         """Show information guide."""
-        from PySide6.QtWidgets import (
-            QDialog,
-            QHBoxLayout,
-            QLabel,
-            QPushButton,
-            QTextEdit,
-            QVBoxLayout,
-        )
-
         dialog = QDialog(self.view)
         dialog.setWindowTitle("Information Guide")
         dialog.resize(600, 500)
@@ -698,15 +749,6 @@ For more information, visit the project documentation."""
 
     def _show_error_log(self):
         """Show error log."""
-        from PySide6.QtWidgets import (
-            QDialog,
-            QHBoxLayout,
-            QLabel,
-            QPushButton,
-            QTextEdit,
-            QVBoxLayout,
-        )
-
         dialog = QDialog(self.view)
         dialog.setWindowTitle("Error Log")
         dialog.resize(600, 400)
@@ -925,17 +967,6 @@ For more information, visit the project documentation."""
     @Slot()
     def _on_vip_access(self):
         """Handle VIP access button click - show VIP code input dialog."""
-        from PySide6.QtWidgets import (
-            QDialog,
-            QFormLayout,
-            QHBoxLayout,
-            QLabel,
-            QLineEdit,
-            QPushButton,
-            QTextEdit,
-            QVBoxLayout,
-        )
-
         dialog = QDialog(self.view)
         dialog.setWindowTitle("VIP Access")
         dialog.resize(450, 350)
@@ -1081,15 +1112,6 @@ Enter your VIP access code below to unlock these features."""
 
     def _show_vip_purchase_info(self, parent_dialog):
         """Show information about purchasing VIP access."""
-        from PySide6.QtWidgets import (
-            QDialog,
-            QHBoxLayout,
-            QLabel,
-            QPushButton,
-            QTextEdit,
-            QVBoxLayout,
-        )
-
         info_dialog = QDialog(parent_dialog)
         info_dialog.setWindowTitle("Get VIP Access")
         info_dialog.resize(400, 300)
@@ -1161,18 +1183,6 @@ Valid VIP codes are encrypted and provided by the UVR development team."""
     @Slot()
     def _on_manual_download(self):
         """Handle manual download button click."""
-        from PySide6.QtWidgets import (
-            QComboBox,
-            QDialog,
-            QFormLayout,
-            QHBoxLayout,
-            QLabel,
-            QLineEdit,
-            QMessageBox,
-            QPushButton,
-            QVBoxLayout,
-        )
-
         dialog = QDialog(self.view)
         dialog.setWindowTitle("Manual Download")
         dialog.resize(500, 300)

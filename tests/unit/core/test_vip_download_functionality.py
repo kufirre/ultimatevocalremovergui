@@ -14,8 +14,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from uvr_pyside6_ui.ui.download_center_presenter import CRYPTO_AVAILABLE
 from uvr_pyside6_ui.ui.settings_dialog_presenter import (
-    CRYPTO_AVAILABLE,
     NO_CODE,
     VIP_REPO,
     SettingsDialogPresenter,
@@ -51,7 +51,7 @@ class TestVIPDownloadFunctionality:
     def test_vip_downloads_without_crypto_library(self):
         """Test VIP downloads behaves correctly when crypto library unavailable."""
         with patch(
-            "uvr_pyside6_ui.ui.settings_dialog_presenter.CRYPTO_AVAILABLE", False
+            "uvr_pyside6_ui.ui.download_center_presenter.CRYPTO_AVAILABLE", False
         ):
             result = vip_downloads("any_password")
             assert result == NO_CODE

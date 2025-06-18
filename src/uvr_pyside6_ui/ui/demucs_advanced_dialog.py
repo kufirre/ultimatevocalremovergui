@@ -805,8 +805,9 @@ class DemucsAdvancedDialog(QDialog):
                         combo.setCurrentIndex(no_model_index)
 
     def _get_karaokee_models(self):
-        """Get models that are suitable for vocal splitting using shared ModelData method."""
-        return ModelData.get_karaoke_models()
+        """Get models that are suitable for vocal splitting using shared utility function."""
+        from ..core.model_utils import get_karaoke_models
+        return get_karaoke_models()
 
 
 class DemucsAdvancedPresenter(QObject):

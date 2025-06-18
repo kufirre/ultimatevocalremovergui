@@ -456,3 +456,101 @@ DEBUG_LOG_LEVEL = LOG_LEVEL_DEBUG
 # Log format
 LOG_FORMAT = "%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(message)s"
 LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+# Settings Keys Constants
+class SettingKeys:
+    """Constants for settings dictionary keys to prevent typos and ensure consistency."""
+    
+    # General Settings
+    IS_GPU = "is_gpu_conversion"
+    GPU_DEVICE_INDEX = "gpu_device_index"
+    DEVICE_SET = "device_set"
+    PRIMARY_STEM_ONLY = "is_primary_stem_only"
+    SECONDARY_STEM_ONLY = "is_secondary_stem_only"
+    
+    # Audio Settings
+    AUDIO_FILE = "audio_file"
+    EXPORT_PATH = "export_path"
+    SAVE_FORMAT = "save_format"
+    WAV_TYPE_SET = "wav_type_set"
+    MP3_BIT_SET = "mp3_bit_set"
+    IS_NORMALIZATION = "is_normalization"
+    SAMPLE_RATE = "sample_rate"
+    MODEL_SAMPLERATE = "model_samplerate"
+    
+    # Model Settings
+    MODEL_NAME = "model_name"
+    MODEL_BASENAME = "model_basename"
+    MODEL_PATH = "model_path"
+    MODEL_STATUS = "model_status"
+    PROCESS_METHOD = "process_method"
+    PRIMARY_STEM = "primary_stem"
+    SECONDARY_STEM = "secondary_stem"
+    
+    # VR Settings
+    VR_MODEL_PARAM = "vr_model_param"
+    WINDOW_SIZE = "window_size"
+    BATCH_SIZE = "batch_size"
+    CROP_SIZE = "crop_size"
+    IS_TTA = "is_tta"
+    IS_POST_PROCESS = "is_post_process"
+    POST_PROCESS_THRESHOLD = "post_process_threshold"
+    AGGRESSION_SETTING = "aggression_setting"
+    IS_HIGH_END_PROCESS = "is_high_end_process"
+    IS_VR_51_MODEL = "is_vr_51_model"
+    MODEL_CAPACITY = "model_capacity"
+    
+    # MDX Settings
+    IS_MDX_C = "is_mdx_c"
+    MDX_SEGMENT_SIZE = "mdx_segment_size"
+    MDX_DIM_T_SET = "mdx_dim_t_set"
+    MDX_DIM_F_SET = "mdx_dim_f_set"
+    MDX_N_FFT_SCALE_SET = "mdx_n_fft_scale_set"
+    MDX_STEM_COUNT = "mdx_stem_count"
+    MDX_MODEL_STEMS = "mdx_model_stems"
+    COMPENSATE = "compensate"
+    IS_DENOISE = "is_denoise"
+    IS_INVERT_SPEC = "is_invert_spec"
+    MDX_BATCH_SIZE = "mdx_batch_size"
+    
+    # Demucs Settings
+    DEMUCS_VERSION = "demucs_version"
+    DEMUCS_SOURCE_LIST = "demucs_source_list"
+    DEMUCS_SOURCE_MAP = "demucs_source_map"
+    DEMUCS_STEMS = "demucs_stems"
+    IS_DEMUCS_4_STEM_SECONDARIES_ACTIVATED = "is_demucs_4_stem_secondaries_activated"
+    SECONDARY_MODEL_4_STEM_INSTANCES = "secondary_model_4_stem_instances"
+    SECONDARY_MODEL_4_STEM_SCALES = "secondary_model_4_stem_scales"
+    IS_DEMUCS_COMBINE_STEMS = "is_demucs_combine_stems"
+    SEGMENT = "segment"
+    OVERLAP = "overlap"
+    SHIFTS = "shifts"
+    IS_SPLIT_MODE = "is_split_mode"
+    
+    # Ensemble Settings
+    IS_ENSEMBLE_MODE = "is_ensemble_mode"
+    ENSEMBLE_MODELS = "ensemble_models"
+    ENSEMBLE_MAIN_STEM = "ensemble_main_stem"
+    ENSEMBLE_TYPE = "ensemble_type"
+    ENSEMBLE_ALGORITHM = "ensemble_algorithm"
+    IS_4_STEM_ENSEMBLE = "is_4_stem_ensemble"
+    
+    # Secondary Model Settings
+    SECONDARY_MODEL = "secondary_model"
+    IS_SECONDARY_MODEL_CHAIN_ACTIVATED = "is_secondary_model_chain"
+    SECONDARY_MODEL_CHAIN_SCALE = "secondary_model_chain_scale"
+    
+    # Vocal Splitter Settings
+    VOCAL_SPLIT_MODEL = "vocal_split_model"
+    IS_VOCAL_SPLIT_MODEL_ACTIVATED = "is_vocal_split_model_activated"
+    IS_SAVE_INST_VOCAL_SPLITTER = "is_save_inst_set"
+    
+    # Other Settings
+    IS_PITCH_CHANGE = "is_pitch_change"
+    SEMITONE_SHIFT = "semitone_shift"
+    IS_SAVE_ALL_OUTPUTS = "is_save_all_outputs"
+    IS_USING_GPU = "is_using_GPU"
+    
+    # Demucs-specific stem-only settings
+    PRIMARY_STEM_ONLY_DEMUCS = "is_primary_stem_only_Demucs"
+    SECONDARY_STEM_ONLY_DEMUCS = "is_secondary_stem_only_Demucs"

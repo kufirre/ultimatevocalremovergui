@@ -2110,7 +2110,7 @@ class ProcessingWorker(QObject):
                         model_path = gzip.open(self.model_data.model_path, "rb")
                     else:
                         model_path = self.model_data.model_path
-                    klass, args, kwargs, state = torch.load(model_path, map_location=CPU_DEVICE, weights_only=False)
+                    klass, args, kwargs, state = torch.load(model_path, map_location=ac.CPU_DEVICE, weights_only=False)
                     demucs_model = klass(*args, **kwargs)
                     demucs_model.to(self.device_torch)
                     demucs_model.load_state_dict(state)

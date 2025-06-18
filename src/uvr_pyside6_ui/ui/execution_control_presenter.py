@@ -107,6 +107,18 @@ class ExecutionControlPresenter(QObject):
         if ui_method_key and ui_method_key in self.presenters:
             all_settings.update(self.presenters[ui_method_key].get_settings())
 
+        # Add stem information for proper VR processing
+        if internal_method_name == ac.VR_ARCH_TYPE:
+            # Get current stem names from model selection
+            model_sel_presenter = self.presenters[ac.MODEL_SELECTION_PRESENTER_KEY]
+            primary_stem, secondary_stem = model_sel_presenter._get_stems_for_model(
+                model_sel_presenter._current_method, model_sel_presenter._current_model
+            )
+            all_settings.update({
+                "primary_stem_text": primary_stem,
+                "secondary_stem_text": secondary_stem,
+            })
+
         # Add model selection details last, so model_data can correctly pick up method and model
         all_settings.update(model_details)
 

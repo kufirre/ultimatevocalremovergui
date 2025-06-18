@@ -143,6 +143,8 @@ class ModelData:
     primary_stem: str = ac.VOCAL_STEM
     secondary_stem: str = ac.INST_STEM
     primary_stem_native: Optional[str] = None
+    model_original_primary_stem: Optional[str] = None  # Store model's original configuration
+    user_requested_stem: Optional[str] = None  # What the user actually wants to extract
 
     vr_model_param: Optional[ModelParameters] = None
     model_samplerate: int = 44100
@@ -207,6 +209,10 @@ class ModelData:
     is_pitch_change: bool = False
 
     def __post_init__(self):
+        # Import here to avoid circular dependency - only when adapter is actually needed
+        from .uvr_core_adapter import UVRCoreAdapter
+        self.adapter = UVRCoreAdapter()
+
         if self.model_name and not self.model_basename:
             self.model_basename = Path(self.model_name).stem
         if self.primary_stem:
@@ -929,6 +935,27 @@ class ModelData:
         except Exception:
             return None
 
+    def _normalize_stem_name(self, stem_name: str) -> str:
+        """Convert UI stem name to standardized constant."""
+        stem_name_lower = stem_name.lower().strip()
+        
+        # Map common UI stem names to their constants
+        stem_mapping = {
+            "vocals": ac.VOCAL_STEM,
+            "vocal": ac.VOCAL_STEM,
+            "voice": ac.VOCAL_STEM,
+            "instrumental": ac.INST_STEM,
+            "instruments": ac.INST_STEM,
+            "music": ac.INST_STEM,
+            "bass": ac.BASS_STEM,
+            "drums": ac.DRUM_STEM,
+            "drum": ac.DRUM_STEM,
+            "other": ac.OTHER_STEM,
+            "others": ac.OTHER_STEM,
+        }
+        
+        return stem_mapping.get(stem_name_lower, stem_name)
+    
     def _get_secondary_model_settings(
         self, settings: Dict[str, Any]
     ):  # ... (content remains the same)
@@ -1126,7 +1153,26 @@ class ModelData:
 
         if self.process_method == ac.VR_ARCH_TYPE:
             if model_params_json:
-                self.primary_stem = model_params_json.get("primary_stem", ac.VOCAL_STEM)
+                # Store the model's original stem configuration (don't change this)
+                self.model_original_primary_stem = model_params_json.get("primary_stem", ac.VOCAL_STEM)
+                self.primary_stem = self.model_original_primary_stem  # Keep model's original primary/secondary designation
+                
+                # Store what the user actually wants to extract (separate from primary/secondary)
+                user_wants_primary_only = settings.get("is_primary_stem_only", False)
+                user_wants_secondary_only = settings.get("is_secondary_stem_only", False)
+                requested_primary_stem = settings.get("primary_stem_text", "")
+                requested_secondary_stem = settings.get("secondary_stem_text", "")
+                
+                # Determine what specific stem type the user wants
+                self.user_requested_stem = None
+                if user_wants_primary_only and requested_primary_stem:
+                    # User selected "Vocals Only", "Bass Only", etc.
+                    target_stem_name = requested_primary_stem.replace(" Only", "").strip()
+                    self.user_requested_stem = self._normalize_stem_name(target_stem_name)
+                elif user_wants_secondary_only and requested_secondary_stem:
+                    # User selected the secondary stem only
+                    target_stem_name = requested_secondary_stem.replace(" Only", "").strip()
+                    self.user_requested_stem = self._normalize_stem_name(target_stem_name)
                 param_file_name = model_params_json.get("vr_model_param")
                 if param_file_name and ModelParameters is not ac.DummyModelParameters:
                     # Ensure the .json extension is present for the check and for ModelParameters
@@ -1392,9 +1438,7 @@ class ModelData:
                         )
                     else:
                         # Other methods use generic keys
-                        member_settings["is_primary_stem_only"] = (
-                            ensemble_primary_stem_only
-                        )
+                        member_settings["is_primary_stem_only"] = ensemble_primary_stem_only
                         member_settings["is_secondary_stem_only"] = (
                             ensemble_secondary_stem_only
                         )
@@ -1461,38 +1505,18 @@ class ModelData:
 
     def _determine_model_process_method(self, model_name: str) -> Optional[str]:
         """Determine the process method (VR/MDX/Demucs) for a given model name."""
-        # Use file extension to determine model type - this is more reliable than scanning directories
-        model_path = Path(model_name)
-        extension = model_path.suffix.lower()
+        from .model_utils import determine_model_process_method
+        return determine_model_process_method(model_name)
 
-        if extension == ".pth":
-            return ac.VR_ARCH_TYPE
-        elif extension in [".onnx", ".ckpt"]:
-            return ac.MDX_ARCH_TYPE
-        elif extension in [".yaml", ".th", ".gz"]:
-            return ac.DEMUCS_ARCH_TYPE
-        else:
-            # Fallback: try to check if it's in model directories
-            try:
-                from ..core.uvr_core_adapter import UVRCoreAdapter
-
-                adapter = UVRCoreAdapter(None)
-
-                vr_models = adapter.get_available_models(ac.VR_ARCH_MODELS_KEY)
-                if model_name in vr_models:
-                    return ac.VR_ARCH_TYPE
-
-                mdx_models = adapter.get_available_models(ac.MDX_NET_MODELS_KEY)
-                if model_name in mdx_models:
-                    return ac.MDX_ARCH_TYPE
-
-                demucs_models = adapter.get_available_models(ac.DEMUCS_MODELS_KEY)
-                if model_name in demucs_models:
-                    return ac.DEMUCS_ARCH_TYPE
-            except Exception:
-                pass
-
-        logger.warning(
-            f"Warning: Could not determine process method for model: {model_name}"
-        )
-        return None
+    @staticmethod
+    def get_karaoke_models():
+        """Get models that are suitable for vocal splitting using proper ModelData metadata detection.
+        
+        This method is shared across all advanced dialogs to avoid code duplication.
+        Returns list of model names that have is_karaoke or is_bv_model flags set.
+        
+        Note: Uses minimal settings dict for ModelData instantiation to check model metadata.
+        This approach follows the pattern used in UVR.py for model compatibility checking.
+        """
+        from .model_utils import get_karaoke_models
+        return get_karaoke_models()

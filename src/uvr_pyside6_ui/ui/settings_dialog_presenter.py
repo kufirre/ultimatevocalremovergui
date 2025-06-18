@@ -78,6 +78,10 @@ class SettingsDialogPresenter(QObject):
 
         # Reference to main window presenters for advanced settings
         self._main_window_presenters = None
+        
+        # References to information guide and error log presenters
+        self._information_guide_presenter = None
+        self._error_log_presenter = None
 
     def set_main_window_presenters(self, presenters: dict):
         """Set reference to main window presenters for advanced settings."""
@@ -85,6 +89,14 @@ class SettingsDialogPresenter(QObject):
 
         # Connect presenter settings_changed signals to persistence system
         self._connect_presenter_settings_to_persistence()
+        
+    def set_information_guide_presenter(self, presenter):
+        """Set reference to information guide presenter."""
+        self._information_guide_presenter = presenter
+        
+    def set_error_log_presenter(self, presenter):
+        """Set reference to error log presenter."""
+        self._error_log_presenter = presenter
 
     def _connect_presenter_settings_to_persistence(self):
         """Connect presenter settings_changed signals to the persistence system."""
@@ -696,19 +708,22 @@ class SettingsDialogPresenter(QObject):
 
     def _show_information_guide(self):
         """Show information guide."""
-        dialog = QDialog(self.view)
-        dialog.setWindowTitle("Information Guide")
-        dialog.resize(600, 500)
+        if self._information_guide_presenter:
+            self._information_guide_presenter.show_information_guide()
+        else:
+            dialog = QDialog(self.view)
+            dialog.setWindowTitle("Information Guide")
+            dialog.resize(600, 500)
 
-        layout = QVBoxLayout(dialog)
+            layout = QVBoxLayout(dialog)
 
-        label = QLabel("Ultimate Vocal Remover - User Guide")
-        label.setStyleSheet("font-weight: bold; font-size: 14px;")
-        layout.addWidget(label)
+            label = QLabel("Ultimate Vocal Remover - User Guide")
+            label.setStyleSheet("font-weight: bold; font-size: 14px;")
+            layout.addWidget(label)
 
-        text_edit = QTextEdit()
-        text_edit.setPlainText(
-            """Welcome to Ultimate Vocal Remover!
+            text_edit = QTextEdit()
+            text_edit.setPlainText(
+                """Welcome to Ultimate Vocal Remover!
 
 This application uses AI models to separate audio sources from mixed recordings.
 
@@ -731,55 +746,58 @@ Tips:
 - Try different models to find what works best for your audio
 
 For more information, visit the project documentation."""
-        )
-        text_edit.setReadOnly(True)
-        layout.addWidget(text_edit)
+            )
+            text_edit.setReadOnly(True)
+            layout.addWidget(text_edit)
 
-        # Buttons
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
+            # Buttons
+            button_layout = QHBoxLayout()
+            button_layout.addStretch()
 
-        close_btn = QPushButton("Close")
-        close_btn.clicked.connect(dialog.accept)
-        button_layout.addWidget(close_btn)
-        layout.addLayout(button_layout)
+            close_btn = QPushButton("Close")
+            close_btn.clicked.connect(dialog.accept)
+            button_layout.addWidget(close_btn)
+            layout.addLayout(button_layout)
 
-        dialog.exec()
+            dialog.exec()
 
     def _show_error_log(self):
         """Show error log."""
-        dialog = QDialog(self.view)
-        dialog.setWindowTitle("Error Log")
-        dialog.resize(600, 400)
+        if self._error_log_presenter:
+            self._error_log_presenter.show_error_log()
+        else:
+            dialog = QDialog(self.view)
+            dialog.setWindowTitle("Error Log")
+            dialog.resize(600, 400)
 
-        layout = QVBoxLayout(dialog)
+            layout = QVBoxLayout(dialog)
 
-        label = QLabel("Application Error Log")
-        label.setStyleSheet("font-weight: bold;")
-        layout.addWidget(label)
+            label = QLabel("Application Error Log")
+            label.setStyleSheet("font-weight: bold;")
+            layout.addWidget(label)
 
-        text_edit = QTextEdit()
-        # In a real implementation, this would read from actual log files
-        text_edit.setPlainText(
-            "No errors recorded in this session.\n\nThis log shows application errors and warnings to help diagnose issues."
-        )
-        text_edit.setReadOnly(True)
-        layout.addWidget(text_edit)
+            text_edit = QTextEdit()
+            # In a real implementation, this would read from actual log files
+            text_edit.setPlainText(
+                "No errors recorded in this session.\n\nThis log shows application errors and warnings to help diagnose issues."
+            )
+            text_edit.setReadOnly(True)
+            layout.addWidget(text_edit)
 
-        # Buttons
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
+            # Buttons
+            button_layout = QHBoxLayout()
+            button_layout.addStretch()
 
-        clear_btn = QPushButton("Clear Log")
-        close_btn = QPushButton("Close")
-        clear_btn.clicked.connect(lambda: text_edit.clear())
-        close_btn.clicked.connect(dialog.accept)
+            clear_btn = QPushButton("Clear Log")
+            close_btn = QPushButton("Close")
+            clear_btn.clicked.connect(lambda: text_edit.clear())
+            close_btn.clicked.connect(dialog.accept)
 
-        button_layout.addWidget(clear_btn)
-        button_layout.addWidget(close_btn)
-        layout.addLayout(button_layout)
+            button_layout.addWidget(clear_btn)
+            button_layout.addWidget(close_btn)
+            layout.addLayout(button_layout)
 
-        dialog.exec()
+            dialog.exec()
 
     @Slot()
     def _on_dc_stop_button_clicked(self) -> None:

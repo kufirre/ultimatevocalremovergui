@@ -498,21 +498,51 @@ class SeparateVRLogic(SeparatorAttributesLogic):
 
         outputs = {}
 
-        # Standard VR spec assignment (let's test if the swap was actually necessary)
-        # If VR outputs are still wrong, the issue might be elsewhere
-        logger.info(f"VR processing: primary_stem={md.primary_stem}, secondary_stem={md.secondary_stem}")
-        primary_spec = y_spec   # Standard: y_spec for primary (vocals)
-        secondary_spec = v_spec  # Standard: v_spec for secondary (instrumental)
+        # Map model outputs to deliver what the user actually requested
+        # VR models produce: y_spec (masked portion) and v_spec (inverted mask portion)
+        # Model's JSON defines which stem type is in the masked portion (primary_stem)
+        logger.info(f"VR processing: model primary_stem={md.primary_stem}, secondary_stem={md.secondary_stem}")
+        
+        # Check if user made a specific stem request
+        user_requested_specific_stem = getattr(md, 'user_requested_stem', None)
+        model_primary_stem = md.primary_stem
+        model_secondary_stem = md.secondary_stem
+        
+        if user_requested_specific_stem:
+            logger.info(f"User specifically requested: {user_requested_specific_stem}")
+            logger.info(f"Model outputs: primary={model_primary_stem}, secondary={model_secondary_stem}")
+            
+            # Determine which spectrogram contains the user's requested stem
+            if user_requested_specific_stem == model_primary_stem:
+                # User wants what's in the primary stem (y_spec)
+                target_primary_spec = y_spec
+                target_secondary_spec = v_spec
+                logger.info(f"User wants primary stem: using y_spec for {user_requested_specific_stem}")
+            elif user_requested_specific_stem == model_secondary_stem:
+                # User wants what's in the secondary stem (v_spec) 
+                target_primary_spec = v_spec
+                target_secondary_spec = y_spec
+                logger.info(f"User wants secondary stem: using v_spec for {user_requested_specific_stem}")
+            else:
+                # Fallback: user requested something not in this model's capabilities
+                target_primary_spec = y_spec
+                target_secondary_spec = v_spec
+                logger.warning(f"User requested {user_requested_specific_stem} but model only has {model_primary_stem}/{model_secondary_stem}")
+        else:
+            # No specific user request - use standard mapping
+            target_primary_spec = y_spec
+            target_secondary_spec = v_spec
+            logger.info("No specific user request: using standard mapping")
 
         self._update_progress(0.80, message="Processing stems...")
 
         if not md.is_secondary_stem_only:
-            primary_wave = self._spec_to_wav_vr_logic(primary_spec)
+            primary_wave = self._spec_to_wav_vr_logic(target_primary_spec)
 
             if primary_wave is not None:
                 if primary_wave.size == 0:
                     logger.warning(
-                        f"Warning: {md.primary_stem} wave is empty. Creating silent output."
+                        f"Warning: output wave is empty. Creating silent output."
                     )
                     primary_wave = np.zeros_like(original_mix_audio_array)
 
@@ -533,11 +563,15 @@ class SeparateVRLogic(SeparatorAttributesLogic):
                     pass
 
                 self.primary_source = primary_wave
+                
+                # Use the user's requested stem name if available, otherwise use model's primary stem
+                output_stem_name = user_requested_specific_stem if user_requested_specific_stem else md.primary_stem
+                
                 self.primary_source_map = self._final_process_stem(
                     "",
                     primary_wave,
                     self.secondary_source_primary,
-                    md.primary_stem,
+                    output_stem_name,
                     ac.DEFAULT_SAMPLE_RATE,
                 )
                 outputs.update(self.primary_source_map)
@@ -547,12 +581,12 @@ class SeparateVRLogic(SeparatorAttributesLogic):
         self._update_progress(0.90, message="Finalizing...")
 
         if not md.is_primary_stem_only:
-            secondary_wave = self._spec_to_wav_vr_logic(secondary_spec)
+            secondary_wave = self._spec_to_wav_vr_logic(target_secondary_spec)
 
             if secondary_wave is not None:
                 if secondary_wave.size == 0:
                     logger.warning(
-                        f"Warning: {md.secondary_stem} wave is empty. Creating silent output."
+                        f"Warning: secondary output wave is empty. Creating silent output."
                     )
                     secondary_wave = np.zeros_like(original_mix_audio_array)
 
@@ -573,11 +607,19 @@ class SeparateVRLogic(SeparatorAttributesLogic):
 
                 # VR secondary stem is just the converted spectrogram
                 self.secondary_source = secondary_wave
+                
+                # Determine the secondary stem name based on what we're outputting
+                if user_requested_specific_stem:
+                    # If user requested a specific stem, the secondary is the other one
+                    secondary_stem_name = model_primary_stem if user_requested_specific_stem == model_secondary_stem else model_secondary_stem
+                else:
+                    secondary_stem_name = md.secondary_stem
+                
                 self.secondary_source_map = self._final_process_stem(
                     "",
                     secondary_wave,
                     self.secondary_source_secondary,
-                    md.secondary_stem,
+                    secondary_stem_name,
                     ac.DEFAULT_SAMPLE_RATE,
                 )
                 outputs.update(self.secondary_source_map)

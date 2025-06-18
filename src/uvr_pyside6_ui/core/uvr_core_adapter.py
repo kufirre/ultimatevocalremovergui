@@ -580,59 +580,20 @@ class UVRCoreAdapter(QObject):
         ]
 
     def get_available_models(self, method_name: str) -> list:  # Logic from response #35
-        base_models_dir = self._get_project_models_dir()
-        if not base_models_dir:
+        # Map UI keys to internal constants for the utility function
+        method_map = {
+            ac.VR_ARCH_MODELS_KEY: ac.VR_ARCH_TYPE,
+            ac.MDX_NET_MODELS_KEY: ac.MDX_ARCH_TYPE, 
+            ac.DEMUCS_MODELS_KEY: ac.DEMUCS_ARCH_TYPE,
+        }
+        
+        model_type = method_map.get(method_name)
+        if not model_type:
             return []
-        method_subdir_key = MODEL_SUBDIRS.get(method_name)
-        if not method_subdir_key:
-            return []
-        method_path = base_models_dir / method_subdir_key
-        scanned_identifiers = []
-        name_mapper = {}
-        if method_name == ac.VR_ARCH_MODELS_KEY:
-            scanned_identifiers = self._scan_path_for_identifiers(
-                method_path, VR_ARCH_SCAN_EXTENSIONS, recursive=True
-            )
-        elif method_name == ac.MDX_NET_MODELS_KEY:
-            scanned_identifiers = self._scan_path_for_identifiers(
-                method_path,
-                MDX_SCAN_EXTENSIONS,
-                is_mdx_ckpt_special_case=True,
-                recursive=True,
-            )
-            name_mapper = self._load_name_mapper(method_path)
-        elif method_name == ac.DEMUCS_MODELS_KEY:
-            ids_legacy = self._scan_path_for_identifiers(
-                method_path, DEMUCS_LEGACY_SCAN_EXTENSIONS, recursive=False
-            )
-            newer_repo_path = method_path / DEMUCS_V3_V4_REPO_DIR_NAME
-            ids_v3_v4_yaml = self._scan_path_for_identifiers(
-                newer_repo_path, DEMUCS_V3_V4_SCAN_EXTENSIONS, recursive=True
-            )
-            scanned_identifiers = list(set(ids_legacy + ids_v3_v4_yaml))
-            name_mapper = self._load_name_mapper(method_path)
-        if not scanned_identifiers:
-            return []
-        final_display_names = []
-        for identifier in scanned_identifiers:
-            display_name, was_mapped = self._get_display_name_from_mapper(
-                identifier, name_mapper
-            )
-            if was_mapped:  # Add if it was successfully mapped to a display name
-                final_display_names.append(display_name)
-            elif (
-                not name_mapper
-            ):  # If no mapper exists (like for VR models), add the identifier directly
-                # Strip file extensions for cleaner display
-                clean_name = self._strip_model_extension(identifier)
-                final_display_names.append(clean_name)
-            else:  # Mapper exists but model wasn't found - add the identifier anyway
-                # This ensures newly downloaded models show up even if not in mapper
-                # Strip file extensions for cleaner display
-                clean_name = self._strip_model_extension(identifier)
-                final_display_names.append(clean_name)
-
-        return natsort.natsorted(list(set(final_display_names)))
+            
+        # Use the utility function for model scanning
+        from .model_utils import scan_models_directory
+        return scan_models_directory(model_type)
 
     def _strip_model_extension(self, model_name: str) -> str:
         """Remove common model file extensions for cleaner display."""

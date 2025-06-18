@@ -36,7 +36,7 @@ QPushButton:disabled {
 
 /* Text widgets use monospace fonts */
 QTextEdit, QPlainTextEdit {
-    font-family: "SF Mono", "Monaco", "Consolas", "Liberation Mono", "DejaVu Sans Mono", monospace;
+    font-family: "Monaco", "Consolas", "Liberation Mono", "DejaVu Sans Mono", "Courier New", monospace;
     background-color: #1c2833; /* Darker input fields */
     border: 1px solid #4a637a;
     padding: 4px;
@@ -182,7 +182,7 @@ QPushButton#prominentButton {
 }
 
 QTextEdit#logConsole {
-    font-family: "SF Mono", "Monaco", "Liberation Mono", "DejaVu Sans Mono", "Courier New", monospace;
+    font-family: "Monaco", "Consolas", "Liberation Mono", "DejaVu Sans Mono", "Courier New", monospace;
     font-size: 9pt; /* Adjusted from 10px to 9pt */
     background-color: #1a252f; /* Slightly different background for log */
     color: #c0c0c0; /* Lighter grey for log text */

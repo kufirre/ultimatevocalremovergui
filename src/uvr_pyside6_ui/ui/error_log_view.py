@@ -53,7 +53,14 @@ class ErrorLogView(QDialog):
         # Log display area
         self.log_text = QTextEdit()
         self.log_text.setReadOnly(True)
-        self.log_text.setFont(QFont("SF Mono", 9))  # Monospace font for logs
+        
+        # Set monospace font with fallbacks
+        font = QFont()
+        font.setFamily("Consolas, Monaco, 'Liberation Mono', 'DejaVu Sans Mono', 'Courier New', monospace")
+        font.setPointSize(9)
+        font.setStyleHint(QFont.Monospace)  # Ensure monospace fallback
+        self.log_text.setFont(font)
+        
         self.log_text.setObjectName("logConsole")  # For CSS styling
         main_layout.addWidget(self.log_text)
 

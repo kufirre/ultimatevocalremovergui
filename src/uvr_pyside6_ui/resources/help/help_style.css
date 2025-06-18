@@ -40,7 +40,7 @@ b {
 }
 
 code {
-    font-family: "SF Mono", "Monaco", "Consolas", "Liberation Mono", "DejaVu Sans Mono", monospace;
+    font-family: "Monaco", "Consolas", "Liberation Mono", "DejaVu Sans Mono", "Courier New", monospace;
     background-color: #34495e;
     padding: 2px 4px;
     border-radius: 3px;

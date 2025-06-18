@@ -1,6 +1,7 @@
 from PySide6.QtCore import QObject, Slot
 
 from ..core import app_constants as ac
+from ..core.batch_processing_worker import BatchProcessingWorker
 
 # No QTimer needed here now, as adapter handles it
 
@@ -9,6 +10,7 @@ class ExecutionControlPresenter(QObject):
     """
     Presenter for Execution Control. Gathers all settings,
     initiates processing via the adapter, and updates progress via signals.
+    Supports both single file and batch processing modes.
     """
 
     def __init__(self, view, main_window_presenters, adapter):
@@ -18,19 +20,32 @@ class ExecutionControlPresenter(QObject):
         self.adapter = adapter
 
         self._is_processing = False
+        self._batch_worker = None
 
         # --- Connect View Signals ---
         self.view.start_processing_clicked.connect(self.handle_start_processing)
         # TODO: Connect stop button later
 
-        # --- Connect Adapter Signals (NEW) ---
+        # --- Connect Adapter Signals (for single file processing) ---
         self.adapter.progress_updated.connect(self.on_progress_update)
         self.adapter.processing_finished.connect(self.on_processing_finished)
 
+        # --- Connect Batch Processing Signals ---
+        if ac.BATCH_FILE_PRESENTER_KEY in self.presenters:
+            batch_presenter = self.presenters[ac.BATCH_FILE_PRESENTER_KEY]
+            self._batch_worker = BatchProcessingWorker(
+                batch_presenter.get_batch_manager(), 
+                self.adapter
+            )
+            
+            # Connect batch worker signals
+            self._batch_worker.batch_started.connect(self._on_batch_started)
+            self._batch_worker.batch_completed.connect(self._on_batch_completed)
+            self._batch_worker.batch_cancelled.connect(self._on_batch_cancelled)
+            self._batch_worker.overall_progress.connect(self.on_progress_update)
+
         self.view.set_progress_text(ac.STATUS_IDLE)
         self.view.set_start_button_enabled(True)
-
-        # Debug print removed
 
     def _gather_all_settings(self) -> dict:
         """Helper to collect settings from all relevant presenters."""
@@ -40,14 +55,18 @@ class ExecutionControlPresenter(QObject):
         model_sel = self.presenters[ac.MODEL_SELECTION_PRESENTER_KEY]
         proc_set = self.presenters[ac.PROCESSING_SETTINGS_PRESENTER_KEY]
 
-        input_path, output_path = file_io.get_paths()
+        # Get input paths (supports both single and batch modes)
+        input_paths = file_io.get_input_paths()
+        output_path = file_io.get_output_path()
+        
         model_details = model_sel.get_current_selection()
         settings = proc_set.get_settings()
 
         all_settings.update(
             {
-                "input_paths": [input_path] if input_path else [],
+                "input_paths": input_paths,
                 "output_path": output_path,
+                "processing_mode": file_io.get_processing_mode(),
             }
         )
 
@@ -166,14 +185,76 @@ class ExecutionControlPresenter(QObject):
             ):
                 raise ValueError(ac.MSG_INPUT_OUTPUT_REQUIRED)
 
-            # --- Call the Adapter ---
-            self.adapter.start_processing(settings_dict)
-            self.view.set_start_button_text(ac.BTN_PROCESSING)
-            self.view.set_progress_text(ac.STATUS_WAITING_PROCESS)
+            # Determine processing mode
+            processing_mode = settings_dict.get("processing_mode", "single")
+            
+            if processing_mode == "batch":
+                # Start batch processing
+                self._start_batch_processing(settings_dict)
+            else:
+                # Start single file processing
+                self._start_single_processing(settings_dict)
 
         except Exception as e:
             self.view.append_log_message(f"ERROR: {e}")
             self.on_processing_finished(False, f"Setup Failed: {e}")
+
+    def _start_single_processing(self, settings_dict: dict):
+        """Start single file processing."""
+        self.view.append_log_message("Starting single file processing...")
+        self.adapter.start_processing(settings_dict)
+        self.view.set_start_button_text(ac.BTN_PROCESSING)
+        self.view.set_progress_text(ac.STATUS_WAITING_PROCESS)
+
+    def _start_batch_processing(self, settings_dict: dict):
+        """Start batch processing."""
+        if not self._batch_worker:
+            raise ValueError("Batch processing not initialized")
+            
+        input_paths = settings_dict.get("input_paths", [])
+        if not input_paths:
+            raise ValueError("No files in batch queue")
+            
+        self.view.append_log_message(f"Starting batch processing of {len(input_paths)} files...")
+        
+        if self._batch_worker.start_batch_processing(settings_dict):
+            self.view.set_start_button_text("Processing Batch")
+            self.view.set_progress_text("Starting batch processing...")
+        else:
+            raise ValueError("Failed to start batch processing")
+
+    @Slot(int)
+    def _on_batch_started(self, total_files: int):
+        """Handle batch processing started."""
+        self.view.append_log_message(f"Batch processing started: {total_files} files in queue")
+
+    @Slot(list)
+    def _on_batch_completed(self, results: list):
+        """Handle batch processing completed."""
+        completed_count = sum(1 for r in results if r['status'] == 'completed')
+        error_count = sum(1 for r in results if r['status'] == 'error')
+        
+        self.view.append_log_message(f"Batch processing completed:")
+        self.view.append_log_message(f"  ✓ Successfully processed: {completed_count} files")
+        if error_count > 0:
+            self.view.append_log_message(f"  ✗ Files with errors: {error_count}")
+            
+        # Log individual results
+        for result in results:
+            if result['status'] == 'completed':
+                self.view.append_log_message(f"  ✓ {result['display_name']}")
+            elif result['status'] == 'error':
+                self.view.append_log_message(f"  ✗ {result['display_name']}: {result.get('error_message', 'Unknown error')}")
+        
+        success = error_count == 0
+        message = f"Batch completed: {completed_count} successful, {error_count} errors"
+        self.on_processing_finished(success, message)
+
+    @Slot()
+    def _on_batch_cancelled(self):
+        """Handle batch processing cancelled."""
+        self.view.append_log_message("Batch processing cancelled")
+        self.on_processing_finished(False, "Batch processing cancelled")
 
     @Slot(int, str)
     def on_progress_update(self, value: int, text: str):
@@ -194,17 +275,39 @@ class ExecutionControlPresenter(QObject):
     @Slot(bool, str)
     def on_processing_finished(self, success: bool, message: str):
         """Updates the view when the adapter signals completion."""
-        # Debug print removed
         self._is_processing = False
 
         # Reset completion logging flag for next processing session
         if hasattr(self, "_logged_completion"):
             delattr(self, "_logged_completion")
 
-        self.view.append_log_message(message)
-        self.view.set_progress_value(100 if success else 0)
-        self.view.set_progress_text(
-            ac.STATUS_COMPLETED if success else ac.STATUS_FAILED
-        )
         self.view.set_start_button_enabled(True)
         self.view.set_start_button_text(ac.BTN_START_PROCESSING)
+
+        if success:
+            self.view.set_progress_text(ac.STATUS_PROCESSING_COMPLETE)
+            self.view.set_progress_value(100)
+            self.view.append_log_message(f"✓ {message}")
+        else:
+            self.view.set_progress_text(ac.STATUS_PROCESSING_ERROR)
+            self.view.set_progress_value(0)
+            self.view.append_log_message(f"✗ {message}")
+
+    def is_processing(self) -> bool:
+        """Check if processing is currently active."""
+        return self._is_processing
+
+    def cancel_processing(self):
+        """Cancel the current processing operation."""
+        if not self._is_processing:
+            return
+            
+        file_io = self.presenters[ac.FILE_IO_PRESENTER_KEY]
+        processing_mode = file_io.get_processing_mode()
+        
+        if processing_mode == "batch" and self._batch_worker:
+            self._batch_worker.cancel_batch_processing()
+        else:
+            # Cancel single file processing (if adapter supports it)
+            # TODO: Implement cancellation in adapter
+            pass

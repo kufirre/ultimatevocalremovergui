@@ -320,15 +320,16 @@ DEMUCS_VERSION_STRING_MAP = {  # Used in model_data.py
 }
 DEMUCS_2_SOURCE_LIST = [VOCAL_STEM, INST_STEM]  # Used in model_data.py
 
-# --- Presenter Keys (for main window presenter dictionary) ---
+# --- Presenter Keys (for dictionary access) ---
 FILE_IO_PRESENTER_KEY = "file_io"
+MODEL_SELECTION_PRESENTER_KEY = "model_selection"
+PROCESSING_SETTINGS_PRESENTER_KEY = "processing_settings"
 VR_ARCH_PRESENTER_KEY = "vr_arch"
 MDX_NET_PRESENTER_KEY = "mdx_net"
 DEMUCS_PRESENTER_KEY = "demucs"
 ENSEMBLE_PRESENTER_KEY = "ensemble"
-MODEL_SELECTION_PRESENTER_KEY = "model_selection"
-PROCESSING_SETTINGS_PRESENTER_KEY = "processing_settings"
-EXECUTION_PRESENTER_KEY = "execution"
+EXECUTION_CONTROL_PRESENTER_KEY = "execution_control"
+BATCH_FILE_PRESENTER_KEY = "batch_file"
 
 # --- UI Constants ---
 APP_TITLE = "UVR - PySide6 Edition"
@@ -347,27 +348,27 @@ QRC_MONTSERRAT_PATH = ":/uvr/fonts/Montserrat.ttf"
 QRC_MAIN_STYLESHEET_PATH = ":/uvr/theme/style.qss"
 QRC_PROGRESS_STYLESHEET_PATH = ":/uvr/theme/progress_bars.qss"
 
-# Status Messages
-STATUS_READY = "Ready"
+# Processing Status Messages
 STATUS_IDLE = "Idle"
+STATUS_READY = "Ready"
+STATUS_WAITING_PROCESS = "Waiting for process to start..."
+STATUS_PROCESSING_COMPLETE = "Processing Complete"
+STATUS_PROCESSING_ERROR = "Processing Error"
 STATUS_COMPLETED = "Completed"
 STATUS_FAILED = "Failed"
-STATUS_PROCESSING = "Processing..."
-STATUS_STARTING = "Starting..."
-STATUS_WAITING_PROCESS = "Waiting for process..."
-
-# Processing Messages
-MSG_PROCESS_ALREADY_RUNNING = "Process is already running."
-MSG_REQUESTING_PROCESS_START = "Requesting process start..."
-MSG_INPUT_OUTPUT_REQUIRED = "Input and Output paths must be set!"
-MSG_SETTINGS_HEADER = "--- Settings ---"
-MSG_SETTINGS_FOOTER = "------------------"
-MSG_PROGRESS_COMPLETED = "Processing completed successfully!"
 
 # Button Text
 BTN_START_PROCESSING = "Start Processing"
 BTN_STARTING = "Starting..."
 BTN_PROCESSING = "Processing..."
+
+# Log Messages
+MSG_PROCESS_ALREADY_RUNNING = "Processing is already running."
+MSG_REQUESTING_PROCESS_START = "Requesting process start..."
+MSG_SETTINGS_HEADER = "=== Processing Settings ==="
+MSG_SETTINGS_FOOTER = "=== End Settings ==="
+MSG_INPUT_OUTPUT_REQUIRED = "Both input and output paths are required."
+MSG_PROGRESS_COMPLETED = "Processing completed successfully"
 
 # Demucs Processing Messages
 MSG_DEMUCS_LOADING_SECURE = "Loading Demucs model with secure safe_globals"

@@ -14,6 +14,8 @@ from PySide6.QtWidgets import (
 
 from ..core import app_constants as ac
 from ..core.uvr_core_adapter import UVRCoreAdapter
+from .batch_file_presenter import BatchFilePresenter
+from .batch_file_view import BatchFileView
 from .demucs_settings_presenter import DemucsSettingsPresenter
 from .demucs_settings_view import DemucsSettingsView
 from .ensemble_simple_presenter import EnsembleSimplePresenter
@@ -41,8 +43,8 @@ class MainWindowView(QMainWindow):
 
         self.setWindowTitle(ac.APP_TITLE)
         self.setGeometry(
-            100, 100, 600, 820
-        )  # Slightly increased height to accommodate reorganized settings without scrolling
+            100, 100, 600, 900  # Increased height to accommodate batch processing
+        )
 
         # --- Main Content Container for ScrollArea ---
         self.main_content_container = QWidget()
@@ -65,19 +67,25 @@ class MainWindowView(QMainWindow):
         self.information_guide_presenter = InformationGuidePresenter(self)
         self.error_log_presenter = ErrorLogPresenter(self)
 
-        # --- Top Bar for Settings Button (Optional, or add to existing area) ---
-        # For now, let's add it to the main layout for simplicity.
-        # A QToolBar would be another option.
+        # --- Batch Processing Components (Create first) ---
+        self.batch_file_view = BatchFileView()
+        self.presenters[ac.BATCH_FILE_PRESENTER_KEY] = BatchFilePresenter(
+            view=self.batch_file_view
+        )
 
-        # --- Instantiate UI Modules and add them to main_layout ---
-        # ... (File I/O, Specific Settings Panels, Model Selection, Processing Settings as in response #37) ...
-        # File I/O
+        # --- File I/O (Updated to support batch processing) ---
         self.file_io_view = FileIOView()
         self.presenters[ac.FILE_IO_PRESENTER_KEY] = FileIOPresenter(
-            view=self.file_io_view
+            view=self.file_io_view,
+            batch_presenter=self.presenters[ac.BATCH_FILE_PRESENTER_KEY]
         )
         self.main_layout.addWidget(self.file_io_view)
-        # Specific Settings Panels
+
+        # --- Batch File Management (Initially hidden) ---
+        self.batch_file_view.setVisible(False)
+        self.main_layout.addWidget(self.batch_file_view)
+
+        # --- Specific Settings Panels ---
         self.vr_arch_view = VRArchSettingsView()
         self.presenters[ac.VR_ARCH_PRESENTER_KEY] = VRArchSettingsPresenter(
             view=self.vr_arch_view
@@ -111,7 +119,6 @@ class MainWindowView(QMainWindow):
         self.presenters[
             ac.MODEL_SELECTION_PRESENTER_KEY
         ].request_show_download_center.connect(self._open_download_center_tab)
-        # self.adapter.download_finished.connect(self.presenters[ac.MODEL_SELECTION_PRESENTER_KEY]._on_model_downloaded_elsewhere) # Removed, ModelSelectionPresenter now uses model_download_completed
 
         # Connect model changes to processing settings updates
         self.presenters[ac.MODEL_SELECTION_PRESENTER_KEY].model_changed.connect(
@@ -125,59 +132,106 @@ class MainWindowView(QMainWindow):
             ].handle_ensemble_stem_pair_change
         )
 
-        # Connect Demucs stem changes to model selection presenter
+        # Connect Demucs stem changes to model selection
         self.presenters[ac.MODEL_SELECTION_PRESENTER_KEY].connect_demucs_stem_changes(
             self.presenters[ac.DEMUCS_PRESENTER_KEY]
         )
-        # Also store reference for stem detection
-        self.presenters[ac.MODEL_SELECTION_PRESENTER_KEY]._demucs_presenter = (
-            self.presenters[ac.DEMUCS_PRESENTER_KEY]
-        )
 
+        # --- Add Settings Panels to Model Selection View ---
         self.model_selection_view.add_settings_panel("VR Arch", self.vr_arch_view)
         self.model_selection_view.add_settings_panel("MDX-Net", self.mdx_net_view)
         self.model_selection_view.add_settings_panel("Demucs", self.demucs_view)
         self.model_selection_view.add_settings_panel("Ensemble", self.ensemble_view)
+
+        # --- Add Model Selection to Layout ---
         self.main_layout.addWidget(self.model_selection_view)
+
+        # --- Add Processing Settings to Layout ---
+        self.processing_settings_view.setVisible(True)  # Ensure it's visible before adding
+        self.processing_settings_view.show()  # Explicitly show it
         self.main_layout.addWidget(self.processing_settings_view)
 
-        # Connect presenters to settings dialog for advanced settings persistence
-        self.settings_dialog_presenter.set_main_window_presenters(self.presenters)
-        
-        # Connect information guide and error log presenters to settings dialog
-        self.settings_dialog_presenter.set_information_guide_presenter(self.information_guide_presenter)
-        self.settings_dialog_presenter.set_error_log_presenter(self.error_log_presenter)
-
-        # --- Execution Control and Settings Button Row ---
-        bottom_controls_layout = QHBoxLayout()
+        # --- Execution Control ---
         self.execution_control_view = ExecutionControlView()
-        self.presenters[ac.EXECUTION_PRESENTER_KEY] = ExecutionControlPresenter(
-            view=self.execution_control_view,
-            main_window_presenters=self.presenters,
-            adapter=self.adapter,
+        self.presenters[ac.EXECUTION_CONTROL_PRESENTER_KEY] = (
+            ExecutionControlPresenter(
+                view=self.execution_control_view,
+                main_window_presenters=self.presenters,
+                adapter=self.adapter,
+            )
         )
-        bottom_controls_layout.addWidget(self.execution_control_view, 1)
-        # Settings button is now removed. Access settings via Edit > Preferences menu.
-        self.main_layout.addLayout(bottom_controls_layout)
+        self.main_layout.addWidget(self.execution_control_view)
 
-        self.main_layout.addStretch(0)
+        # --- Scroll Area Setup ---
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setWidget(self.main_content_container)
+        self.setCentralWidget(scroll_area)
 
-        self.main_content_container.setLayout(self.main_layout)
-
-        # Settings Button previously in status_bar is also removed.
-        # self.settings_button = QPushButton()
-        # ... (rest of old status_bar button code removed)
-        # self.status_bar.addPermanentWidget(self.settings_button)
-
-        self.scroll_area = QScrollArea()
-        self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setWidget(self.main_content_container)
-        self.scroll_area.setFrameShape(QFrame.NoFrame)  # Cleaner look
-
-        self.setCentralWidget(self.scroll_area)
-
+        # --- Menu Bar ---
         self._create_menu_bar()
 
+        # --- Connect File I/O Mode Changes ---
+        self.file_io_view.batch_mode_toggled.connect(self._handle_batch_mode_toggle)
+        self.presenters[ac.FILE_IO_PRESENTER_KEY].processing_mode_changed.connect(
+            self._handle_processing_mode_change
+        )
+
+        # --- Initialize UI State ---
+        self._initialize_ui()
+
+    def _create_menu_bar(self):
+        """Create the application menu bar."""
+        menubar = self.menuBar()
+
+        # File Menu
+        file_menu = menubar.addMenu("File")
+
+        # Settings action
+        settings_action = QAction("Settings", self)
+        settings_action.triggered.connect(self._open_settings_dialog)
+        file_menu.addAction(settings_action)
+
+        file_menu.addSeparator()
+
+        # Exit action
+        exit_action = QAction("Exit", self)
+        exit_action.triggered.connect(self.close)
+        file_menu.addAction(exit_action)
+
+        # Edit Menu
+        edit_menu = menubar.addMenu("Edit")
+        # Placeholder for future edit actions
+
+        # Help Menu
+        help_menu = menubar.addMenu("Help")
+
+        # Information Guide action
+        guide_action = QAction("Information Guide", self)
+        guide_action.triggered.connect(self._open_information_guide)
+        help_menu.addAction(guide_action)
+
+        # Error Log action
+        error_log_action = QAction("Error Log", self)
+        error_log_action.triggered.connect(self._open_error_log)
+        help_menu.addAction(error_log_action)
+
+        help_menu.addSeparator()
+
+        # About action
+        about_action = QAction("About", self)
+        about_action.triggered.connect(self._show_about_dialog)
+        help_menu.addAction(about_action)
+
+    def _initialize_ui(self):
+        """Initialize the UI state after all components are created."""
+        # Ensure single file mode is active on startup
+        self.presenters[ac.FILE_IO_PRESENTER_KEY].set_processing_mode("single")
+        
+        # Ensure processing settings view is visible (it should always be visible)
+        self.processing_settings_view.setVisible(True)
+        
+        # Trigger initial method change to set up default selection
         if self.model_selection_view.method_combo.count() > 0:
             initial_method = self.model_selection_view.method_combo.currentText()
             if initial_method:
@@ -188,90 +242,74 @@ class MainWindowView(QMainWindow):
             self.presenters[ac.MODEL_SELECTION_PRESENTER_KEY].handle_method_change("")
 
         # Trigger initial ensemble stem pair change to update processing settings checkboxes
-        # This must happen after all connections are established
-        current_stem_pair = self.ensemble_view.get_current_stem_pair()
-        if current_stem_pair:
-            self.presenters[
-                ac.PROCESSING_SETTINGS_PRESENTER_KEY
-            ].handle_ensemble_stem_pair_change(current_stem_pair)
+        # This must happen after model selection is initialized
+        if hasattr(self.ensemble_view, "main_stem_pair_combo"):
+            initial_stem_pair = self.ensemble_view.main_stem_pair_combo.currentText()
+            if initial_stem_pair:
+                self.presenters[
+                    ac.PROCESSING_SETTINGS_PRESENTER_KEY
+                ].handle_ensemble_stem_pair_change(initial_stem_pair)
+                
+        # Ensure processing settings view is visible (final check)
+        self.processing_settings_view.setVisible(True)
+        self.processing_settings_view.show()
 
-        # Debug print removed
-
-    def _create_menu_bar(self):
-        menu_bar = self.menuBar()
-        menu_bar.setNativeMenuBar(False)
-        file_menu = menu_bar.addMenu(ac.MENU_FILE)
-        quit_action = QAction(ac.ACTION_QUIT, self)
-        quit_action.setShortcut(ac.SHORTCUT_QUIT)
-        quit_action.triggered.connect(self._quit_application)
-        file_menu.addAction(quit_action)
-        edit_menu = menu_bar.addMenu(ac.MENU_EDIT)
-        prefs_action = QAction(ac.ACTION_PREFERENCES, self)
-        prefs_action.setShortcut(ac.SHORTCUT_PREFERENCES)
-        prefs_action.triggered.connect(
-            lambda: self.settings_dialog_presenter.show_dialog(default_model_type=None)
-        )
-        edit_menu.addAction(prefs_action)
-        help_menu = menu_bar.addMenu(ac.MENU_HELP)
-        
-        # Information Guide menu items
-        user_guide_action = QAction("User Guide", self)
-        user_guide_action.triggered.connect(self.information_guide_presenter.show_information_guide)
-        help_menu.addAction(user_guide_action)
-        
-        help_menu.addSeparator()
-        
-        getting_started_action = QAction("Getting Started", self)
-        getting_started_action.triggered.connect(self.information_guide_presenter.show_getting_started)
-        help_menu.addAction(getting_started_action)
-        
-        model_types_action = QAction("Model Types", self)
-        model_types_action.triggered.connect(self.information_guide_presenter.show_model_types)
-        help_menu.addAction(model_types_action)
-        
-        processing_options_action = QAction("Processing Options", self)
-        processing_options_action.triggered.connect(self.information_guide_presenter.show_processing_options)
-        help_menu.addAction(processing_options_action)
-        
-        audio_formats_action = QAction("Audio Formats", self)
-        audio_formats_action.triggered.connect(self.information_guide_presenter.show_audio_formats)
-        help_menu.addAction(audio_formats_action)
-        
-        troubleshooting_action = QAction("Troubleshooting", self)
-        troubleshooting_action.triggered.connect(self.information_guide_presenter.show_troubleshooting)
-        help_menu.addAction(troubleshooting_action)
-        
-        faq_action = QAction("FAQ", self)
-        faq_action.triggered.connect(self.information_guide_presenter.show_faq)
-        help_menu.addAction(faq_action)
-        
-        help_menu.addSeparator()
-        
-        # Error Log menu item
-        error_log_action = QAction("View Error Log", self)
-        error_log_action.triggered.connect(self.error_log_presenter.show_error_log)
-        help_menu.addAction(error_log_action)
-        
-        help_menu.addSeparator()
-        
-        about_action = QAction(ac.ACTION_ABOUT, self)
-        about_action.triggered.connect(self._show_about_dialog)
-        help_menu.addAction(about_action)
+    @Slot(bool)
+    def _handle_batch_mode_toggle(self, enabled: bool):
+        """Handle the batch mode toggle from the file I/O view."""
+        mode = "batch" if enabled else "single"
+        self.presenters[ac.FILE_IO_PRESENTER_KEY].set_processing_mode(mode)
 
     @Slot(str)
-    def _open_download_center_tab(self, originating_method: str):
-        self.settings_dialog_presenter.show_dialog(
-            exec_dialog=False, default_model_type=originating_method
-        )
-        if self.settings_dialog_presenter.view:
-            self.settings_dialog_presenter.view.tab_widget.setCurrentIndex(2)
+    def _handle_processing_mode_change(self, mode: str):
+        """Handle processing mode changes."""
+        is_batch_mode = mode == "batch"
+        
+        # Show/hide batch file management
+        self.batch_file_view.setVisible(is_batch_mode)
+        
+        # Ensure processing settings view is always visible regardless of mode
+        self.processing_settings_view.setVisible(True)
+        
+        # Update window height based on mode
+        if is_batch_mode:
+            self.resize(self.width(), 1000)  # Taller for batch mode
+        else:
+            self.resize(self.width(), 820)   # Original height for single mode
+        
+        # Update status bar
+        if is_batch_mode:
+            self.status_bar.showMessage("Batch Processing Mode - Add files to the queue below")
+        else:
+            self.status_bar.showMessage(ac.STATUS_READY)
 
-    def _quit_application(self):
-        app = QApplication.instance()
-        app.quit() if app else None
+    def _open_settings_dialog(self):
+        """Open the settings dialog."""
+        self.settings_dialog_presenter.show_dialog()
+
+    def _open_download_center_tab(self, originating_method: str = ""):
+        """Open the download center tab in settings dialog."""
+        self.settings_dialog_presenter.show_dialog(default_tab=2)
+        if originating_method:
+            self.settings_dialog_presenter.set_download_center_method(
+                originating_method
+            )
+
+    def _open_information_guide(self):
+        """Open the information guide dialog."""
+        self.information_guide_presenter.show_dialog()
+
+    def _open_error_log(self):
+        """Open the error log dialog."""
+        self.error_log_presenter.show_dialog()
 
     def _show_about_dialog(self):
-        QMessageBox.about(self, ac.ABOUT_TITLE, ac.ABOUT_MESSAGE)
-
-    def show_status_message(self, message, timeout=0):
-        self.status_bar.showMessage(message, timeout)
+        """Show the about dialog."""
+        QMessageBox.about(
+            self,
+            "About UVR",
+            f"{ac.APP_TITLE}\n\n"
+            "Ultimate Vocal Remover - PySide6 Port\n"
+            "Advanced audio source separation using machine learning\n\n"
+            "This is a modern Qt-based port of the original UVR application."
+        )

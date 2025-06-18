@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -99,6 +100,12 @@ class ProcessingSettingsView(QWidget):
 
         main_container_layout.addWidget(settings_group)
         self.setLayout(main_container_layout)
+        
+        # Ensure the widget is always visible and properly sized
+        self.setVisible(True)
+        self.show()
+        self.setMinimumHeight(120)
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
         # print("ProcessingSettingsView Initialized with QGridLayout.") # Debug print removed
 
     # --- Slots (Called by Presenter) ---

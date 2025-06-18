@@ -3,6 +3,7 @@
 import os
 import platform
 import subprocess
+from pathlib import Path
 
 from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtWidgets import (
@@ -15,6 +16,7 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QMessageBox,
     QPushButton,
     QSlider,
     QSpinBox,
@@ -24,7 +26,7 @@ from PySide6.QtWidgets import (
 
 from ..core import app_constants as ac
 from ..core.logger_utils import get_logger
-from ..core.model_data import ModelData
+from ..core.model_data import DEMUCS_MODELS_DIR_PATH, ModelData
 from ..core.uvr_core_adapter import UVRCoreAdapter
 
 logger = get_logger(__name__)
@@ -48,13 +50,14 @@ class DemucsAdvancedDialog(QDialog):
         self._setup_ui()
         self._load_current_settings()
 
+        self.adapter = UVRCoreAdapter()
+
     def _get_filtered_models_for_stem(self, primary_stem, secondary_stem):
         """Get models that are suitable for the given stem pair.
 
         This implements the same filtering logic as the original UVR.py model_list function.
         """
         try:
-            adapter = UVRCoreAdapter()
             suitable_models = [ac.NO_MODEL]
 
             # Get all available models from all architectures
@@ -63,7 +66,7 @@ class DemucsAdvancedDialog(QDialog):
                 ac.MDX_NET_MODELS_KEY,
                 ac.DEMUCS_MODELS_KEY,
             ]:
-                arch_models = adapter.get_available_models(arch_key)
+                arch_models = self.adapter.get_available_models(arch_key)
 
                 for model_name in arch_models:
                     try:
@@ -163,8 +166,6 @@ class DemucsAdvancedDialog(QDialog):
 
         try:
             # Determine the Demucs models directory from project root
-            from ..core.model_data import DEMUCS_MODELS_DIR_PATH
-
             demucs_models_dir = DEMUCS_MODELS_DIR_PATH
 
             # Create the directory if it doesn't exist
@@ -180,16 +181,12 @@ class DemucsAdvancedDialog(QDialog):
                 subprocess.run(["xdg-open", str(demucs_models_dir)])
             else:
                 logger.warning(f"Unsupported platform for opening folder: {system}")
-                from PySide6.QtWidgets import QMessageBox
-
                 QMessageBox.information(
                     self, "Models Folder", f"Demucs models folder: {demucs_models_dir}"
                 )
 
         except Exception as e:
             logger.error(f"Error opening models folder: {e}")
-            from PySide6.QtWidgets import QMessageBox
-
             QMessageBox.warning(
                 self, "Open Folder Error", f"Failed to open models folder: {str(e)}"
             )
@@ -443,13 +440,9 @@ class DemucsAdvancedDialog(QDialog):
         self.preprocess_model_combo = QComboBox()
         # Load MDX preprocess models dynamically
         try:
-            from ..core.uvr_core_adapter import UVRCoreAdapter
-
-            adapter = UVRCoreAdapter()
-
             preprocess_models = [ac.NO_MODEL]
             # Get MDX models for preprocessing (typically used for preprocess)
-            mdx_models = adapter.get_available_models(ac.MDX_NET_MODELS_KEY)
+            mdx_models = self.adapter.get_available_models(ac.MDX_NET_MODELS_KEY)
             for model_name in mdx_models:
                 # Common preprocess models (based on UVR.py patterns)
                 if any(
@@ -499,26 +492,13 @@ class DemucsAdvancedDialog(QDialog):
         vocal_form = QFormLayout()
 
         self.vocal_splitter_combo = QComboBox()
-        # Load karaokee models dynamically for vocal splitting
+        # Load karaoke models dynamically for vocal splitting
         try:
-            from ..core.uvr_core_adapter import UVRCoreAdapter
-
-            adapter = UVRCoreAdapter()
-
-            # Get karaokee models (models with is_karaoke or is_bv_model = True)
-            karaokee_models = [ac.NO_MODEL]
-            all_models = adapter.get_all_available_models()
-
-            for model_name, model_info in all_models.items():
-                if model_info and isinstance(model_info, dict):
-                    is_karaoke = model_info.get("is_karaoke", False)
-                    is_bv_model = model_info.get("is_bv_model", False)
-                    if is_karaoke or is_bv_model:
-                        karaokee_models.append(model_name)
-
-            self.vocal_splitter_combo.addItems(karaokee_models)
+            # Get karaoke models using our helper method
+            karaoke_models = self._get_karaokee_models()
+            self.vocal_splitter_combo.addItems(karaoke_models)
         except Exception as e:
-            logger.error(f"Error loading karaokee models for vocal splitter: {e}")
+            logger.error(f"Error loading karaoke models for vocal splitter: {e}")
             self.vocal_splitter_combo.addItems([ac.NO_MODEL])
 
         self.vocal_splitter_combo.setEnabled(False)
@@ -545,15 +525,9 @@ class DemucsAdvancedDialog(QDialog):
         self.deverb_model_combo = QComboBox()
         # Load deverb models dynamically
         try:
-            from pathlib import Path
-
-            from ..core.uvr_core_adapter import UVRCoreAdapter
-
-            adapter = UVRCoreAdapter()
-
             deverb_models = [ac.NO_MODEL]
             # Check for known deverb models
-            vr_models = adapter.get_available_models(ac.VR_ARCH_MODELS_KEY)
+            vr_models = self.adapter.get_available_models(ac.VR_ARCH_MODELS_KEY)
             for model_name in vr_models:
                 # Look for deverb/reverb models
                 if any(x in model_name.lower() for x in ["deverb", "reverb", "deecho"]):
@@ -722,12 +696,7 @@ class DemucsAdvancedDialog(QDialog):
             return
 
         try:
-            from ..core import app_constants as ac
-            from ..core.model_data import ModelData
-            from ..core.uvr_core_adapter import UVRCoreAdapter
-
             # Load all models once and cache them
-            adapter = UVRCoreAdapter()
             all_suitable_models = []
 
             # Get all available models from all architectures (do this once)
@@ -736,7 +705,7 @@ class DemucsAdvancedDialog(QDialog):
                 ac.MDX_NET_MODELS_KEY,
                 ac.DEMUCS_MODELS_KEY,
             ]:
-                arch_models = adapter.get_available_models(arch_key)
+                arch_models = self.adapter.get_available_models(arch_key)
 
                 for model_name in arch_models:
                     try:
@@ -834,6 +803,10 @@ class DemucsAdvancedDialog(QDialog):
                     no_model_index = combo.findText(ac.NO_MODEL)
                     if no_model_index >= 0:
                         combo.setCurrentIndex(no_model_index)
+
+    def _get_karaokee_models(self):
+        """Get models that are suitable for vocal splitting using shared ModelData method."""
+        return ModelData.get_karaoke_models()
 
 
 class DemucsAdvancedPresenter(QObject):

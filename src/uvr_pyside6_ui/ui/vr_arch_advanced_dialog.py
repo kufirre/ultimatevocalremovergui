@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QMessageBox,
     QPushButton,
     QSlider,
     QTabWidget,
@@ -43,6 +44,8 @@ class VRArchAdvancedDialog(QDialog):
 
         # Lazy loading flags
         self._models_loaded = False
+
+        self.adapter = UVRCoreAdapter()
 
         self._setup_ui()
         self._load_settings()
@@ -242,18 +245,6 @@ class VRArchAdvancedDialog(QDialog):
         """Open vocal splitter options dialog."""
         logger.info("Vocal splitter options requested")
 
-        from PySide6.QtWidgets import (
-            QCheckBox,
-            QComboBox,
-            QDialog,
-            QFormLayout,
-            QGroupBox,
-            QHBoxLayout,
-            QLabel,
-            QPushButton,
-            QVBoxLayout,
-        )
-
         # Create vocal splitter dialog
         dialog = QDialog(self)
         dialog.setWindowTitle("Vocal Split Options")
@@ -274,26 +265,13 @@ class VRArchAdvancedDialog(QDialog):
         model_label = QLabel("Select Model:")
         model_combo = QComboBox()
 
-        # Get karaokee models using UVR.py logic
+        # Get karaoke models
         try:
-            from ..core.uvr_core_adapter import UVRCoreAdapter
-
-            adapter = UVRCoreAdapter()
-
-            # Get karaokee models (models with is_karaoke or is_bv_model = True)
-            karaokee_models = [ac.NO_MODEL]
-            all_models = adapter.get_all_available_models()
-
-            for model_name, model_info in all_models.items():
-                if model_info and isinstance(model_info, dict):
-                    is_karaoke = model_info.get("is_karaoke", False)
-                    is_bv_model = model_info.get("is_bv_model", False)
-                    if is_karaoke or is_bv_model:
-                        karaokee_models.append(model_name)
-
-            model_combo.addItems(karaokee_models)
+            # Get karaoke models using our helper method
+            karaoke_models = self._get_karaokee_models()
+            model_combo.addItems(karaoke_models)
         except Exception as e:
-            logger.error(f"Error loading karaokee models: {e}")
+            logger.error(f"Error loading karaoke models: {e}")
             model_combo.addItems([ac.NO_MODEL])
 
         vocal_split_layout.addRow(model_label, model_combo)
@@ -329,8 +307,6 @@ class VRArchAdvancedDialog(QDialog):
 
         # Check if deverb model exists
         try:
-            from pathlib import Path
-
             deverb_model_path = Path(ac.VR_MODELS_DIR_PATH) / "UVR-DeEcho-DeReverb.pth"
             if not deverb_model_path.exists():
                 deverb_check.setEnabled(False)
@@ -369,14 +345,8 @@ class VRArchAdvancedDialog(QDialog):
         """Clear the autoset cache."""
         logger.info("Clear autoset cache requested")
 
-        import os
-
-        from PySide6.QtWidgets import QMessageBox
-
         try:
-            # Clear VR cache directory (same logic as UVR.py clear_cache)
-            from ..core.model_data import VR_MODELS_DIR_PATH
-
+            # Clear VR cache directory
             vr_hash_dir = VR_MODELS_DIR_PATH.parent / "vr_hash_dirs"
 
             if vr_hash_dir.exists():
@@ -694,26 +664,14 @@ class VRArchAdvancedDialog(QDialog):
 
         # Vocal Model Selection
         self.vocal_model_combo = QComboBox()
-        # Load karaokee models dynamically
+        # Load karaoke models dynamically
         try:
-            from ..core.uvr_core_adapter import UVRCoreAdapter
+            # Get karaoke models using our helper method
+            karaoke_models = self._get_karaokee_models()
 
-            adapter = UVRCoreAdapter()
-
-            # Get karaokee models (models with is_karaoke or is_bv_model = True)
-            karaokee_models = [ac.NO_MODEL]
-            all_models = adapter.get_all_available_models()
-
-            for model_name, model_info in all_models.items():
-                if model_info and isinstance(model_info, dict):
-                    is_karaoke = model_info.get("is_karaoke", False)
-                    is_bv_model = model_info.get("is_bv_model", False)
-                    if is_karaoke or is_bv_model:
-                        karaokee_models.append(model_name)
-
-            self.vocal_model_combo.addItems(karaokee_models)
+            self.vocal_model_combo.addItems(karaoke_models)
         except Exception as e:
-            logger.error(f"Error loading karaokee models for vocal combo: {e}")
+            logger.error(f"Error loading karaoke models for vocal combo: {e}")
             self.vocal_model_combo.addItems([ac.NO_MODEL])
 
         self.vocal_model_combo.setEnabled(False)
@@ -769,11 +727,10 @@ class VRArchAdvancedDialog(QDialog):
         This implements the same filtering logic as the original UVR.py model_list function.
         """
         try:
-            adapter = UVRCoreAdapter()
             suitable_models = [ac.NO_MODEL]
 
             # Get VR models specifically
-            vr_models = adapter.get_available_models(ac.VR_ARCH_MODELS_KEY)
+            vr_models = self.adapter.get_available_models(ac.VR_ARCH_MODELS_KEY)
 
             for model_name in vr_models:
                 try:
@@ -870,7 +827,6 @@ class VRArchAdvancedDialog(QDialog):
 
         try:
             # Load all models once and cache them
-            adapter = UVRCoreAdapter()
             all_suitable_models = []
 
             # Get all available models from all architectures (do this once)
@@ -879,7 +835,7 @@ class VRArchAdvancedDialog(QDialog):
                 ac.MDX_NET_MODELS_KEY,
                 ac.DEMUCS_MODELS_KEY,
             ]:
-                arch_models = adapter.get_available_models(arch_key)
+                arch_models = self.adapter.get_available_models(arch_key)
 
                 for model_name in arch_models:
                     try:
@@ -980,3 +936,7 @@ class VRArchAdvancedDialog(QDialog):
         """Handle tab change to implement lazy loading."""
         if index == 1 and not self._models_loaded:  # Secondary tab is index 1
             self._load_models_if_needed()
+
+    def _get_karaokee_models(self):
+        """Get models that are suitable for vocal splitting using shared ModelData method."""
+        return ModelData.get_karaoke_models()

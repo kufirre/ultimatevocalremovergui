@@ -60,7 +60,9 @@ class ExecutionControlPresenter(QObject):
             all_settings.update(
                 {
                     "use_gpu": settings.get("use_gpu", False),
+                    "is_gpu_conversion": settings.get("use_gpu", False),
                     "normalize": settings.get("normalize", False),
+                    "is_normalization": settings.get("normalize", False),
                     "output_format": settings.get("output_format", "WAV"),
                     "sample_mode": settings.get("sample_mode", False),
                     "is_primary_stem_only_Demucs": settings.get(
@@ -69,6 +71,7 @@ class ExecutionControlPresenter(QObject):
                     "is_secondary_stem_only_Demucs": settings.get(
                         "secondary_stem_only", False
                     ),
+                    "save_format": settings.get("output_format", "WAV"),
                 }
             )
         else:
@@ -76,13 +79,16 @@ class ExecutionControlPresenter(QObject):
             all_settings.update(
                 {
                     "use_gpu": settings.get("use_gpu", False),
+                    "is_gpu_conversion": settings.get("use_gpu", False),
                     "normalize": settings.get("normalize", False),
+                    "is_normalization": settings.get("normalize", False),
                     "output_format": settings.get("output_format", "WAV"),
                     "sample_mode": settings.get("sample_mode", False),
                     "is_primary_stem_only": settings.get("primary_stem_only", False),
                     "is_secondary_stem_only": settings.get(
                         "secondary_stem_only", False
                     ),
+                    "save_format": settings.get("output_format", "WAV"),
                 }
             )
 
@@ -167,9 +173,7 @@ class ExecutionControlPresenter(QObject):
         self.view.set_progress_text(text)
 
         # Only log progress at key milestones and avoid repetitive 100% logs
-        if value % 20 == 0 and value > 0 and value < 100:
-            self.view.append_log_message(f"  ▶ {value}% completed...")
-        elif value == 100:
+        if value == 100:
             # Only log 100% once per processing session
             if not hasattr(self, "_logged_completion"):
                 self.view.append_log_message(f"  ✓ {ac.MSG_PROGRESS_COMPLETED}")

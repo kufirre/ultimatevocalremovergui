@@ -23,8 +23,9 @@ from PySide6.QtWidgets import (
 )
 
 from ..core import app_constants as ac
-from ..core.model_data import ModelData
+from ..core.model_data import MDX_MODELS_DIR_PATH, ModelData
 from ..core.uvr_core_adapter import UVRCoreAdapter
+
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,8 @@ class MDXNetAdvancedDialog(QDialog):
 
         # Lazy loading flags
         self._models_loaded = False
+
+        self.adapter = UVRCoreAdapter()
 
         self._setup_ui()
         self._load_settings()
@@ -152,26 +155,12 @@ class MDXNetAdvancedDialog(QDialog):
         model_label = QLabel("Select Model:")
         model_combo = QComboBox()
 
-        # Get karaokee models using UVR.py logic
+        # Get karaoke models using our helper method
         try:
-            from ..core.uvr_core_adapter import UVRCoreAdapter
-
-            adapter = UVRCoreAdapter()
-
-            # Get karaokee models (models with is_karaoke or is_bv_model = True)
-            karaokee_models = [ac.NO_MODEL]
-            all_models = adapter.get_all_available_models()
-
-            for model_name, model_info in all_models.items():
-                if model_info and isinstance(model_info, dict):
-                    is_karaoke = model_info.get("is_karaoke", False)
-                    is_bv_model = model_info.get("is_bv_model", False)
-                    if is_karaoke or is_bv_model:
-                        karaokee_models.append(model_name)
-
-            model_combo.addItems(karaokee_models)
+            karaoke_models = self._get_karaokee_models()
+            model_combo.addItems(karaoke_models)
         except Exception as e:
-            logger.error(f"Error loading karaokee models: {e}")
+            logger.error(f"Error loading karaoke models: {e}")
             model_combo.addItems([ac.NO_MODEL])
 
         vocal_split_layout.addRow(model_label, model_combo)
@@ -207,8 +196,6 @@ class MDXNetAdvancedDialog(QDialog):
 
         # Check if deverb model exists
         try:
-            from pathlib import Path
-
             deverb_model_path = Path(ac.VR_MODELS_DIR_PATH) / "UVR-DeEcho-DeReverb.pth"
             if not deverb_model_path.exists():
                 deverb_check.setEnabled(False)
@@ -250,9 +237,7 @@ class MDXNetAdvancedDialog(QDialog):
         import os
 
         try:
-            # Clear MDX cache directory (same logic as UVR.py clear_cache)
-            from ..core.model_data import MDX_MODELS_DIR_PATH
-
+            # Clear MDX cache directory
             mdx_hash_dir = MDX_MODELS_DIR_PATH.parent / "mdx_hash_dirs"
 
             if mdx_hash_dir.exists():
@@ -713,26 +698,13 @@ class MDXNetAdvancedDialog(QDialog):
 
         # Vocal Model Selection
         self.vocal_model_combo = QComboBox()
-        # Load karaokee models dynamically
+        # Load karaoke models dynamically
         try:
-            from ..core.uvr_core_adapter import UVRCoreAdapter
-
-            adapter = UVRCoreAdapter()
-
-            # Get karaokee models (models with is_karaoke or is_bv_model = True)
-            karaokee_models = [ac.NO_MODEL]
-            all_models = adapter.get_all_available_models()
-
-            for model_name, model_info in all_models.items():
-                if model_info and isinstance(model_info, dict):
-                    is_karaoke = model_info.get("is_karaoke", False)
-                    is_bv_model = model_info.get("is_bv_model", False)
-                    if is_karaoke or is_bv_model:
-                        karaokee_models.append(model_name)
-
-            self.vocal_model_combo.addItems(karaokee_models)
+            # Get karaoke models using our helper method
+            karaoke_models = self._get_karaokee_models()
+            self.vocal_model_combo.addItems(karaoke_models)
         except Exception as e:
-            logger.error(f"Error loading karaokee models for vocal combo: {e}")
+            logger.error(f"Error loading karaoke models for vocal combo: {e}")
             self.vocal_model_combo.addItems([ac.NO_MODEL])
 
         self.vocal_model_combo.setEnabled(False)
@@ -788,15 +760,10 @@ class MDXNetAdvancedDialog(QDialog):
         This implements the same filtering logic as the original UVR.py model_list function.
         """
         try:
-            from ..core import app_constants as ac
-            from ..core.model_data import ModelData
-            from ..core.uvr_core_adapter import UVRCoreAdapter
-
-            adapter = UVRCoreAdapter()
             suitable_models = [ac.NO_MODEL]
 
             # Get MDX models specifically
-            mdx_models = adapter.get_available_models(ac.MDX_NET_MODELS_KEY)
+            mdx_models = self.adapter.get_available_models(ac.MDX_NET_MODELS_KEY)
 
             for model_name in mdx_models:
                 try:
@@ -894,9 +861,7 @@ class MDXNetAdvancedDialog(QDialog):
             return
 
         try:
-
             # Load all models once and cache them
-            adapter = UVRCoreAdapter()
             all_suitable_models = []
 
             # Get all available models from all architectures (do this once)
@@ -905,7 +870,7 @@ class MDXNetAdvancedDialog(QDialog):
                 ac.MDX_NET_MODELS_KEY,
                 ac.DEMUCS_MODELS_KEY,
             ]:
-                arch_models = adapter.get_available_models(arch_key)
+                arch_models = self.adapter.get_available_models(arch_key)
 
                 for model_name in arch_models:
                     try:
@@ -998,8 +963,6 @@ class MDXNetAdvancedDialog(QDialog):
                     combo.setCurrentIndex(index)
                 else:
                     # If model not found, default to NO_MODEL
-                    from ..core import app_constants as ac
-
                     no_model_index = combo.findText(ac.NO_MODEL)
                     if no_model_index >= 0:
                         combo.setCurrentIndex(no_model_index)
@@ -1008,3 +971,8 @@ class MDXNetAdvancedDialog(QDialog):
         """Handle tab change to implement lazy loading."""
         if index == 1 and not self._models_loaded:  # Secondary tab is index 1
             self._load_models_if_needed()
+
+    def _get_karaokee_models(self):
+        """Get models that are suitable for vocal splitting using shared ModelData method."""
+
+        return ModelData.get_karaoke_models()

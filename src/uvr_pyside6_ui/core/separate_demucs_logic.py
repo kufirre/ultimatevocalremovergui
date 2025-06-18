@@ -322,8 +322,8 @@ class SeparateDemucsLogic(SeparatorAttributesLogic):
                     if str(md.model_path).endswith(".gz")
                     else md.model_path
                 )
-                # Use regular torch.load for v1 models
-                loaded_data = torch.load(model_file_path, map_location=CPU_DEVICE)
+                # Use explicit weights_only=False for v1 models since they contain code
+                loaded_data = torch.load(model_file_path, map_location=CPU_DEVICE, weights_only=False)
                 klass, args, kwargs, state = loaded_data
                 self.model_run_instance = klass(*args, **kwargs)
                 self.model_run_instance.load_state_dict(state)
@@ -338,8 +338,8 @@ class SeparateDemucsLogic(SeparatorAttributesLogic):
                 self.model_run_instance = demucs_apply_model_v2(
                     md.demucs_source_list, md.model_path
                 )  # Use demucs_apply_model_v2
-                # Use regular torch.load for v2 models
-                state_dict = torch.load(md.model_path, map_location=CPU_DEVICE)
+                # Use regular torch.load for v2 models - only loading state_dict
+                state_dict = torch.load(md.model_path, map_location=CPU_DEVICE, weights_only=True)
                 self.model_run_instance.load_state_dict(state_dict)
 
             else:  # Demucs v3/v4

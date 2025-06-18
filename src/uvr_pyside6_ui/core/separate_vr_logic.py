@@ -134,11 +134,6 @@ class SeparateVRLogic(SeparatorAttributesLogic):
                 )
                 return np.array([])
 
-            total_iterations = (
-                patches // md.batch_size
-                if not md.is_tta
-                else (patches // md.batch_size) * 2
-            )
             self.progress_value = 0
 
             for i in range(patches):
@@ -149,16 +144,17 @@ class SeparateVRLogic(SeparatorAttributesLogic):
             mask_chunks = []
 
             with torch.no_grad():
+                total_batches = (patches + md.batch_size - 1) // md.batch_size  # Ceiling division
+                batch_count = 0
+                
                 for i in range(0, patches, md.batch_size):
                     if not self._is_running_check():
                         raise InterruptedError("Processing stopped.")
 
-                    self.progress_value += 1
-                    self._update_progress(
-                        self.progress_value / total_iterations
-                        if total_iterations > 0
-                        else 1.0
-                    )
+                    batch_count += 1
+                    # Progress from 30% to 75% during inference
+                    progress_fraction = 0.30 + (0.45 * (batch_count / max(total_batches, 1)))
+                    self._update_progress(progress_fraction)
 
                     X_batch = torch.from_numpy(X_dataset_np[i : i + md.batch_size]).to(
                         self.device
@@ -456,7 +452,7 @@ class SeparateVRLogic(SeparatorAttributesLogic):
             logger.error(traceback.format_exc())
             return None
 
-        self._update_progress(0.0, message="Loading audio mix...")
+        self._update_progress(0.25, message="Preprocessing audio...")
         X_spec = self._loading_mix_vr(str(self.audio_file_path))
         if X_spec is None:
             return None
@@ -467,12 +463,15 @@ class SeparateVRLogic(SeparatorAttributesLogic):
                 "Warning: Input spectrogram contains all zeros or very small values"
             )
 
-        logger.info("Running VR inference...")
+        self._update_progress(0.30, message="Running VR inference...")
+        
         y_spec, v_spec = self._inference_vr_logic(X_spec)
 
         if y_spec is None or v_spec is None:
             logger.error("VR inference error.")
             return None
+
+        self._update_progress(0.75, message="Converting spectrograms to audio...")
 
         # NaN/Inf check for y_spec and v_spec
         if np.isnan(np.sum(y_spec)):
@@ -497,12 +496,18 @@ class SeparateVRLogic(SeparatorAttributesLogic):
             )
             v_spec = np.nan_to_num(v_spec, posinf=1.0, neginf=-1.0)
 
-        self._console_log(ac.DONE_MESSAGE)
         outputs = {}
 
+        # Standard VR spec assignment (let's test if the swap was actually necessary)
+        # If VR outputs are still wrong, the issue might be elsewhere
+        logger.info(f"VR processing: primary_stem={md.primary_stem}, secondary_stem={md.secondary_stem}")
+        primary_spec = y_spec   # Standard: y_spec for primary (vocals)
+        secondary_spec = v_spec  # Standard: v_spec for secondary (instrumental)
+
+        self._update_progress(0.80, message="Processing stems...")
+
         if not md.is_secondary_stem_only:
-            logger.info(f"Converting {md.primary_stem}...")
-            primary_wave = self._spec_to_wav_vr_logic(y_spec)
+            primary_wave = self._spec_to_wav_vr_logic(primary_spec)
 
             if primary_wave is not None:
                 if primary_wave.size == 0:
@@ -515,9 +520,6 @@ class SeparateVRLogic(SeparatorAttributesLogic):
                     md.model_samplerate != ac.DEFAULT_SAMPLE_RATE
                     and primary_wave.size > 0
                 ):  # Ensure not resampling empty array
-                    logger.info(
-                        f"Resampling {md.primary_stem} from {md.model_samplerate} Hz to {ac.DEFAULT_SAMPLE_RATE} Hz"
-                    )
                     primary_wave = librosa.resample(
                         primary_wave.T,
                         orig_sr=md.model_samplerate,
@@ -542,9 +544,10 @@ class SeparateVRLogic(SeparatorAttributesLogic):
             else:
                 logger.warning(f"Failed to convert {md.primary_stem} (returned None).")
 
+        self._update_progress(0.90, message="Finalizing...")
+
         if not md.is_primary_stem_only:
-            logger.info(f"Converting {md.secondary_stem}...")
-            secondary_wave = self._spec_to_wav_vr_logic(v_spec)
+            secondary_wave = self._spec_to_wav_vr_logic(secondary_spec)
 
             if secondary_wave is not None:
                 if secondary_wave.size == 0:
@@ -557,9 +560,6 @@ class SeparateVRLogic(SeparatorAttributesLogic):
                     md.model_samplerate != ac.DEFAULT_SAMPLE_RATE
                     and secondary_wave.size > 0
                 ):  # Ensure not resampling empty array
-                    logger.info(
-                        f"Resampling {md.secondary_stem} from {md.model_samplerate} Hz to {ac.DEFAULT_SAMPLE_RATE} Hz"
-                    )
                     secondary_wave = librosa.resample(
                         secondary_wave.T,
                         orig_sr=md.model_samplerate,
@@ -571,6 +571,7 @@ class SeparateVRLogic(SeparatorAttributesLogic):
                 ):
                     pass
 
+                # VR secondary stem is just the converted spectrogram
                 self.secondary_source = secondary_wave
                 self.secondary_source_map = self._final_process_stem(
                     "",

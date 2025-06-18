@@ -112,11 +112,19 @@ class ProcessingWorker(QObject):
     def run(self):
         """Execute the audio processing task."""
         logger.info("ProcessingWorker started")
+        
+        # Debug log the relevant settings
+        logger.info(f"=== SETTINGS DEBUG ===")
+        logger.info(f"save_format: {self.settings.get('save_format', 'NOT SET')}")
+        logger.info(f"is_primary_stem_only: {self.settings.get('is_primary_stem_only', 'NOT SET')}")
+        logger.info(f"is_secondary_stem_only: {self.settings.get('is_secondary_stem_only', 'NOT SET')}")
+        logger.info(f"is_primary_stem_only_Demucs: {self.settings.get('is_primary_stem_only_Demucs', 'NOT SET')}")
+        logger.info(f"is_secondary_stem_only_Demucs: {self.settings.get('is_secondary_stem_only_Demucs', 'NOT SET')}")
+        logger.info(f"=====================")
+        
         try:
-            # Initial progress (5%)
-            self._set_progress_bar_callback(
-                0.05, "Loading model and preparing audio..."
-            )
+            # Initial progress (10%)
+            self._emit_progress_update(10, "Loading model and preparing audio...")
 
             # Only create ModelData if it wasn't created in __init__
             if self.model_data is None:
@@ -141,29 +149,12 @@ class ProcessingWorker(QObject):
                     f"Ensemble primary stem: {getattr(self.model_data, 'ensemble_primary_stem', 'Unknown')}"
                 )
 
-            # Load and prepare audio
+            # Load and prepare audio (20%)
+            self._emit_progress_update(20, "Loading audio file...")
             self.original_mix_audio = self._load_audio()
             if self.original_mix_audio is None:
                 self.processing_finished.emit(False, "Failed to load audio file")
                 return
-
-            # Set expected progress steps based on method
-            if self.model_data.is_ensemble_mode:
-                # Ensemble mode
-                self.total_progress_steps = (
-                    len(getattr(self.model_data, "ensemble_models", [])) * 20
-                )
-            elif self.model_data.process_method == ac.DEMUCS_ARCH_TYPE:
-                self.total_progress_steps = (
-                    50  # Approximate steps for Demucs processing
-                )
-            elif self.model_data.process_method == ac.MDX_ARCH_TYPE:
-                self.total_progress_steps = 100  # More steps for MDX processing
-            else:
-                self.total_progress_steps = 75  # VR processing steps
-
-            # Reset progress counter for processing phase
-            self.progress_count = 0
 
             # Track processing success
             processing_success = True
@@ -175,30 +166,18 @@ class ProcessingWorker(QObject):
                 logger.info("🎯 Starting ensemble processing...")
                 self._process_ensemble(self.original_mix_audio)
                 return  # Don't emit completion signal here, ensemble handles it
-            elif self.model_data.process_method == ac.VR_ARCH_TYPE:
-                processing_success = self._process_vr_arch(self._create_process_data())
-            elif self.model_data.process_method == ac.MDX_ARCH_TYPE:
-                if self.model_data.is_mdx_c:
-                    logger.info("Processing with MDX-C")
-                else:
-                    logger.info("Processing with MDX-Net")
-                processing_success = self._process_mdx_net(self._create_process_data())
-            elif self.model_data.process_method == ac.DEMUCS_ARCH_TYPE:
-                processing_success = self._process_demucs(self._create_process_data())
             else:
-                self.processing_finished.emit(
-                    False,
-                    f"Unsupported processing method: {self.model_data.process_method}",
-                )
-                return
+                # Create the main process_data dictionary ONCE (25%)
+                self._emit_progress_update(25, "Preparing processing data...")
+                process_data = self._create_process_data(input_audio_array_for_main_model=self.original_mix_audio)
+                
+                # Use the pipeline for ALL processing methods
+                processing_success = self._execute_separation_pipeline(self.model_data.process_method, process_data)
 
             # Only proceed with final completion if processing was successful
             if processing_success:
-                # Final progress (95%)
-                self._set_progress_bar_callback(0.95, "Processing complete!")
-
-                # Complete (100%)
-                self._emit_progress_update(100, "Done")
+                # Final completion (100%)
+                self._emit_progress_update(100, "Processing completed successfully!")
                 self.processing_finished.emit(True, processing_message)
             # If processing failed, the individual method should have already emitted failure
 
@@ -243,7 +222,8 @@ class ProcessingWorker(QObject):
             )
             return False
 
-        self._emit_progress_update(30, f"Running {method_name} separation...")
+        # Start inference (30% base, will reach ~80% during inference)
+        self._emit_progress_update(30, f"Running {method_name} inference...")
         primary_results = primary_separator.separate()
         if not self._is_running or not primary_results:
             if self._is_running:
@@ -255,12 +235,17 @@ class ProcessingWorker(QObject):
 
         current_stems = primary_results.copy()
 
+        # After inference, we should be at ~80%
+        # Secondary processing: 80-85% (dynamic based on number of secondary models)
         if (
             self.model_data.process_method == ac.DEMUCS_ARCH_TYPE
             and self.model_data.demucs_stems == ac.ALL_STEMS
             and self.model_data.is_demucs_4_stem_secondaries_activated
         ):
             demucs_stems_order = self.model_data.demucs_source_list
+            total_secondary_models = len([m for m in self.model_data.secondary_model_4_stem_instances 
+                                        if m and m.model_name != ac.NO_MODEL])
+            
             for i, stem_name_to_refine in enumerate(demucs_stems_order):
                 if i >= len(self.model_data.secondary_model_4_stem_instances):
                     break
@@ -274,8 +259,10 @@ class ProcessingWorker(QObject):
                     secondary_model_for_stem_obj
                     and secondary_model_for_stem_obj.model_name != ac.NO_MODEL
                 ):
+                    # Dynamic progress from 80% to 85% based on secondary model count
+                    progress_val = 80 + int((i / max(total_secondary_models, 1)) * 5)
                     self._emit_progress_update(
-                        70 + i * 5,
+                        progress_val,
                         f"Processing Demucs {stem_name_to_refine} with secondary: {secondary_model_for_stem_obj.model_basename}...",
                     )
                     input_audio_for_secondary = current_stems.get(stem_name_to_refine)
@@ -450,9 +437,29 @@ class ProcessingWorker(QObject):
                 self._write_to_console("Vocal input for vocal splitter not found.", "")
 
         if self._is_running:
-            self._emit_progress_update(
-                100, f"{method_name} processing pipeline complete!"
-            )
+            self._emit_progress_update(85, "Finalizing processed stems...")
+            
+            # Save the primary results to disk
+            if primary_results and primary_separator:
+                total_stems = len(primary_results)
+                saved_count = 0
+                for stem_name, stem_audio in primary_results.items():
+                    if stem_audio is not None and self._is_running:
+                        try:
+                            primary_separator._write_stem(
+                                stem_name, 
+                                stem_audio, 
+                                self.model_data.model_samplerate
+                            )
+                            saved_count += 1
+                            # Dynamic progress from 85% to 95% while saving stems
+                            save_progress = 85 + int((saved_count / total_stems) * 10)
+                            self._emit_progress_update(save_progress, f"Saved {stem_name}")
+                        except Exception as e:
+                            logger.error(f"Failed to write {stem_name}: {e}")
+                            self._write_to_console(f"Error saving {stem_name}: {e}", "")
+            
+            # File saving complete - ready for final completion in main run() method
             return True
 
         return False
@@ -732,7 +739,7 @@ class ProcessingWorker(QObject):
             is_vr_51_model = False
 
         model_run.load_state_dict(
-            torch.load(self.model_data.model_path, map_location="cpu")
+            torch.load(self.model_data.model_path, map_location="cpu", weights_only=False)
         )
         model_run.to(device)
         model_run.eval()
@@ -911,7 +918,7 @@ class ProcessingWorker(QObject):
         # Load model
         model = TFC_TDF_net(self.model_data.mdx_c_configs, device=self.device_torch)
         model.load_state_dict(
-            torch.load(self.model_data.model_path, map_location="cpu")
+            torch.load(self.model_data.model_path, map_location="cpu", weights_only=False)
         )
         model.to(self.device_torch).eval()
 
@@ -1798,7 +1805,7 @@ class ProcessingWorker(QObject):
                 is_vr_51_model = False
 
             model_run.load_state_dict(
-                torch.load(self.model_data.model_path, map_location="cpu")
+                torch.load(self.model_data.model_path, map_location="cpu", weights_only=False)
             )
             model_run.to(device)
             model_run.eval()
@@ -2103,7 +2110,7 @@ class ProcessingWorker(QObject):
                         model_path = gzip.open(self.model_data.model_path, "rb")
                     else:
                         model_path = self.model_data.model_path
-                    klass, args, kwargs, state = torch.load(model_path)
+                    klass, args, kwargs, state = torch.load(model_path, map_location=CPU_DEVICE, weights_only=False)
                     demucs_model = klass(*args, **kwargs)
                     demucs_model.to(self.device_torch)
                     demucs_model.load_state_dict(state)
@@ -2112,7 +2119,7 @@ class ProcessingWorker(QObject):
                     self._write_to_console("  Loading V2 model...", "")
                     # Load v2 model - using simplified approach for ensemble
                     demucs_model = torch.load(
-                        self.model_data.model_path, map_location="cpu"
+                        self.model_data.model_path, map_location="cpu", weights_only=False
                     )
                     demucs_model.to(self.device_torch)
                     demucs_model.eval()

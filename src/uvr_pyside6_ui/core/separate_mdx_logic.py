@@ -171,9 +171,10 @@ class SeparateMDXLogic(SeparatorAttributesLogic):
             if not self._is_running_check():
                 raise InterruptedError("Processing stopped by user.")
             self.progress_value += 1
-            self._update_progress(
-                self.progress_value / total_chunks if total_chunks > 0 else 1.0
-            )
+            # Dynamic progress: start at 30%, reach 80% at completion  
+            progress_fraction = 0.3 + (0.5 * (self.progress_value / total_chunks))
+            progress_fraction = min(progress_fraction, 0.8)  # Cap at 80%
+            self._update_progress(progress_fraction)
 
             start_idx, end_idx = i, min(i + self.chunk_size, mixture_padded_np.shape[1])
             actual_chunk_size = end_idx - start_idx
@@ -293,24 +294,21 @@ class SeparateMDXLogic(SeparatorAttributesLogic):
         logger.info(ac.DONE_MESSAGE)
         outputs = {}
 
-        if not md.is_primary_stem_only:
-            if primary_stem_data.shape == mix_audio_norm_np.shape:
-                secondary_stem_data = mix_audio_norm_np - primary_stem_data
-                self.secondary_source = secondary_stem_data
-                self.secondary_source_map = self._final_process_stem(
-                    "",
-                    secondary_stem_data,
-                    getattr(self, "secondary_source_secondary", None),
-                    md.secondary_stem,
-                    md.model_samplerate,
-                )
-                outputs.update(self.secondary_source_map)
-            else:
-                logger.warning(
-                    f"Warning: Shape mismatch for secondary stem {md.model_name}"
-                )
+        # Log debug info about stem settings
+        logger.info(f"MDX primary_stem: {md.primary_stem}")
+        logger.info(f"MDX secondary_stem: {md.secondary_stem}")
+        logger.info(f"MDX is_primary_stem_only: {md.is_primary_stem_only}")
+        logger.info(f"MDX is_secondary_stem_only: {md.is_secondary_stem_only}")
 
-        if not md.is_secondary_stem_only:
+        # MDX models output the primary stem directly
+        # The secondary stem is calculated by subtracting from the mix
+        
+        # Check if both stems should be saved
+        save_primary = not md.is_secondary_stem_only
+        save_secondary = not md.is_primary_stem_only
+        
+        if save_primary:
+            logger.info(f"Saving primary stem: {md.primary_stem}")
             self.primary_source = primary_stem_data
             self.primary_source_map = self._final_process_stem(
                 "",
@@ -320,6 +318,32 @@ class SeparateMDXLogic(SeparatorAttributesLogic):
                 md.model_samplerate,
             )
             outputs.update(self.primary_source_map)
+
+        if save_secondary and primary_stem_data.shape == mix_audio_norm_np.shape:
+            logger.info(f"Saving secondary stem: {md.secondary_stem}")
+            # Handle is_invert_spec for models that output instrumental first
+            if md.is_invert_spec and spec_utils:
+                # Use spec_utils.invert_stem for proper calculation
+                secondary_stem_data = spec_utils.invert_stem(mix_audio_norm_np, primary_stem_data)
+                logger.info(f"Used invert_stem for secondary calculation (is_invert_spec=True)")
+            else:
+                # Standard subtraction method
+                secondary_stem_data = mix_audio_norm_np - primary_stem_data
+                logger.info(f"Used standard subtraction for secondary calculation (is_invert_spec=False)")
+                
+            self.secondary_source = secondary_stem_data
+            self.secondary_source_map = self._final_process_stem(
+                "",
+                secondary_stem_data,
+                getattr(self, "secondary_source_secondary", None),
+                md.secondary_stem,
+                md.model_samplerate,
+            )
+            outputs.update(self.secondary_source_map)
+        elif save_secondary:
+            logger.warning(
+                f"Cannot calculate secondary stem - shape mismatch: {primary_stem_data.shape} vs {mix_audio_norm_np.shape}"
+            )
 
         clear_gpu_cache_logic()
         return outputs

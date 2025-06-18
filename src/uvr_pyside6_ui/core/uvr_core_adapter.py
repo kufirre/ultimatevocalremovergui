@@ -249,33 +249,22 @@ class UVRCoreAdapter(QObject):
         return downloadable_models
 
     def _on_download_finished(
-        self, success: bool, model_path: str, config_path: str, message: str
+        self, success: bool, model_path: str, config_path: str, message: str, model_type: str
     ):
         """Handle download completion from the download manager."""
-        # Extract model type and display name from the model path
-        model_type_ui_name = ""
-        model_display_name = ""
-
-        # Determine model type from path
-        if "VR_Models" in model_path:
-            model_type_ui_name = ac.VR_ARCH_MODELS_KEY
-        elif "MDX_Net_Models" in model_path:
-            model_type_ui_name = ac.MDX_NET_MODELS_KEY
-        elif "Demucs_Models" in model_path:
-            model_type_ui_name = ac.DEMUCS_MODELS_KEY
-
         # Extract display name from filename
+        model_display_name = ""
         if model_path:
             model_display_name = Path(model_path).stem
 
-        # Emit our signal with the extracted information
+        # Emit our signal with the information passed from the worker
         self.download_finished.emit(
-            model_type_ui_name, model_display_name, success, message
+            model_type, model_display_name, success, message
         )
 
         # If successful, emit model download completed signal
         if success:
-            self.model_download_completed.emit(model_type_ui_name)
+            self.model_download_completed.emit(model_type)
 
     def get_model_info(self, model_name: str, model_type: str) -> dict | None:
         """Get basic model information for filtering purposes.

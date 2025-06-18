@@ -25,7 +25,6 @@ class ModelSelectionPresenter(QObject):
         self._current_model = ""
         self.view.process_method_changed.connect(self.handle_method_change)
         self.view.model_selected_by_user.connect(self.process_model_selection)
-        # self.adapter.download_finished.connect(self._on_model_downloaded_elsewhere) # Replaced by model_download_completed
         self.adapter.model_download_completed.connect(
             self._handle_model_list_refresh_on_download
         )
@@ -36,8 +35,6 @@ class ModelSelectionPresenter(QObject):
         if self._available_methods:
             self._current_method = self.view.method_combo.currentText()
 
-            # self.view.set_ensemble_checked(self._is_advanced_ensemble_options) # REMOVED
-        # Debug print removed
 
     def connect_demucs_stem_changes(self, demucs_presenter):
         """Connect to Demucs stem selection changes."""
@@ -76,6 +73,7 @@ class ModelSelectionPresenter(QObject):
             auto_selected_model = self.view.set_models(
                 models_for_method, current_method=method
             )
+            
         if (
             auto_selected_model
             and auto_selected_model != ac.DOWNLOAD_MORE_MODELS_TEXT
@@ -128,9 +126,25 @@ class ModelSelectionPresenter(QObject):
 
     def _emit_model_change_info(self):
         """Emit model change information including stem details."""
-        if not self._current_method or not self._current_model:
-            # Disable processing checkboxes when no model is selected
+        if not self._current_method:
+            # No method selected - disable everything
             self.model_changed.emit("", "", "", "")
+            return
+            
+        if not self._current_model:
+            # Method selected but no model - provide default stems for the method
+            if self._current_method == ac.VR_ARCH_MODELS_KEY:
+                # VR models typically work with vocals/instrumental
+                self.model_changed.emit(self._current_method, "", ac.VOCAL_STEM, ac.INST_STEM)
+            elif self._current_method == ac.MDX_NET_MODELS_KEY:
+                # MDX models typically work with vocals/instrumental  
+                self.model_changed.emit(self._current_method, "", ac.VOCAL_STEM, ac.INST_STEM)
+            elif self._current_method == ac.DEMUCS_MODELS_KEY:
+                # Demucs default stems depend on current selection, but default to vocals/instrumental
+                self.model_changed.emit(self._current_method, "", ac.VOCAL_STEM, ac.INST_STEM)
+            else:
+                # Other methods or ensemble - disable checkboxes
+                self.model_changed.emit(self._current_method, "", "", "")
             return
 
         primary_stem, secondary_stem = self._get_stems_for_model(
@@ -157,13 +171,13 @@ class ModelSelectionPresenter(QObject):
                 return ac.VOCAL_STEM, ac.INST_STEM
 
             elif method == ac.VR_ARCH_MODELS_KEY:
-                if model_info and hasattr(model_info, "primary_stem"):
-                    primary = getattr(model_info, "primary_stem", ac.VOCAL_STEM)
+                if model_info and "primary_stem" in model_info:
+                    primary = model_info.get("primary_stem", ac.VOCAL_STEM)
                     secondary = ac.secondary_stem(primary)
                     return primary, secondary
             elif method == ac.MDX_NET_MODELS_KEY:
-                if model_info and hasattr(model_info, "mdx_model_stems"):
-                    stems = getattr(model_info, "mdx_model_stems", [])
+                if model_info and "mdx_model_stems" in model_info:
+                    stems = model_info.get("mdx_model_stems", [])
                     if stems:
                         primary = stems[0] if stems else ac.VOCAL_STEM
                         secondary = ac.secondary_stem(primary)
@@ -175,7 +189,7 @@ class ModelSelectionPresenter(QObject):
                 return "Primary", "Secondary"
         except Exception as e:
             # If we can't get model info, use defaults
-            pass
+            logger.debug(f"Error getting model info for {model_name}: {e}")
 
         # Default fallback
         return ac.VOCAL_STEM, ac.INST_STEM
@@ -253,7 +267,7 @@ class ModelSelectionPresenter(QObject):
         if not settings_dict:
             return
 
-        logger.debug(f"Loading model selection settings: {settings_dict}")
+        logger.info(f"Loading model selection settings: {settings_dict}")
 
         # Extract method and model from settings
         method = settings_dict.get("chosen_process_method", "")

@@ -14,6 +14,8 @@ class ProcessingSettingsPresenter(QObject):
         self._sample_mode: bool = False
         # Store current ensemble stem pair for dynamic updates
         self._current_ensemble_stem_pair: str = ""
+        # Track the current method to know when to apply ensemble logic
+        self._current_method: str = ""
         # self._sample_duration: int = 30 # This would come from app settings later
 
         self.view.gpu_conversion_changed.connect(self.handle_gpu_change)
@@ -90,6 +92,9 @@ class ProcessingSettingsPresenter(QObject):
         self, method: str, model: str, primary_stem: str, secondary_stem: str
     ):
         """Handle model selection changes to update checkbox labels and availability."""
+        # Track the current method
+        self._current_method = method
+        
         if not method or not model or not primary_stem or not secondary_stem:
             # No model selected - disable checkboxes and reset labels
             self.view.set_stem_checkboxes_enabled(False)
@@ -120,6 +125,11 @@ class ProcessingSettingsPresenter(QObject):
 
     def _update_ensemble_checkboxes(self):
         """Update checkbox labels and enable/disable state based on current ensemble stem pair."""
+        # Only apply ensemble checkbox logic if we're actually in Ensemble mode
+        # This prevents ensemble initialization from overriding other method settings
+        if self._current_method != "Ensemble":
+            return
+            
         stem_pair = self._current_ensemble_stem_pair
 
         if stem_pair in ["4 Stem Ensemble", "Multi-stem Ensemble"]:

@@ -28,5 +28,14 @@
     
     <file alias="theme/style.qss">ui/theme/style.qss</file>
     <file alias="theme/progress_bars.qss">ui/theme/progress_bars.qss</file>
+    
+    <!-- Help files -->
+    <file alias="help/help_style.css">resources/help/help_style.css</file>
+    <file alias="help/getting_started.html">resources/help/getting_started.html</file>
+    <file alias="help/model_types.html">resources/help/model_types.html</file>
+    <file alias="help/processing_options.html">resources/help/processing_options.html</file>
+    <file alias="help/ensemble_mode.html">resources/help/ensemble_mode.html</file>
+    <file alias="help/audio_formats.html">resources/help/audio_formats.html</file>
+    <file alias="help/placeholder.html">resources/help/placeholder.html</file>
 </qresource>
 </RCC>

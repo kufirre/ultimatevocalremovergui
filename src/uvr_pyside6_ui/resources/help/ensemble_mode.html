@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" type="text/css" href="help_style.css">
+</head>
+<body>
+    <h2>Ensemble Mode</h2>
+    <p>Combine multiple models for superior results.</p>
+    
+    <h3>What is Ensemble Mode?</h3>
+    <p>Ensemble mode processes audio through multiple models and combines the results, often achieving better separation than any single model.</p>
+    
+    <h3>Creating Ensembles</h3>
+    <ol>
+        <li>Select "Ensemble Mode" from the process method</li>
+        <li>Choose models to include</li>
+        <li>Select combination algorithm</li>
+        <li>Save ensemble for reuse</li>
+    </ol>
+    
+    <h3>Combination Algorithms</h3>
+    <ul>
+        <li><b>Average:</b> Simple average of all models</li>
+        <li><b>Weighted Average:</b> Custom weights per model</li>
+        <li><b>Min/Max:</b> Take minimum or maximum values</li>
+        <li><b>Median:</b> Median value across models</li>
+    </ul>
+    
+    <div class="note">
+        <b>Best Practices:</b><br>
+        • Combine models with different strengths<br>
+        • Use 2-4 models for best balance<br>
+        • Test different algorithms for your content<br>
+        • Save successful ensembles for reuse
+    </div>
+    
+    <div class="warning">
+        <b>Performance Note:</b> Ensemble processing time equals the sum of all included models. Plan accordingly for large batches.
+    </div>
+</body>
+</html>

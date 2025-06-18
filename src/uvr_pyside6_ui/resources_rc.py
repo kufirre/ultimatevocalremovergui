@@ -76965,6 +76965,728 @@ U\x16\x1f\x8e7ow3@\xbb\x7f\x00\x9d^F\xe4\
 \x97\xcf\x9a3\x0f\xbc}\x04\x9d\x99k\xe6\x9a\xb9f\xae\
 \xbf\xf7\x15\x19\xe0\x8f\xff\x01`\xbf>\xea\x09\xb1\xeb\xc8\
 \x00\x00\x00\x00IEND\xaeB`\x82\
+\x00\x00\x01N\
+<\
+!DOCTYPE html>\x0a<\
+html>\x0a<head>\x0a   \
+ <meta charset=\x22\
+UTF-8\x22>\x0a    <lin\
+k rel=\x22styleshee\
+t\x22 type=\x22text/cs\
+s\x22 href=\x22help_st\
+yle.css\x22>\x0a</head\
+>\x0a<body>\x0a    <h2\
+>Content Coming \
+Soon</h2>\x0a    <p\
+>Content for thi\
+s topic is comin\
+g soon...</p>\x0a  \
+  <div class=\x22no\
+te\x22>\x0a        <b>\
+Note:</b> This h\
+elp section is u\
+nder development\
+.\x0a    </div>\x0a</b\
+ody>\x0a</html>\x0a\
+\x00\x00\x08\xb1\
+<\
+!DOCTYPE html>\x0a<\
+html>\x0a<head>\x0a   \
+ <meta charset=\x22\
+UTF-8\x22>\x0a    <lin\
+k rel=\x22styleshee\
+t\x22 type=\x22text/cs\
+s\x22 href=\x22help_st\
+yle.css\x22>\x0a</head\
+>\x0a<body>\x0a    <h2\
+>Model Types</h2\
+>\x0a    <p>UVR sup\
+ports several mo\
+del architecture\
+s, each with uni\
+que strengths:</\
+p>\x0a    \x0a    <h3>\
+VR Architecture<\
+/h3>\x0a    <p><b>V\
+ocal Remover mod\
+els</b> - Origin\
+al UVR architect\
+ure</p>\x0a    <ul>\
+\x0a        <li>Fas\
+t processing spe\
+ed</li>\x0a        \
+<li>Good for voc\
+als/instrumental\
+ separation</li>\
+\x0a        <li>Low\
+er memory requir\
+ements</li>\x0a    \
+    <li>Supports\
+ model ensemblin\
+g</li>\x0a        <\
+li><b>Karaoke mo\
+dels available</\
+b> - Special mod\
+els for vocal sp\
+litting and lead\
+/backing vocal s\
+eparation</li>\x0a \
+       <li><b>BV\
+ models</b> - Ba\
+ckground vocal r\
+emoval models</l\
+i>\x0a    </ul>\x0a   \
+ \x0a    <h3>MDX-Ne\
+t</h3>\x0a    <p><b\
+>Music Demixing \
+Challenge models\
+</b> - Advanced \
+neural networks<\
+/p>\x0a    <ul>\x0a   \
+     <li>High qu\
+ality separation\
+</li>\x0a        <l\
+i>Multiple stem \
+support</li>\x0a   \
+     <li>Larger \
+model sizes</li>\
+\x0a        <li>GPU\
+ recommended</li\
+>\x0a    </ul>\x0a    \
+\x0a    <h3>Demucs<\
+/h3>\x0a    <p><b>F\
+acebook's Demucs\
+</b> - State-of-\
+the-art separati\
+on</p>\x0a    <ul>\x0a\
+        <li>Exce\
+llent quality</l\
+i>\x0a        <li>4\
+-stem separation\
+ (vocals, drums,\
+ bass, other)</l\
+i>\x0a        <li>H\
+igh memory usage\
+</li>\x0a        <l\
+i>Slower process\
+ing</li>\x0a    </u\
+l>\x0a    \x0a    <div\
+ class=\x22note\x22>\x0a \
+       <b>Choosi\
+ng the Right Mod\
+el:</b><br>\x0a    \
+    \xe2\x80\xa2 <b>Quali\
+ty vs Speed:</b>\
+ Demucs for qual\
+ity, VR for spee\
+d<br>\x0a        \xe2\x80\
+\xa2 <b>Memory:</b>\
+ VR uses least, \
+Demucs uses most\
+<br>\x0a        \xe2\x80\xa2\
+ <b>Stems needed\
+:</b> Use Demucs\
+ for 4-stem sepa\
+ration<br>\x0a     \
+   \xe2\x80\xa2 <b>Hardwa\
+re:</b> GPU grea\
+tly speeds up MD\
+X-Net and Demucs\
+<br>\x0a        \xe2\x80\xa2\
+ <b>Karaoke/Voca\
+l Splitting:</b>\
+ Look for karaok\
+e or BV models i\
+n VR Architectur\
+e<br>\x0a        \xe2\x80\
+\xa2 <b>Professiona\
+l Use:</b> Consi\
+der VIP access f\
+or premium model\
+s\x0a    </div>\x0a   \
+ \x0a    <h3>VIP Mo\
+dels</h3>\x0a    <p\
+><b>Premium Mode\
+ls</b> - Exclusi\
+ve access for su\
+pporters</p>\x0a   \
+ <ul>\x0a        <l\
+i>Enhanced quali\
+ty over free mod\
+els</li>\x0a       \
+ <li>Early acces\
+s to experimenta\
+l models</li>\x0a  \
+      <li>Commer\
+cial usage right\
+s</li>\x0a        <\
+li>Available acr\
+oss all architec\
+tures (VR, MDX-N\
+et, Demucs)</li>\
+\x0a        <li>Cry\
+ptographic verif\
+ication required\
+</li>\x0a    </ul>\x0a\
+</body>\x0a</html>\x0a\
+\
+\x00\x00\x07\xff\
+<\
+!DOCTYPE html>\x0a<\
+html>\x0a<head>\x0a   \
+ <meta charset=\x22\
+UTF-8\x22>\x0a    <lin\
+k rel=\x22styleshee\
+t\x22 type=\x22text/cs\
+s\x22 href=\x22help_st\
+yle.css\x22>\x0a</head\
+>\x0a<body>\x0a    <h2\
+>Getting Started\
+ with UVR</h2>\x0a \
+   <p>Welcome to\
+ Ultimate Vocal \
+Remover! This gu\
+ide will help yo\
+u get started wi\
+th audio source \
+separation.</p>\x0a\
+    \x0a    <h3>Qui\
+ck Start</h3>\x0a  \
+  <ol>\x0a        <\
+li><b>Select Inp\
+ut Files:</b> Cl\
+ick \x22Select Inpu\
+t\x22 to choose aud\
+io files</li>\x0a  \
+      <li><b>Cho\
+ose Output Folde\
+r:</b> Click \x22Se\
+lect Output\x22 to \
+set destination<\
+/li>\x0a        <li\
+><b>Select Model\
+:</b> Choose a s\
+eparation model \
+from the dropdow\
+n</li>\x0a        <\
+li><b>Start Proc\
+essing:</b> Clic\
+k \x22Start Process\
+ing\x22 to begin</l\
+i>\x0a    </ol>\x0a   \
+ \x0a    <h3>First \
+Time Setup</h3>\x0a\
+    <p>On first \
+run, UVR will:</\
+p>\x0a    <ul>\x0a    \
+    <li>Create n\
+ecessary directo\
+ries</li>\x0a      \
+  <li>Download r\
+equired models (\
+if selected)</li\
+>\x0a        <li>Co\
+nfigure default \
+settings</li>\x0a  \
+  </ul>\x0a    \x0a   \
+ <div class=\x22not\
+e\x22>\x0a        <b>N\
+ote:</b> First-t\
+ime model downlo\
+ads may take sev\
+eral minutes dep\
+ending on your i\
+nternet connecti\
+on.\x0a    </div>\x0a \
+   \x0a    <h3>Tips\
+ for Best Result\
+s</h3>\x0a    <ul>\x0a\
+        <li>Use \
+high-quality inp\
+ut files (WAV or\
+ FLAC recommende\
+d)</li>\x0a        \
+<li>Ensure adequ\
+ate disk space f\
+or output files<\
+/li>\x0a        <li\
+>Enable GPU acce\
+leration if avai\
+lable</li>\x0a     \
+   <li>Experimen\
+t with different\
+ models for your\
+ content</li>\x0a  \
+      <li>Try <b\
+>Karaoke models<\
+/b> for vocal sp\
+litting and back\
+ground vocal rem\
+oval</li>\x0a      \
+  <li>Use <b>Ens\
+emble Mode</b> t\
+o combine multip\
+le models for be\
+tter results</li\
+>\x0a        <li>Co\
+nsider <b>VIP ac\
+cess</b> for pre\
+mium models and \
+features</li>\x0a  \
+  </ul>\x0a    \x0a   \
+ <h3>Model Selec\
+tion Guide</h3>\x0a\
+    <ul>\x0a       \
+ <li><b>VR Archi\
+tecture:</b> Fas\
+t, good for voca\
+ls/instrumentals\
+, karaoke models\
+ available</li>\x0a\
+        <li><b>M\
+DX-Net:</b> High\
+ quality, good i\
+nstrumental sepa\
+ration</li>\x0a    \
+    <li><b>Demuc\
+s:</b> Best for \
+4-stem separatio\
+n (vocals, drums\
+, bass, other)</\
+li>\x0a        <li>\
+<b>Ensemble:</b>\
+ Combines multip\
+le models for su\
+perior results</\
+li>\x0a    </ul>\x0a</\
+body>\x0a</html>\x0a\
+\x00\x00\x06%\
+<\
+!DOCTYPE html>\x0a<\
+html>\x0a<head>\x0a   \
+ <meta charset=\x22\
+UTF-8\x22>\x0a    <lin\
+k rel=\x22styleshee\
+t\x22 type=\x22text/cs\
+s\x22 href=\x22help_st\
+yle.css\x22>\x0a</head\
+>\x0a<body>\x0a    <h2\
+>Audio Formats</\
+h2>\x0a    <p>UVR s\
+upports various \
+audio formats fo\
+r input and outp\
+ut.</p>\x0a    \x0a   \
+ <h3>Input Forma\
+ts</h3>\x0a    <ul>\
+\x0a        <li><b>\
+WAV:</b> Uncompr\
+essed, best qual\
+ity</li>\x0a       \
+ <li><b>FLAC:</b\
+> Lossless compr\
+ession</li>\x0a    \
+    <li><b>MP3:<\
+/b> Lossy compre\
+ssion</li>\x0a     \
+   <li><b>M4A/AA\
+C:</b> Apple for\
+mats</li>\x0a      \
+  <li><b>OGG:</b\
+> Open source fo\
+rmat</li>\x0a      \
+  <li><b>WMA:</b\
+> Windows Media \
+Audio</li>\x0a    <\
+/ul>\x0a    \x0a    <h\
+3>Output Formats\
+</h3>\x0a    <ul>\x0a \
+       <li><b>WA\
+V (Recommended):\
+</b>\x0a           \
+ <ul>\x0a          \
+      <li><code>\
+PCM 16-bit</code\
+>: Standard qual\
+ity</li>\x0a       \
+         <li><co\
+de>PCM 24-bit</c\
+ode>: Higher qua\
+lity</li>\x0a      \
+          <li><c\
+ode>PCM 32-bit</\
+code>: Maximum q\
+uality</li>\x0a    \
+            <li>\
+<code>Float 32-b\
+it</code>: Profe\
+ssional use</li>\
+\x0a               \
+ <li><code>Float\
+ 64-bit</code>: \
+Maximum precisio\
+n (double)</li>\x0a\
+            </ul\
+>\x0a        </li>\x0a\
+        <li><b>F\
+LAC:</b> Lossles\
+s compression, s\
+maller files</li\
+>\x0a        <li><b\
+>MP3:</b> Compat\
+ible, adjustable\
+ bitrate (128-32\
+0 kbps)</li>\x0a   \
+ </ul>\x0a    \x0a    \
+<div class=\x22note\
+\x22>\x0a        <b>Fo\
+rmat Recommendat\
+ions:</b><br>\x0a  \
+      \xe2\x80\xa2 <b>Arc\
+hival:</b> Use W\
+AV 24-bit or FLA\
+C<br>\x0a        \xe2\x80\
+\xa2 <b>Editing:</b\
+> Use WAV 32-bit\
+ float<br>\x0a     \
+   \xe2\x80\xa2 <b>Sharin\
+g:</b> Use MP3 3\
+20kbps<br>\x0a     \
+   \xe2\x80\xa2 <b>Storag\
+e-conscious:</b>\
+ Use FLAC<br>\x0a  \
+      \xe2\x80\xa2 <b>Max\
+imum precision:<\
+/b> Use WAV 64-b\
+it float\x0a    </d\
+iv>\x0a</body>\x0a</ht\
+ml>\x0a\
+\x00\x00\x05\xa8\
+<\
+!DOCTYPE html>\x0a<\
+html>\x0a<head>\x0a   \
+ <meta charset=\x22\
+UTF-8\x22>\x0a    <lin\
+k rel=\x22styleshee\
+t\x22 type=\x22text/cs\
+s\x22 href=\x22help_st\
+yle.css\x22>\x0a</head\
+>\x0a<body>\x0a    <h2\
+>Ensemble Mode</\
+h2>\x0a    <p>Combi\
+ne multiple mode\
+ls for superior \
+results.</p>\x0a   \
+ \x0a    <h3>What i\
+s Ensemble Mode?\
+</h3>\x0a    <p>Ens\
+emble mode proce\
+sses audio throu\
+gh multiple mode\
+ls and combines \
+the results, oft\
+en achieving bet\
+ter separation t\
+han any single m\
+odel.</p>\x0a    \x0a \
+   <h3>Creating \
+Ensembles</h3>\x0a \
+   <ol>\x0a        \
+<li>Select \x22Ense\
+mble Mode\x22 from \
+the process meth\
+od</li>\x0a        \
+<li>Choose model\
+s to include</li\
+>\x0a        <li>Se\
+lect combination\
+ algorithm</li>\x0a\
+        <li>Save\
+ ensemble for re\
+use</li>\x0a    </o\
+l>\x0a    \x0a    <h3>\
+Combination Algo\
+rithms</h3>\x0a    \
+<ul>\x0a        <li\
+><b>Average:</b>\
+ Simple average \
+of all models</l\
+i>\x0a        <li><\
+b>Weighted Avera\
+ge:</b> Custom w\
+eights per model\
+</li>\x0a        <l\
+i><b>Min/Max:</b\
+> Take minimum o\
+r maximum values\
+</li>\x0a        <l\
+i><b>Median:</b>\
+ Median value ac\
+ross models</li>\
+\x0a    </ul>\x0a    \x0a\
+    <div class=\x22\
+note\x22>\x0a        <\
+b>Best Practices\
+:</b><br>\x0a      \
+  \xe2\x80\xa2 Combine mo\
+dels with differ\
+ent strengths<br\
+>\x0a        \xe2\x80\xa2 Us\
+e 2-4 models for\
+ best balance<br\
+>\x0a        \xe2\x80\xa2 Te\
+st different alg\
+orithms for your\
+ content<br>\x0a   \
+     \xe2\x80\xa2 Save su\
+ccessful ensembl\
+es for reuse\x0a   \
+ </div>\x0a    \x0a   \
+ <div class=\x22war\
+ning\x22>\x0a        <\
+b>Performance No\
+te:</b> Ensemble\
+ processing time\
+ equals the sum \
+of all included \
+models. Plan acc\
+ordingly for lar\
+ge batches.\x0a    \
+</div>\x0a</body>\x0a<\
+/html>\x0a\
+\x00\x00\x07\xd5\
+/\
+* Help content s\
+tyling that matc\
+hes the UVR dark\
+ theme */\x0abody {\
+\x0a    font-family\
+: \x22Montserrat\x22, \
+\x22Century Gothic\x22\
+, \x22SF Pro Displa\
+y\x22, \x22Segoe UI\x22, \
+\x22Arial\x22, sans-se\
+rif;\x0a    color: \
+#e0e0e0;\x0a    bac\
+kground-color: #\
+1c2833;\x0a    marg\
+in: 15px;\x0a    li\
+ne-height: 1.6;\x0a\
+    font-size: 1\
+0pt;\x0a}\x0a\x0ah2 {\x0a   \
+ color: #3498db;\
+\x0a    border-bott\
+om: 2px solid #3\
+4495e;\x0a    paddi\
+ng-bottom: 5px;\x0a\
+    margin-top: \
+20px;\x0a    font-s\
+ize: 16pt;\x0a}\x0a\x0ah3\
+ {\x0a    color: #5\
+dade2;\x0a    margi\
+n-top: 15px;\x0a   \
+ font-size: 12pt\
+;\x0a}\x0a\x0ap {\x0a    mar\
+gin: 10px 0;\x0a}\x0a\x0a\
+ul, ol {\x0a    mar\
+gin: 10px 0;\x0a   \
+ padding-left: 2\
+5px;\x0a}\x0a\x0ali {\x0a   \
+ margin: 5px 0;\x0a\
+}\x0a\x0ab {\x0a    color\
+: #3498db;\x0a}\x0a\x0aco\
+de {\x0a    font-fa\
+mily: \x22SF Mono\x22,\
+ \x22Monaco\x22, \x22Cons\
+olas\x22, \x22Liberati\
+on Mono\x22, \x22DejaV\
+u Sans Mono\x22, mo\
+nospace;\x0a    bac\
+kground-color: #\
+34495e;\x0a    padd\
+ing: 2px 4px;\x0a  \
+  border-radius:\
+ 3px;\x0a    font-s\
+ize: 0.9em;\x0a    \
+color: #ecf0f1;\x0a\
+}\x0a\x0aa {\x0a    color\
+: #3498db;\x0a    t\
+ext-decoration: \
+none;\x0a}\x0a\x0aa:hover\
+ {\x0a    text-deco\
+ration: underlin\
+e;\x0a    color: #5\
+dade2;\x0a}\x0a\x0a.note \
+{\x0a    background\
+-color: #34495e;\
+\x0a    border-left\
+: 4px solid #349\
+8db;\x0a    padding\
+: 10px;\x0a    marg\
+in: 10px 0;\x0a    \
+border-radius: 3\
+px;\x0a}\x0a\x0a.warning \
+{\x0a    background\
+-color: #34495e;\
+\x0a    border-left\
+: 4px solid #e74\
+c3c;\x0a    padding\
+: 10px;\x0a    marg\
+in: 10px 0;\x0a    \
+border-radius: 3\
+px;\x0a}\x0a\x0a.tip {\x0a  \
+  background-col\
+or: #34495e;\x0a   \
+ border-left: 4p\
+x solid #2ecc71;\
+\x0a    padding: 10\
+px;\x0a    margin: \
+10px 0;\x0a    bord\
+er-radius: 3px;\x0a\
+}\x0a\x0a/* Table styl\
+ing */\x0atable {\x0a \
+   border-collap\
+se: collapse;\x0a  \
+  width: 100%;\x0a \
+   margin: 10px \
+0;\x0a}\x0a\x0ath, td {\x0a \
+   border: 1px s\
+olid #4a637a;\x0a  \
+  padding: 8px;\x0a\
+    text-align: \
+left;\x0a}\x0a\x0ath {\x0a  \
+  background-col\
+or: #34495e;\x0a   \
+ color: #3498db;\
+\x0a    font-weight\
+: bold;\x0a}\x0a\x0atr:nt\
+h-child(even) {\x0a\
+    background-c\
+olor: #2c3e50;\x0a}\
+\x0a\x0a/* Scrollbar s\
+tyling to match \
+the app */\x0a::-we\
+bkit-scrollbar {\
+\x0a    width: 8px;\
+\x0a    height: 8px\
+;\x0a}\x0a\x0a::-webkit-s\
+crollbar-track {\
+\x0a    background:\
+ #2d2d2d;\x0a}\x0a\x0a::-\
+webkit-scrollbar\
+-thumb {\x0a    bac\
+kground: #555;\x0a \
+   border-radius\
+: 4px;\x0a}\x0a\x0a::-web\
+kit-scrollbar-th\
+umb:hover {\x0a    \
+background: #666\
+;\x0a}\x0a\
+\x00\x00\x06f\
+<\
+!DOCTYPE html>\x0a<\
+html>\x0a<head>\x0a   \
+ <meta charset=\x22\
+UTF-8\x22>\x0a    <lin\
+k rel=\x22styleshee\
+t\x22 type=\x22text/cs\
+s\x22 href=\x22help_st\
+yle.css\x22>\x0a</head\
+>\x0a<body>\x0a    <h2\
+>Processing Opti\
+ons</h2>\x0a    <p>\
+Customize your s\
+eparation with t\
+hese options:</p\
+>\x0a    \x0a    <h3>B\
+asic Options</h3\
+>\x0a    <ul>\x0a     \
+   <li><b>Save F\
+ormat:</b> Outpu\
+t format (WAV, F\
+LAC, MP3)</li>\x0a \
+       <li><b>Sa\
+mple Rate:</b> O\
+utput sample rat\
+e (match source \
+recommended)</li\
+>\x0a        <li><b\
+>Normalization:<\
+/b> Normalize ou\
+tput volume</li>\
+\x0a        <li><b>\
+Clip Guard:</b> \
+Prevent audio cl\
+ipping</li>\x0a    \
+</ul>\x0a    \x0a    <\
+h3>Advanced Opti\
+ons</h3>\x0a    <ul\
+>\x0a        <li><b\
+>TTA (Test-Time \
+Augmentation):</\
+b> Improves qual\
+ity, slower proc\
+essing</li>\x0a    \
+    <li><b>Post-\
+Process:</b> Add\
+itional cleanup \
+pass</li>\x0a      \
+  <li><b>High-En\
+d Process:</b> M\
+aximum quality m\
+ode</li>\x0a       \
+ <li><b>Batch Si\
+ze:</b> Processi\
+ng chunk size (a\
+ffects memory/sp\
+eed)</li>\x0a    </\
+ul>\x0a    \x0a    <h3\
+>Model-Specific \
+Options</h3>\x0a   \
+ <p><b>VR Archit\
+ecture:</b></p>\x0a\
+    <ul>\x0a       \
+ <li><code>Windo\
+w Size</code>: A\
+ffects frequency\
+ resolution</li>\
+\x0a        <li><co\
+de>Aggression</c\
+ode>: Separation\
+ strength (1-20)\
+</li>\x0a    </ul>\x0a\
+    \x0a    <p><b>M\
+DX-Net:</b></p>\x0a\
+    <ul>\x0a       \
+ <li><code>Segme\
+nt Size</code>: \
+Processing segme\
+nt length</li>\x0a \
+       <li><code\
+>Overlap</code>:\
+ Segment overlap\
+ amount</li>\x0a   \
+     <li><code>D\
+enoise</code>: M\
+DX-specific deno\
+ising</li>\x0a    <\
+/ul>\x0a    \x0a    <p\
+><b>Demucs:</b><\
+/p>\x0a    <ul>\x0a   \
+     <li><code>S\
+egment</code>: C\
+hunk duration</l\
+i>\x0a        <li><\
+code>Shifts</cod\
+e>: Number of pr\
+ediction shifts<\
+/li>\x0a        <li\
+><code>Split Mod\
+e</code>: Freque\
+ncy/time domain \
+split</li>\x0a    <\
+/ul>\x0a</body>\x0a</h\
+tml>\x0a\
 \x00\x04\x04\x18\
 \x00\
 \x01\x00\x00\x00\x12\x01\x00\x00\x04\x00 DSIG\x00\
@@ -102109,323 +102831,122 @@ ScrollBar::sub-p\
 age:horizontal {\
 \x0a    background:\
  none;\x0a}\x0a\
-\x00\x00\x13\xaa\
-/\
-* Basic Dark The\
-me QSS Styleshee\
-t for UVR PySide\
-6 App */\x0a\x0aQWidge\
-t {\x0a    font-fam\
-ily: \x22Montserrat\
-\x22, \x22Century Goth\
-ic\x22, \x22SF Pro Dis\
-play\x22, \x22Segoe UI\
-\x22, \x22Arial\x22, sans\
--serif; /* Bette\
-r font fallbacks\
- */\x0a    color: #\
-e0e0e0; /* Light\
- text for a dark\
- theme */\x0a    ba\
-ckground-color: \
-#2c3e50; /* Dark\
- bluish-grey bac\
-kground */\x0a    f\
-ont-size: 10pt; \
-/* Base font siz\
-e */\x0a}\x0a\x0aQMainWin\
-dow {\x0a    backgr\
-ound-color: #233\
-140; /* Slightly\
- darker for main\
- window */\x0a}\x0a\x0aQP\
-ushButton {\x0a    \
-background-color\
-: #34495e; /* Sl\
-ightly lighter b\
-luish-grey */\x0a  \
-  border: 1px so\
-lid #4a637a;\x0a   \
- padding: 6px 12\
-px;\x0a    border-r\
-adius: 4px;\x0a    \
-color: #ecf0f1; \
-/* Light text fo\
-r buttons */\x0a}\x0a\x0a\
-QPushButton:hove\
-r {\x0a    backgrou\
-nd-color: #4a637\
-a;\x0a    border-co\
-lor: #5c7a96;\x0a}\x0a\
-\x0aQPushButton:pre\
-ssed {\x0a    backg\
-round-color: #2c\
-3e50;\x0a}\x0a\x0aQPushBu\
-tton:disabled {\x0a\
-    background-c\
-olor: #2c3e50;\x0a \
-   color: #7f8c8\
-d;\x0a    border-co\
-lor: #34495e;\x0a}\x0a\
-\x0a/* Text widgets\
- use monospace f\
-onts */\x0aQTextEdi\
-t, QPlainTextEdi\
-t {\x0a    font-fam\
-ily: \x22SF Mono\x22, \
-\x22Monaco\x22, \x22Conso\
-las\x22, \x22Liberatio\
-n Mono\x22, \x22DejaVu\
- Sans Mono\x22, mon\
-ospace;\x0a    back\
-ground-color: #1\
-c2833; /* Darker\
- input fields */\
-\x0a    border: 1px\
- solid #4a637a;\x0a\
-    padding: 4px\
-;\x0a    border-rad\
-ius: 3px;\x0a    co\
-lor: #ecf0f1;\x0a}\x0a\
-\x0aQLineEdit, QSpi\
-nBox, QDoubleSpi\
-nBox, QComboBox \
-{\x0a    background\
--color: #1c2833;\
- /* Darker input\
- fields */\x0a    b\
-order: 1px solid\
- #4a637a;\x0a    pa\
-dding: 4px;\x0a    \
-border-radius: 3\
-px;\x0a    color: #\
-ecf0f1;\x0a}\x0a\x0aQComb\
-oBox::drop-down \
-{\x0a    border: no\
-ne;\x0a    backgrou\
-nd-color: #34495\
-e;\x0a}\x0a\x0aQComboBox:\
-:down-arrow {\x0a  \
-  image: url(:/u\
-vr/img/down.png)\
-; /* Example: We\
-'ll need to ensu\
-re this image is\
- in QRC and path\
- is correct */\x0a \
-   width: 12px;\x0a\
-    height: 12px\
-;\x0a}\x0a\x0a\x0aQProgressB\
-ar {\x0a    border:\
- 1px solid #4a63\
-7a;\x0a    border-r\
-adius: 3px;\x0a    \
-text-align: cent\
-er;\x0a    color: #\
-ecf0f1;\x0a    back\
-ground-color: #1\
-c2833;\x0a}\x0a\x0aQProgr\
-essBar::chunk {\x0a\
-    background-c\
-olor: #3498db; /\
-* A nice blue ac\
-cent color */\x0a  \
-  /* width: 10px\
-; */ /* Auto wid\
-th is usually fi\
-ne */\x0a    margin\
-: 0.5px;\x0a    bor\
-der-radius: 2px;\
-\x0a}\x0a\x0aQGroupBox {\x0a\
-    font-weight:\
- bold;\x0a    borde\
-r: 1px solid #4a\
-637a;\x0a    margin\
--top: 12px; /* S\
-pace for the tit\
-le */\x0a    paddin\
-g: 10px;\x0a    pad\
-ding-top: 15px; \
-/* Extra padding\
- at the top insi\
-de the box */\x0a  \
-  border-radius:\
- 4px;\x0a}\x0a\x0aQGroupB\
-ox::title {\x0a    \
-subcontrol-origi\
-n: margin;\x0a    s\
-ubcontrol-positi\
-on: top left;\x0a  \
-  padding: 0 5px\
-;\x0a    left: 10px\
-;\x0a    color: #bd\
-c3c7; /* Lighter\
- title color */\x0a\
-    background-c\
-olor: #2c3e50; /\
-* Match QWidget \
-background for t\
-he title's bg */\
-\x0a}\x0a\x0aQTabWidget::\
-pane { /* The co\
-ntainer for tabs\
- */\x0a    border: \
-1px solid #4a637\
-a;\x0a    border-to\
-p: none; /* Pane\
- border often lo\
-oks better witho\
-ut top if tabs h\
-ave bottom borde\
-r */\x0a    backgro\
-und-color: #2331\
-40; /* Match mai\
-n window or slig\
-htly different *\
-/\x0a}\x0a\x0aQTabBar::ta\
-b {\x0a    backgrou\
-nd: #34495e;\x0a   \
- border: 1px sol\
-id #4a637a;\x0a    \
-border-bottom: n\
-one; /* Or a dif\
-ferent color to \
-merge with pane \
-*/\x0a    padding: \
-8px 15px;\x0a    ma\
-rgin-right: 2px;\
- /* Space betwee\
-n tabs */\x0a    bo\
-rder-top-left-ra\
-dius: 4px;\x0a    b\
-order-top-right-\
-radius: 4px;\x0a   \
- color: #ecf0f1;\
-\x0a}\x0a\x0aQTabBar::tab\
-:selected {\x0a    \
-background: #2c3\
-e50; /* Backgrou\
-nd of the active\
- tab, matching Q\
-Widget */\x0a    co\
-lor: #ffffff;\x0a  \
-  /* border-bott\
-om-color: #2c3e5\
-0; */ /* Make se\
-lected tab merge\
- with pane */\x0a}\x0a\
-\x0aQTabBar::tab:!s\
-elected:hover {\x0a\
-    background: \
-#4a637a;\x0a}\x0a\x0aQScr\
-ollArea {\x0a    bo\
-rder: none; /* O\
-r 1px solid #4a6\
-37a; if you want\
- a border */\x0a}\x0a\x0a\
-QScrollBar:verti\
-cal {\x0a    border\
-: 1px solid #4a6\
-37a;\x0a    backgro\
-und: #1c2833;\x0a  \
-  width: 12px;\x0a \
-   margin: 0px 0\
-px 0px 0px;\x0a}\x0aQS\
-crollBar::handle\
-:vertical {\x0a    \
-background: #349\
-8db;\x0a    min-hei\
-ght: 20px;\x0a    b\
-order-radius: 5p\
-x;\x0a}\x0aQScrollBar:\
-:add-line:vertic\
-al, QScrollBar::\
-sub-line:vertica\
-l {\x0a    border: \
-none;\x0a    backgr\
-ound: none;\x0a    \
-height: 0px;\x0a   \
- width: 0px;\x0a}\x0a\x0a\
-QScrollBar:horiz\
-ontal {\x0a    bord\
-er: 1px solid #4\
-a637a;\x0a    backg\
-round: #1c2833;\x0a\
-    height: 12px\
-;\x0a    margin: 0p\
-x 0px 0px 0px;\x0a}\
-\x0aQScrollBar::han\
-dle:horizontal {\
-\x0a    background:\
- #3498db;\x0a    mi\
-n-width: 20px;\x0a \
-   border-radius\
-: 5px;\x0a}\x0aQScroll\
-Bar::add-line:ho\
-rizontal, QScrol\
-lBar::sub-line:h\
-orizontal {\x0a    \
-border: none;\x0a  \
-  background: no\
-ne;\x0a    height: \
-0px;\x0a    width: \
-0px;\x0a}\x0a\x0a/* Add m\
-ore specific sty\
-les as needed */\
-\x0a/* For example,\
- for QToolTip, Q\
-Label, etc. */\x0aQ\
-ToolTip {\x0a    co\
-lor: #2c3e50; /*\
- Dark text for l\
-ight tooltip */\x0a\
-    background-c\
-olor: #ecf0f1; /\
-* Light backgrou\
-nd for tooltip *\
-/\x0a    border: 1p\
-x solid #bdc3c7;\
-\x0a    padding: 4p\
-x;\x0a    border-ra\
-dius: 3px;\x0a}\x0a\x0a/*\
- Specific object\
- styles */\x0aQPush\
-Button#prominent\
-Button {\x0a    fon\
-t-size: 12pt; /*\
- Adjusted from 1\
-4px to 12pt for \
-consistency with\
- 10pt base */\x0a  \
-  padding: 10px \
-15px; /* Adjuste\
-d padding */\x0a   \
- /* You can add \
-other specific p\
-roperties here i\
-f needed, like a\
- different backg\
-round or border \
-*/\x0a}\x0a\x0aQTextEdit#\
-logConsole {\x0a   \
- font-family: \x22S\
-F Mono\x22, \x22Monaco\
-\x22, \x22Liberation M\
-ono\x22, \x22DejaVu Sa\
-ns Mono\x22, \x22Couri\
-er New\x22, monospa\
-ce;\x0a    font-siz\
-e: 9pt; /* Adjus\
-ted from 10px to\
- 9pt */\x0a    back\
-ground-color: #1\
-a252f; /* Slight\
-ly different bac\
-kground for log \
-*/\x0a    color: #c\
-0c0c0; /* Lighte\
-r grey for log t\
-ext */\x0a}\x0a\
+\x00\x00\x07\x19\
+\x00\
+\x00\x18\xa4x\xda\xcdXIs\xdb6\x14\xbe\xe7W\xa0\
+\xf1!m\xc6\x8a\xb5y\xa3Ov\x9cd:c\xb7v\
+\xe4$\xd3#\x08\x82\x22b\x8a\xe0\x00`l%\xd3\xff\
+\xde\xf7\x00\x82\x9bHYY\x0e\xb5\xc7c\x09\xcb[\xbe\
+\xb7\xe3\xe0%\xb9\xa0Z0rI\xd5=\xb9K\xf8\x8a\
+\x93\xdb\xc5\x82,\xcc:\xe5:\xe1\xdc\x90X*\xf2\xe1\
+\xe3{r\xb3^\x88\x88\x1f\x91\xf3<'/\x0f\x9e=\
+\xbb\xfd$\xa2%\xec\x7f{F\xe0'\x96\x99\x19\xc5t\
+%\xd2u@\x9e_\xc37\xcd\x95\xa2\xe6\xf9>y\xfe\
+\x9ag\xa6Pk\xf2N\x9aD0\x5cY\xbc%7J\
+\x92K\xa1\xf3\x94\xae\xed\x0a_JN>\xfc\x89\x9f\xcf\
+\x95\xa0)|\xd04\xd3# #\xe23r\x00\x82r\
+c\xb8\xb2\x9cHL\xd34\xa4\xec^\xa3(\xc8\x9f\xc9\
+T\xaa\x80\xec\xf11\xfe\xda\xf3Wb\x99\x18b\xf8\xa3\
+\xd3\x81\x92\x08u4V\xc7\xf2\x16\x92X*Yd\xd1\
+\xc8\x13\x98\xb2\x19?t\x04,&aZ\x08\x9d\x8c\x96\
+\x8a\xaf\x1b\xc7=\x01\xab\xb6\x16_y@&\xe3\xdc8\
+9\xa9\xe6NJ\xdc\xc0\x93\xff\x02Z\xd7Td\x9fD\
+\x16\xc9\x87\x12\xb1>\xde\xb3\xd9d\xeex/R\x94>\
+][\xa1\xad\xd6\x8a\xac\x80\x04yp4J\xaa7\x85\
+N.\x0acd6Lu6\x9f\x9f\x1e\xf26U\xfb\
+\x1f\xc86\xb5\xf3\x98H\x15q\xb87\xc9\x1f\x89\x96\xa9\
+\x88\xc8\xde\x9c\x1e\xcd\x8e\xe9\x99\xdd\xcei\x14\x89l\x19\
+\x90#\xd8\x9fL\xf3\xc7\xb3\xc6\xad\x91\xa2\x91(t@\
+\xe6~\xbd\xb2\x0b\x8b\xc7\xf1\xa4\xcf.\xa1\x15_oj\
+\x14$\xf2\x0b\x888\xa8WS\xaa\x92\xbd\xdf:d\xc7\
+\xf4\xf4\xe8\xacK0W\x5ck\x1em1\x803~\xf7\
+^$4\x0d\xd3].6U>\x8eO\xd8I\xd4+\
+_i\x12\xe4\x03\x80\xdc!\x14\x0f6\x9a4)\xc0y\
+V2\x93:\xa7\xcc\xb9\x91\x85\xe6\x16\x0f\xbd\x89\x84\xd9\
+'\xb77)8\x82\xff\xde\x1b\x7f\x10_\x10\x82\x12\x83\
+\x09\xfeSf?\xbd\x06\x94eJ5~\xbe\x12!\x87\
+\xe8\x14\xe07\xfe\xe0%\xffL?\x16d\x01A\xe7\xd7\
+*9\xce\x86\xf4\x9e\xb0\xe9\xc9lVE\x0b\x98Kd\
+y\x01\x86\x15<\x8d\xf4\xf7\xba\xd4|\xc0\x9bf\x03\xde\
+d\xedt%2^\x02\xb3\xc8Ev!\x1f\xe1\xd3\xa5\
+,\xc0`\xf5\xf7\xd7r\x15J\xf88l\xc1\xff\x81&\
+^\xc8 \x88\x94\xccG\x10\xe6UT\x97l3\x99\x0d\
+\xdb\xa2\xe1TMR@eD\x95\xaa\xf2\x8eX\xd1%\
+\xa4\xabB\xa5\xbf\x07\x07\xc5\x17u V\xcb\x03<\xf5\
+*\xcf\x96\x7fX\x00\xde<\xd2U\x9e\xc2\xa1O\xfcE\
+\x9a\x92\x8c\x83\xeb\x1bIx\xa6\x0b\xc5!\x83\x0a\xed\xa8\
+\x10\xfc\x90\x91\xdb\xf7\xaf\x09\x85\x9c\x98S\x93\xe0\x12\x93\
+Jqf<f\xe0\xd9&\x09\x1a\xb9\x22\xe1\x98\x01\xfc\
+\x0a\x88\x0b\xc1\xa6\xe4\x12\x83\xf3\x82\xaa\x8e\xca\x03H\x0f\
+\xe1\x8aieD!\xbde\x01aPw\xb8\xea\xc7{\
+\xbb\x17\xb8\x04P\xcb\x14\x04,)\xb2\xfbm9\xf6\xf4\
+$\x0a-x\xe7$\x13\x10\xb9\x90Y9\xa1\x0cep\
+\xcc=\x1cp\xc4#2\x06\xa9a\xd9\xde*\x00`\xbb\
+\x8e\x08\x16\xba\x80\x02\xb7\x06\xe7\xcb\xaaZ\xb5\xa2j)\
+@\xab\xf1\xab\xc3\x01\xe7\xf2p\xde\xbe\x03\xe1\xf2\xda\xdb\
+mnx(A\x0fe\xda\xcaI\x83\x08;~##\
+\xf3\xd2R\xb6\x80\x94YIa\x1d%F\x98\xb4\x92\xaf\
+\xf2}\xabVs\xa9\xa4qX\xd2x\xf3h\x14\xf5{\
+\x84\x1aGJ\xe6\xe0J\x1a:\x0c\xfb5\x04\xe1[!\
+\xd7\xae,M%\x83\xc0\x89\xe1t\xd5E\xc8@]%\
+\xd3\x91T\xc2\x02\xe6\x149\xebn\xe7R\x0bL\x80\x81\
+\xe5\x9d\xf2\xd8tbxL*\xa0q\xb7\xa9\x987{\
+\x18\xb1\x19;\xae\xab\x1ad\x0d'L\xcb\xe2\xdb\xbb\x8c\
+kjXB|7\xd5h1Z(\xbf\xd0$\x5c\xfa\
+\x1ayGCw<\x08r\x0a\x1e\xf2\x0d\xe9@\xf3F\
+P7\xa8\x0de\xbf`h\xb8k\xe2*A\xb6\x86\xb2\
+I\x06)\xde m\xb7CdlxFR)\xa1\xe5\
+\x0a]#\xf6 L\x22!CZ\xd3\xc5\x8e[B\xbf\
+\xe0\x15\xa8\x9a+\x7fs\x0b\x08u\xbb\xe3@h68\
+ \xbf\xaez \x11\xc7\x5ca$\xd5\x00\xd8\xa8\x04\x9e\
+\x1b1\xd9\xc8\x84\xbb+\xeeDn\xe8\xfe\xb7m\x18+\
+\xbe\xce\x9e\x10\xa2+\xae \xef\xa1\xea\xc4B\xdfu\xfe\
+\x13\xec\x8a*\xbf)cH\xb9\xd0k\x07\x11\xa0\xf8\xc0\
+\x01\xd3M+\xa1\x19F\xe8r\x9b\xedT\xe3\x80%\xfa\
+d\xc3\xd5\x85+\xd0<\x85\xdc\xdc\xd3\xcb\xb4\xbd\xf2\xa2\
+\xf6C\x19[7\xa4\xcc\x080.\xd0\x80\xc6\x00\xcd\x85\
+\xd1\xeb\xdd\xb6\xd3\x85\xc7\xf6\xe7\xcc\xe7\xbb\x16\xc8\x1b1\
+\xe0\x12\xe05\xbd\xe7\xa4\x12\x0e\x0d\xdb\x03uW\x99\xdf\
+\xfc\x85\x81^\xb1\xd1%\xe2\xd5\x05\x83\xc0O\xcf\x15\xa7\
+}u\xb54\xfb\xa6\xa3\xa0w\xafeA\x1e(x\x02\
+m\xf8uM\x13%\x02\x01\x8c`4\xdd\xb1\x805\x85\
+\xf4e\xa7\xb7\x5cV\x89\x1f\x085\xfeP\xa5\x06\xf7 \
+\x81\x12\x0c5\xbb+E;.l\x95rT\xc1/}\
+!\x9e\x8e\x07*\xca\xe1&\x1bp\xf4Q\x0a)\xa6b\
+\x84}W\xbd\x0d\x09\xb6\xbd\xbdC\x07\xd3\x5c\xf5\x22U\
+\x12\x95p\x8c}\xda\xafy%\x90\xe0\xbfb\xc2\xfbY\
+\xc4\xdb\xfd\xc8\xf7C\xbe)\xc86\xd0K\x85~\x08\xf3\
+\x9a\xd3\x00\xea\x83\x98\xfc,\xee\xd8\xa2D\x11L\x04\xd0\
+\x00\xea\x9c3\x11\x0bF\xb4}% T\xdb\x16\x91\xdb\
+\xa9\x18\x0e\xbe\x85T\xc9]\x0b\xb9o\x0b\xd1\xed\x9d\x94\
+\xe9\x9d\xc8A\xe8+\x1ar\x10\x9e\x1b\xf6\xca\x8d5n\
+\xa7\x94vh\x08\xaf\x86\xc5\xd4\xcd\x8ep\xc9\x88|K\
+i\xd9\x187\xbbu\xb5Ca\xd3s\xca\xd2\xfe\x1dm\
+\xbdCi\xe1\xc1\x91\xe1gl\x82K\x8cP\xd7z\xa2\
+\xdc\xcb\x95\x04_\x80\xca\xd2\x1a\xde\x9b\xaf\x09\xd3\xf25\
+\xe1<\xfa\x5chL\x891\x5c!\x13\x90\x00\xcb\x10n\
+[E\xa0\xe2k\x01\xfb\x19[\xbbT\x89\xcf\x10\xa0\xad\
+\xee\xef\xcb\xea.\xac\xa2\xeb\x1b\xb1\xba=\xfd\x07r\x1d\
+\xa3\x19\x81\x0d\x22!\xf5\xab\xda\xe2 w\x8e\x81\x0d\x1a\
+\xc1:\xc7\xcc\xe8L\xbf\x0f\xa6\x81\x04\xde\xac\x99\x0d\xc8\
+q\xccoeM?\xbd\xee\xa5r\xe9\xe6R\xbe\xfb \
+\xbb\xdb\xf0\x0a\xf3n\xa1\x04\xb0\xfc\x8b?l\xce\xb2\x0d\
+\xa8O\xfb\x91\x1e;\xa4aw\x8b\x9fM\xe8\xf4p\x1a\
+w^l\xfa\x10\xb0\xce+\x97\xddB\xc9\xc6\xf8\xdbj\
+ \xed[\x8c?n\x1d\xdfa\x865\x92g\x05\xc1\x11\
+\x09\x9f\xe7J\x9b\xdd\xe2bcl\xda\xedm\xa25\x06\
+\xb5[\xa0\xa7F\xdbj\xca(\x19\x07\x810|5\xc8\
+\x1ez\xfd\x0cpG<\xb6> 5S\xee\xe4\x890\
+k\xb3\x1eniz\x9f\x8a\xba=\xca&\xbd'\x9f\x89\
+\x9a)\xbd\x87\x9c\xb7\xd4%\x04\x8b\x1d\xe2\xbb\xe6z\xf2\
+\xad\xee\x07&\xe0yg\xe8\xb2+d\xbc\xad-DQ\
+~\xd8z\xd8\xe8\xd65\xcc[\x0fe\x9d\xefb\xbd_\
+j\xba_d\xb7\x92\x96\xe6\xa005\xd2\x87T\xd5\x1e\
+Tzm\x97\xd2c\x81\xf8\x9ftt\xce\x22\xe8\x89j\
+\xd2\xbe\xd7;\xdax\x1a9\xea\x8c\x10n\x02\x9d\x0f\x90\
+\x0bX\xc2\xd9\xfd\xae\xaa\xf78\xd6\xf4\xf4d\x1c\x9en\
+\x7fU\xe8\xf2,\xb2\xa7\xb8nxO\x0f\xe7\x9eW\xd2\
+\x0e\xe7\xff\x00e\x17\xa5|\
 "
 
 qt_resource_name = b"\
@@ -102441,6 +102962,10 @@ qt_resource_name = b"\
 \x00me\xb3\
 \x00f\
 \x00o\x00n\x00t\x00s\
+\x00\x04\
+\x00\x06\xec0\
+\x00h\
+\x00e\x00l\x00p\
 \x00\x03\
 \x00\x00p7\
 \x00i\
@@ -102533,6 +103058,38 @@ qt_resource_name = b"\
 \x00c@'\
 \x00c\
 \x00r\x00e\x00d\x00i\x00t\x00s\x00.\x00p\x00n\x00g\
+\x00\x10\
+\x0f7w\x9c\
+\x00p\
+\x00l\x00a\x00c\x00e\x00h\x00o\x00l\x00d\x00e\x00r\x00.\x00h\x00t\x00m\x00l\
+\x00\x10\
+\x044m\x5c\
+\x00m\
+\x00o\x00d\x00e\x00l\x00_\x00t\x00y\x00p\x00e\x00s\x00.\x00h\x00t\x00m\x00l\
+\x00\x14\
+\x04\xcd\xcd\xdc\
+\x00g\
+\x00e\x00t\x00t\x00i\x00n\x00g\x00_\x00s\x00t\x00a\x00r\x00t\x00e\x00d\x00.\x00h\
+\x00t\x00m\x00l\
+\x00\x12\
+\x0a\xe7\x1d\x5c\
+\x00a\
+\x00u\x00d\x00i\x00o\x00_\x00f\x00o\x00r\x00m\x00a\x00t\x00s\x00.\x00h\x00t\x00m\
+\x00l\
+\x00\x12\
+\x03E\xc3\x5c\
+\x00e\
+\x00n\x00s\x00e\x00m\x00b\x00l\x00e\x00_\x00m\x00o\x00d\x00e\x00.\x00h\x00t\x00m\
+\x00l\
+\x00\x0e\
+\x08L\x84c\
+\x00h\
+\x00e\x00l\x00p\x00_\x00s\x00t\x00y\x00l\x00e\x00.\x00c\x00s\x00s\
+\x00\x17\
+\x08\xb0\x1c\x5c\
+\x00p\
+\x00r\x00o\x00c\x00e\x00s\x00s\x00i\x00n\x00g\x00_\x00o\x00p\x00t\x00i\x00o\x00n\
+\x00s\x00.\x00h\x00t\x00m\x00l\
 \x00\x0e\
 \x040w\x86\
 \x00M\
@@ -102556,79 +103113,88 @@ qt_resource_name = b"\
 qt_resource_struct = b"\
 \x00\x00\x00\x00\x00\x02\x00\x00\x00\x01\x00\x00\x00\x01\
 \x00\x00\x00\x00\x00\x00\x00\x00\
-\x00\x00\x00\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00\x02\
+\x00\x00\x00\x00\x00\x02\x00\x00\x00\x04\x00\x00\x00\x02\
 \x00\x00\x00\x00\x00\x00\x00\x00\
-\x00\x00\x00,\x00\x02\x00\x00\x00\x16\x00\x00\x00\x09\
+\x00\x00\x00:\x00\x02\x00\x00\x00\x16\x00\x00\x00\x11\
 \x00\x00\x00\x00\x00\x00\x00\x00\
-\x00\x00\x00\x1c\x00\x02\x00\x00\x00\x02\x00\x00\x00\x07\
+\x00\x00\x00,\x00\x02\x00\x00\x00\x07\x00\x00\x00\x0a\
 \x00\x00\x00\x00\x00\x00\x00\x00\
-\x00\x00\x00\x0c\x00\x02\x00\x00\x00\x02\x00\x00\x00\x05\
+\x00\x00\x00\x1c\x00\x02\x00\x00\x00\x02\x00\x00\x00\x08\
 \x00\x00\x00\x00\x00\x00\x00\x00\
-\x00\x00\x02\xd6\x00\x00\x00\x00\x00\x01\x00\x18\xe9\xde\
-\x00\x00\x01\x97GA\xfa\xd5\
-\x00\x00\x02\xae\x00\x00\x00\x00\x00\x01\x00\x18\xe4@\
+\x00\x00\x00\x0c\x00\x02\x00\x00\x00\x02\x00\x00\x00\x06\
+\x00\x00\x00\x00\x00\x00\x00\x00\
+\x00\x00\x04\x08\x00\x01\x00\x00\x00\x01\x00\x19\x16\x00\
+\x00\x00\x01\x97\x85\x11\x8c\x18\
+\x00\x00\x03\xe0\x00\x00\x00\x00\x00\x01\x00\x19\x10b\
 \x00\x00\x01\x97Gc\xbc\xea\
-\x00\x00\x02d\x00\x00\x00\x00\x00\x01\x00\x12\xc6\xc0\
+\x00\x00\x03\x96\x00\x00\x00\x00\x00\x01\x00\x12\xf2\xe2\
 \x00\x00\x01\x97\x0cP\xe3\x83\
-\x00\x00\x02\x86\x00\x00\x00\x00\x00\x01\x00\x16\xca\xdc\
+\x00\x00\x03\xb8\x00\x00\x00\x00\x00\x01\x00\x16\xf6\xfe\
 \x00\x00\x01\x97\x0cP\xe3\x84\
-\x00\x00\x00\xec\x00\x00\x00\x00\x00\x01\x00\x05\x949\
+\x00\x00\x03\x16\x00\x00\x00\x00\x00\x01\x00\x12\xde\xf3\
+\x00\x00\x01\x97Jt\x9d\xee\
+\x00\x00\x02\x98\x00\x00\x00\x00\x00\x01\x00\x12\xc8\x12\
+\x00\x00\x01\x97\x80\x93?\x0e\
+\x00\x00\x02\xbe\x00\x00\x00\x00\x00\x01\x00\x12\xd0\xc7\
+\x00\x00\x01\x97\x85\x10\xf8\x91\
+\x00\x00\x03@\x00\x00\x00\x00\x00\x01\x00\x12\xe4\x9f\
+\x00\x00\x01\x97Jh\xbc\xb8\
+\x00\x00\x03b\x00\x00\x00\x00\x00\x01\x00\x12\xecx\
+\x00\x00\x01\x97JsBO\
+\x00\x00\x02\xec\x00\x00\x00\x00\x00\x01\x00\x12\xd8\xca\
+\x00\x00\x01\x97Jy6\xd2\
+\x00\x00\x02r\x00\x00\x00\x00\x00\x01\x00\x12\xc6\xc0\
+\x00\x00\x01\x97J\x82OJ\
+\x00\x00\x00\xfa\x00\x00\x00\x00\x00\x01\x00\x05\x949\
 \x00\x00\x01\x97\x0cP\xe3\x84\
-\x00\x00\x02H\x00\x00\x00\x00\x00\x01\x00\x0f\x19\xff\
+\x00\x00\x02V\x00\x00\x00\x00\x00\x01\x00\x0f\x19\xff\
 \x00\x00\x01\x97\x0cP\xe3\x86\
-\x00\x00\x01\xdc\x00\x00\x00\x00\x00\x01\x00\x0d\xa6\xfb\
+\x00\x00\x01\xea\x00\x00\x00\x00\x00\x01\x00\x0d\xa6\xfb\
 \x00\x00\x01\x97\x0cP\xe3\x87\
-\x00\x00\x01\x96\x00\x00\x00\x00\x00\x01\x00\x0b\xebX\
+\x00\x00\x01\xa4\x00\x00\x00\x00\x00\x01\x00\x0b\xebX\
 \x00\x00\x01\x97\x0cP\xe3\x85\
-\x00\x00\x022\x00\x00\x00\x00\x00\x01\x00\x0f\x09N\
+\x00\x00\x02@\x00\x00\x00\x00\x00\x01\x00\x0f\x09N\
 \x00\x00\x01\x97\x0cP\xe3\x87\
-\x00\x00\x01\xb8\x00\x00\x00\x00\x00\x01\x00\x0d\x9c\xd1\
+\x00\x00\x01\xc6\x00\x00\x00\x00\x00\x01\x00\x0d\x9c\xd1\
 \x00\x00\x01\x97\x0cP\xe3\x87\
-\x00\x00\x00t\x00\x01\x00\x00\x00\x01\x00\x04\x91\xe0\
+\x00\x00\x00\x82\x00\x01\x00\x00\x00\x01\x00\x04\x91\xe0\
 \x00\x00\x01\x97\x0cP\xe3\x84\
-\x00\x00\x008\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\
+\x00\x00\x00F\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\
 \x00\x00\x01\x97\x0cP\xe3\x85\
-\x00\x00\x02\x02\x00\x00\x00\x00\x00\x01\x00\x0d\xd4\xef\
+\x00\x00\x02\x10\x00\x00\x00\x00\x00\x01\x00\x0d\xd4\xef\
 \x00\x00\x01\x97\x0cP\xe3\x86\
-\x00\x00\x01\x1a\x00\x00\x00\x00\x00\x01\x00\x05\xae!\
+\x00\x00\x01(\x00\x00\x00\x00\x00\x01\x00\x05\xae!\
 \x00\x00\x01\x97\x0cP\xe3\x86\
-\x00\x00\x01\xf0\x00\x00\x00\x00\x00\x01\x00\x0d\xd3\x00\
+\x00\x00\x01\xfe\x00\x00\x00\x00\x00\x01\x00\x0d\xd3\x00\
 \x00\x00\x01\x97\x0cP\xe3\x88\
-\x00\x00\x01J\x00\x00\x00\x00\x00\x01\x00\x06\x00\xca\
+\x00\x00\x01X\x00\x00\x00\x00\x00\x01\x00\x06\x00\xca\
 \x00\x00\x01\x97\x0cP\xe3\x86\
-\x00\x00\x02\x18\x00\x01\x00\x00\x00\x01\x00\x0e\x1d\xa4\
+\x00\x00\x02&\x00\x01\x00\x00\x00\x01\x00\x0e\x1d\xa4\
 \x00\x00\x01\x97\x0cP\xe3\x87\
-\x00\x00\x010\x00\x00\x00\x00\x00\x01\x00\x05\xb0\x8b\
+\x00\x00\x01>\x00\x00\x00\x00\x00\x01\x00\x05\xb0\x8b\
 \x00\x00\x01\x97\x0cP\xe3\x86\
-\x00\x00\x01h\x00\x00\x00\x00\x00\x01\x00\x064u\
+\x00\x00\x01v\x00\x00\x00\x00\x00\x01\x00\x064u\
 \x00\x00\x01\x97\x0cP\xe3\x85\
-\x00\x00\x00\xa8\x00\x00\x00\x00\x00\x01\x00\x05f\xc2\
+\x00\x00\x00\xb6\x00\x00\x00\x00\x00\x01\x00\x05f\xc2\
 \x00\x00\x01\x97\x0cP\xe3\x87\
-\x00\x00\x00\xbe\x00\x00\x00\x00\x00\x01\x00\x05n\x99\
+\x00\x00\x00\xcc\x00\x00\x00\x00\x00\x01\x00\x05n\x99\
 \x00\x00\x01\x97\x0cP\xe3\x86\
-\x00\x00\x00\x92\x00\x00\x00\x00\x00\x01\x00\x05e\x08\
+\x00\x00\x00\xa0\x00\x00\x00\x00\x00\x01\x00\x05e\x08\
 \x00\x00\x01\x97\x0cP\xe3\x87\
-\x00\x00\x00\xd6\x00\x00\x00\x00\x00\x01\x00\x05q\x92\
+\x00\x00\x00\xe4\x00\x00\x00\x00\x00\x01\x00\x05q\x92\
 \x00\x00\x01\x97\x0cP\xe3\x87\
-\x00\x00\x01\x02\x00\x00\x00\x00\x00\x01\x00\x05\xa2\xae\
+\x00\x00\x01\x10\x00\x00\x00\x00\x00\x01\x00\x05\xa2\xae\
 \x00\x00\x01\x97\x0cP\xe3\x87\
-\x00\x00\x01~\x00\x00\x00\x00\x00\x01\x00\x0b\xe9\xab\
+\x00\x00\x01\x8c\x00\x00\x00\x00\x00\x01\x00\x0b\xe9\xab\
 \x00\x00\x01\x97\x0cP\xe3\x87\
-\x00\x00\x00V\x00\x00\x00\x00\x00\x01\x00\x02\x8b\x81\
+\x00\x00\x00d\x00\x00\x00\x00\x00\x01\x00\x02\x8b\x81\
 \x00\x00\x01\x97\x0cP\xe3\x86\
 "
 
-
 def qInitResources():
-    QtCore.qRegisterResourceData(
-        0x03, qt_resource_struct, qt_resource_name, qt_resource_data
-    )
-
+    QtCore.qRegisterResourceData(0x03, qt_resource_struct, qt_resource_name, qt_resource_data)
 
 def qCleanupResources():
-    QtCore.qUnregisterResourceData(
-        0x03, qt_resource_struct, qt_resource_name, qt_resource_data
-    )
-
+    QtCore.qUnregisterResourceData(0x03, qt_resource_struct, qt_resource_name, qt_resource_data)
 
 qInitResources()

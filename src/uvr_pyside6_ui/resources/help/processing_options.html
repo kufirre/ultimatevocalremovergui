@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" type="text/css" href="help_style.css">
+</head>
+<body>
+    <h2>Processing Options</h2>
+    <p>Customize your separation with these options:</p>
+    
+    <h3>Basic Options</h3>
+    <ul>
+        <li><b>Save Format:</b> Output format (WAV, FLAC, MP3)</li>
+        <li><b>Sample Rate:</b> Output sample rate (match source recommended)</li>
+        <li><b>Normalization:</b> Normalize output volume</li>
+        <li><b>Clip Guard:</b> Prevent audio clipping</li>
+    </ul>
+    
+    <h3>Advanced Options</h3>
+    <ul>
+        <li><b>TTA (Test-Time Augmentation):</b> Improves quality, slower processing</li>
+        <li><b>Post-Process:</b> Additional cleanup pass</li>
+        <li><b>High-End Process:</b> Maximum quality mode</li>
+        <li><b>Batch Size:</b> Processing chunk size (affects memory/speed)</li>
+    </ul>
+    
+    <h3>Model-Specific Options</h3>
+    <p><b>VR Architecture:</b></p>
+    <ul>
+        <li><code>Window Size</code>: Affects frequency resolution</li>
+        <li><code>Aggression</code>: Separation strength (1-20)</li>
+    </ul>
+    
+    <p><b>MDX-Net:</b></p>
+    <ul>
+        <li><code>Segment Size</code>: Processing segment length</li>
+        <li><code>Overlap</code>: Segment overlap amount</li>
+        <li><code>Denoise</code>: MDX-specific denoising</li>
+    </ul>
+    
+    <p><b>Demucs:</b></p>
+    <ul>
+        <li><code>Segment</code>: Chunk duration</li>
+        <li><code>Shifts</code>: Number of prediction shifts</li>
+        <li><code>Split Mode</code>: Frequency/time domain split</li>
+    </ul>
+</body>
+</html>

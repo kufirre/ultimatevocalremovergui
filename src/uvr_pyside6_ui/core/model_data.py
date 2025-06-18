@@ -1153,7 +1153,7 @@ class ModelData:
 
         if self.process_method == ac.VR_ARCH_TYPE:
             if model_params_json:
-                # Store the model's original stem configuration (don't change this)
+                # Store the model's original stem configuration
                 self.model_original_primary_stem = model_params_json.get("primary_stem", ac.VOCAL_STEM)
                 self.primary_stem = self.model_original_primary_stem  # Keep model's original primary/secondary designation
                 

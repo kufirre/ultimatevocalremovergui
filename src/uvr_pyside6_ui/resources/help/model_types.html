@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" type="text/css" href="help_style.css">
+</head>
+<body>
+    <h2>Model Types</h2>
+    <p>UVR supports several model architectures, each with unique strengths:</p>
+    
+    <h3>VR Architecture</h3>
+    <p><b>Vocal Remover models</b> - Original UVR architecture</p>
+    <ul>
+        <li>Fast processing speed</li>
+        <li>Good for vocals/instrumental separation</li>
+        <li>Lower memory requirements</li>
+        <li>Supports model ensembling</li>
+        <li><b>Karaoke models available</b> - Special models for vocal splitting and lead/backing vocal separation</li>
+        <li><b>BV models</b> - Background vocal removal models</li>
+    </ul>
+    
+    <h3>MDX-Net</h3>
+    <p><b>Music Demixing Challenge models</b> - Advanced neural networks</p>
+    <ul>
+        <li>High quality separation</li>
+        <li>Multiple stem support</li>
+        <li>Larger model sizes</li>
+        <li>GPU recommended</li>
+    </ul>
+    
+    <h3>Demucs</h3>
+    <p><b>Facebook's Demucs</b> - State-of-the-art separation</p>
+    <ul>
+        <li>Excellent quality</li>
+        <li>4-stem separation (vocals, drums, bass, other)</li>
+        <li>High memory usage</li>
+        <li>Slower processing</li>
+    </ul>
+    
+    <div class="note">
+        <b>Choosing the Right Model:</b><br>
+        • <b>Quality vs Speed:</b> Demucs for quality, VR for speed<br>
+        • <b>Memory:</b> VR uses least, Demucs uses most<br>
+        • <b>Stems needed:</b> Use Demucs for 4-stem separation<br>
+        • <b>Hardware:</b> GPU greatly speeds up MDX-Net and Demucs<br>
+        • <b>Karaoke/Vocal Splitting:</b> Look for karaoke or BV models in VR Architecture<br>
+        • <b>Professional Use:</b> Consider VIP access for premium models
+    </div>
+    
+    <h3>VIP Models</h3>
+    <p><b>Premium Models</b> - Exclusive access for supporters</p>
+    <ul>
+        <li>Enhanced quality over free models</li>
+        <li>Early access to experimental models</li>
+        <li>Commercial usage rights</li>
+        <li>Available across all architectures (VR, MDX-Net, Demucs)</li>
+        <li>Cryptographic verification required</li>
+    </ul>
+</body>
+</html>

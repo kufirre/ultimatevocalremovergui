@@ -18,10 +18,12 @@ from .demucs_settings_presenter import DemucsSettingsPresenter
 from .demucs_settings_view import DemucsSettingsView
 from .ensemble_simple_presenter import EnsembleSimplePresenter
 from .ensemble_simple_view import EnsembleSimpleView
+from .error_log_presenter import ErrorLogPresenter
 from .execution_control_presenter import ExecutionControlPresenter
 from .execution_control_view import ExecutionControlView
 from .file_io_presenter import FileIOPresenter
 from .file_io_view import FileIOView
+from .information_guide_presenter import InformationGuidePresenter
 from .mdx_net_settings_presenter import MDXNetSettingsPresenter
 from .mdx_net_settings_view import MDXNetSettingsView
 from .model_selection_presenter import ModelSelectionPresenter
@@ -58,6 +60,10 @@ class MainWindowView(QMainWindow):
         self.settings_dialog_presenter = SettingsDialogPresenter(
             adapter=self.adapter, parent_qt_object=self
         )
+
+        # --- Information Guide and Error Log Presenters ---
+        self.information_guide_presenter = InformationGuidePresenter(self)
+        self.error_log_presenter = ErrorLogPresenter(self)
 
         # --- Top Bar for Settings Button (Optional, or add to existing area) ---
         # For now, let's add it to the main layout for simplicity.
@@ -137,6 +143,10 @@ class MainWindowView(QMainWindow):
 
         # Connect presenters to settings dialog for advanced settings persistence
         self.settings_dialog_presenter.set_main_window_presenters(self.presenters)
+        
+        # Connect information guide and error log presenters to settings dialog
+        self.settings_dialog_presenter.set_information_guide_presenter(self.information_guide_presenter)
+        self.settings_dialog_presenter.set_error_log_presenter(self.error_log_presenter)
 
         # --- Execution Control and Settings Button Row ---
         bottom_controls_layout = QHBoxLayout()
@@ -187,8 +197,6 @@ class MainWindowView(QMainWindow):
 
         # Debug print removed
 
-    # ... (_create_menu_bar, _open_download_center_tab, _quit_application,
-    #      _show_about_dialog, show_status_message methods remain unchanged from response #37) ...
     def _create_menu_bar(self):
         menu_bar = self.menuBar()
         menu_bar.setNativeMenuBar(False)
@@ -205,6 +213,47 @@ class MainWindowView(QMainWindow):
         )
         edit_menu.addAction(prefs_action)
         help_menu = menu_bar.addMenu(ac.MENU_HELP)
+        
+        # Information Guide menu items
+        user_guide_action = QAction("User Guide", self)
+        user_guide_action.triggered.connect(self.information_guide_presenter.show_information_guide)
+        help_menu.addAction(user_guide_action)
+        
+        help_menu.addSeparator()
+        
+        getting_started_action = QAction("Getting Started", self)
+        getting_started_action.triggered.connect(self.information_guide_presenter.show_getting_started)
+        help_menu.addAction(getting_started_action)
+        
+        model_types_action = QAction("Model Types", self)
+        model_types_action.triggered.connect(self.information_guide_presenter.show_model_types)
+        help_menu.addAction(model_types_action)
+        
+        processing_options_action = QAction("Processing Options", self)
+        processing_options_action.triggered.connect(self.information_guide_presenter.show_processing_options)
+        help_menu.addAction(processing_options_action)
+        
+        audio_formats_action = QAction("Audio Formats", self)
+        audio_formats_action.triggered.connect(self.information_guide_presenter.show_audio_formats)
+        help_menu.addAction(audio_formats_action)
+        
+        troubleshooting_action = QAction("Troubleshooting", self)
+        troubleshooting_action.triggered.connect(self.information_guide_presenter.show_troubleshooting)
+        help_menu.addAction(troubleshooting_action)
+        
+        faq_action = QAction("FAQ", self)
+        faq_action.triggered.connect(self.information_guide_presenter.show_faq)
+        help_menu.addAction(faq_action)
+        
+        help_menu.addSeparator()
+        
+        # Error Log menu item
+        error_log_action = QAction("View Error Log", self)
+        error_log_action.triggered.connect(self.error_log_presenter.show_error_log)
+        help_menu.addAction(error_log_action)
+        
+        help_menu.addSeparator()
+        
         about_action = QAction(ac.ACTION_ABOUT, self)
         about_action.triggered.connect(self._show_about_dialog)
         help_menu.addAction(about_action)

@@ -177,6 +177,9 @@ class MainWindowView(QMainWindow):
             self._handle_processing_mode_change
         )
 
+        # --- Connect Settings Persistence System ---
+        self.settings_dialog_presenter.set_main_window_presenters(self.presenters)
+
         # --- Initialize UI State ---
         self._initialize_ui()
 

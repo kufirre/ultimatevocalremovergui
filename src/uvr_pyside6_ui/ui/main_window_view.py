@@ -182,44 +182,63 @@ class MainWindowView(QMainWindow):
 
     def _create_menu_bar(self):
         """Create the application menu bar."""
-        menubar = self.menuBar()
-
-        # File Menu
-        file_menu = menubar.addMenu("File")
-
-        # Settings action
-        settings_action = QAction("Settings", self)
-        settings_action.triggered.connect(self._open_settings_dialog)
-        file_menu.addAction(settings_action)
-
-        file_menu.addSeparator()
-
-        # Exit action
-        exit_action = QAction("Exit", self)
-        exit_action.triggered.connect(self.close)
-        file_menu.addAction(exit_action)
-
-        # Edit Menu
-        edit_menu = menubar.addMenu("Edit")
-        # Placeholder for future edit actions
-
-        # Help Menu
-        help_menu = menubar.addMenu("Help")
-
-        # Information Guide action
-        guide_action = QAction("Information Guide", self)
-        guide_action.triggered.connect(self._open_information_guide)
-        help_menu.addAction(guide_action)
-
-        # Error Log action
-        error_log_action = QAction("Error Log", self)
-        error_log_action.triggered.connect(self._open_error_log)
-        help_menu.addAction(error_log_action)
-
+        menu_bar = self.menuBar()
+        menu_bar.setNativeMenuBar(False)
+        file_menu = menu_bar.addMenu(ac.MENU_FILE)
+        quit_action = QAction(ac.ACTION_QUIT, self)
+        quit_action.setShortcut(ac.SHORTCUT_QUIT)
+        quit_action.triggered.connect(self._quit_application)
+        file_menu.addAction(quit_action)
+        edit_menu = menu_bar.addMenu(ac.MENU_EDIT)
+        prefs_action = QAction(ac.ACTION_PREFERENCES, self)
+        prefs_action.setShortcut(ac.SHORTCUT_PREFERENCES)
+        prefs_action.triggered.connect(
+            lambda: self.settings_dialog_presenter.show_dialog(default_model_type=None)
+        )
+        edit_menu.addAction(prefs_action)
+        help_menu = menu_bar.addMenu(ac.MENU_HELP)
+        
+        # Information Guide menu items
+        user_guide_action = QAction("User Guide", self)
+        user_guide_action.triggered.connect(self.information_guide_presenter.show_information_guide)
+        help_menu.addAction(user_guide_action)
+        
         help_menu.addSeparator()
-
-        # About action
-        about_action = QAction("About", self)
+        
+        getting_started_action = QAction("Getting Started", self)
+        getting_started_action.triggered.connect(self.information_guide_presenter.show_getting_started)
+        help_menu.addAction(getting_started_action)
+        
+        model_types_action = QAction("Model Types", self)
+        model_types_action.triggered.connect(self.information_guide_presenter.show_model_types)
+        help_menu.addAction(model_types_action)
+        
+        processing_options_action = QAction("Processing Options", self)
+        processing_options_action.triggered.connect(self.information_guide_presenter.show_processing_options)
+        help_menu.addAction(processing_options_action)
+        
+        audio_formats_action = QAction("Audio Formats", self)
+        audio_formats_action.triggered.connect(self.information_guide_presenter.show_audio_formats)
+        help_menu.addAction(audio_formats_action)
+        
+        troubleshooting_action = QAction("Troubleshooting", self)
+        troubleshooting_action.triggered.connect(self.information_guide_presenter.show_troubleshooting)
+        help_menu.addAction(troubleshooting_action)
+        
+        faq_action = QAction("FAQ", self)
+        faq_action.triggered.connect(self.information_guide_presenter.show_faq)
+        help_menu.addAction(faq_action)
+        
+        help_menu.addSeparator()
+        
+        # Error Log menu item
+        error_log_action = QAction("View Error Log", self)
+        error_log_action.triggered.connect(self.error_log_presenter.show_error_log)
+        help_menu.addAction(error_log_action)
+        
+        help_menu.addSeparator()
+        
+        about_action = QAction(ac.ACTION_ABOUT, self)
         about_action.triggered.connect(self._show_about_dialog)
         help_menu.addAction(about_action)
 
@@ -287,21 +306,13 @@ class MainWindowView(QMainWindow):
         """Open the settings dialog."""
         self.settings_dialog_presenter.show_dialog()
 
-    def _open_download_center_tab(self, originating_method: str = ""):
-        """Open the download center tab in settings dialog."""
-        self.settings_dialog_presenter.show_dialog(default_tab=2)
-        if originating_method:
-            self.settings_dialog_presenter.set_download_center_method(
-                originating_method
-            )
-
-    def _open_information_guide(self):
-        """Open the information guide dialog."""
-        self.information_guide_presenter.show_dialog()
-
-    def _open_error_log(self):
-        """Open the error log dialog."""
-        self.error_log_presenter.show_dialog()
+    @Slot(str)
+    def _open_download_center_tab(self, originating_method: str):
+        self.settings_dialog_presenter.show_dialog(
+            exec_dialog=False, default_model_type=originating_method
+        )
+        if self.settings_dialog_presenter.view:
+            self.settings_dialog_presenter.view.tab_widget.setCurrentIndex(2)
 
     def _show_about_dialog(self):
         """Show the about dialog."""
@@ -313,3 +324,10 @@ class MainWindowView(QMainWindow):
             "Advanced audio source separation using machine learning\n\n"
             "This is a modern Qt-based port of the original UVR application."
         )
+
+    def _quit_application(self):
+        app = QApplication.instance()
+        app.quit() if app else None
+
+    def show_status_message(self, message, timeout=0):
+        self.status_bar.showMessage(message, timeout)

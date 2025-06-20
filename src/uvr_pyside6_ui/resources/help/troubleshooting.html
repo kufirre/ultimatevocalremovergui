@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" type="text/css" href="help_style.css">
+</head>
+<body>
+    <h2>Troubleshooting</h2>
+    <p>Common issues and their solutions:</p>
+    
+    <h3>Performance Issues</h3>
+    <div class="issue">
+        <h4>Problem: Processing is very slow</h4>
+        <ul>
+            <li><b>Enable GPU acceleration</b> if available</li>
+            <li><b>Reduce batch size</b> in advanced settings</li>
+            <li><b>Lower segment size</b> for MDX-Net models</li>
+            <li><b>Close other applications</b> to free memory</li>
+            <li><b>Use VR Architecture</b> for faster (but lower quality) results</li>
+        </ul>
+    </div>
+    
+    <div class="issue">
+        <h4>Problem: Out of memory errors</h4>
+        <ul>
+            <li><b>Reduce batch size</b> to 1 or 2</li>
+            <li><b>Use CPU mode</b> instead of GPU</li>
+            <li><b>Process shorter segments</b> (trim long files)</li>
+            <li><b>Close other applications</b></li>
+            <li><b>Restart the application</b> to clear memory</li>
+        </ul>
+    </div>
+    
+    <h3>Audio Quality Issues</h3>
+    <div class="issue">
+        <h4>Problem: Poor separation quality</h4>
+        <ul>
+            <li><b>Try different models</b> - quality varies by content</li>
+            <li><b>Enable TTA</b> for better quality (slower)</li>
+            <li><b>Use Ensemble Mode</b> to combine multiple models</li>
+            <li><b>Enable Post-Process</b> in advanced settings</li>
+            <li><b>Check your input file quality</b> - use WAV/FLAC</li>
+        </ul>
+    </div>
+    
+    <div class="issue">
+        <h4>Problem: Audio artifacts or distortion</h4>
+        <ul>
+            <li><b>Lower aggression setting</b> for VR models</li>
+            <li><b>Enable High-End Process</b></li>
+            <li><b>Try different overlap settings</b> for MDX-Net</li>
+            <li><b>Use different model architecture</b></li>
+        </ul>
+    </div>
+    
+    <h3>Model Issues</h3>
+    <div class="issue">
+        <h4>Problem: Model not found or won't load</h4>
+        <ul>
+            <li><b>Check model file location</b> - ensure it's in correct folder</li>
+            <li><b>Re-download the model</b> if corrupted</li>
+            <li><b>Verify model compatibility</b> with your UVR version</li>
+            <li><b>Check file permissions</b> - ensure UVR can read files</li>
+        </ul>
+    </div>
+    
+    <h3>File Issues</h3>
+    <div class="issue">
+        <h4>Problem: Can't load input file</h4>
+        <ul>
+            <li><b>Check file format</b> - WAV, FLAC, MP3, OGG supported</li>
+            <li><b>Try converting to WAV</b> first</li>
+            <li><b>Check file permissions</b></li>
+            <li><b>Ensure file isn't corrupted</b></li>
+        </ul>
+    </div>
+    
+    <div class="issue">
+        <h4>Problem: Output files not created</h4>
+        <ul>
+            <li><b>Check output folder permissions</b></li>
+            <li><b>Ensure enough disk space</b></li>
+            <li><b>Check if antivirus is blocking</b></li>
+            <li><b>Try different output location</b></li>
+        </ul>
+    </div>
+    
+    <div class="note">
+        <b>Still having issues?</b><br>
+        Check the Error Log (Help → View Error Log) for detailed error messages.<br>
+        Consider reporting bugs through the official UVR channels.
+    </div>
+</body>
+</html> 

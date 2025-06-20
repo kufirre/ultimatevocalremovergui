@@ -347,6 +347,7 @@ QRC_CENTURY_GOTHIC_PATH = ":/uvr/fonts/CenturyGothic.ttf"
 QRC_MONTSERRAT_PATH = ":/uvr/fonts/Montserrat.ttf"
 QRC_MAIN_STYLESHEET_PATH = ":/uvr/theme/style.qss"
 QRC_PROGRESS_STYLESHEET_PATH = ":/uvr/theme/progress_bars.qss"
+QRC_ICON_PATH = ":/uvr/img/uvr-port-icon.png"
 
 # Processing Status Messages
 STATUS_IDLE = "Idle"

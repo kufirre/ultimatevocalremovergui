@@ -34,6 +34,7 @@ class SettingsDialogView(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Settings")
+        self.setWindowIcon(QIcon(ac.QRC_ICON_PATH))
         self.setModal(True)
         self.resize(600, 500)
         self._is_download_in_progress = False  # Internal state flag

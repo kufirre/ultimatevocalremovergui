@@ -1,5 +1,5 @@
-from PySide6.QtCore import Slot  # Added QSize
-from PySide6.QtGui import QAction  # Added QIcon
+from PySide6.QtCore import QSize, Qt, Slot  # Added QSize
+from PySide6.QtGui import QAction, QIcon  # Added QIcon
 from PySide6.QtWidgets import (
     QApplication,  # Added QScrollArea, QPushButton, QHBoxLayout, QFrame
     QFrame,
@@ -42,6 +42,7 @@ class MainWindowView(QMainWindow):
         super().__init__(parent)
 
         self.setWindowTitle(ac.APP_TITLE)
+        self.setWindowIcon(QIcon(ac.QRC_ICON_PATH))
         self.setGeometry(
             100, 100, 600, 900  # Increased height to accommodate batch processing
         )

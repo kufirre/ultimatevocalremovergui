@@ -53,6 +53,7 @@ class EnsembleAdvancedDialog(QDialog):
     def _setup_ui(self):
         """Set up the user interface."""
         self.setWindowTitle("Advanced Ensemble Settings")
+        self.setWindowIcon(QIcon(ac.QRC_ICON_PATH))
         self.setModal(True)
         self.setMinimumSize(580, 600)
         self.setMaximumSize(650, 750)

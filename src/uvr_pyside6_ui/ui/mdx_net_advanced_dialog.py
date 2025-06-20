@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QTabWidget,
     QVBoxLayout,
 )
+from PySide6.QtGui import QIcon
 
 from ..core import app_constants as ac
 from ..core.model_data import MDX_MODELS_DIR_PATH, ModelData
@@ -38,6 +39,7 @@ class MDXNetAdvancedDialog(QDialog):
     def __init__(self, current_settings=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Advanced MDX-Net Options")
+        self.setWindowIcon(QIcon(ac.QRC_ICON_PATH))
         self.setModal(True)
         self.setMinimumSize(450, 500)
 

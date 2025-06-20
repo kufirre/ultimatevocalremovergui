@@ -25,6 +25,7 @@
     <file alias="img/UVR_v5.6.png">../../gui_data/img/UVR_v5.6.png</file>
     <file alias="img/UVR-banner.png">../../gui_data/img/UVR-banner.png</file>
     <file alias="img/UVR.icns">../../gui_data/img/UVR.icns</file>
+    <file alias="img/uvr-port-icon.png">resources/images/uvr-port-icon.png</file>
     
     <file alias="theme/style.qss">ui/theme/style.qss</file>
     <file alias="theme/progress_bars.qss">ui/theme/progress_bars.qss</file>

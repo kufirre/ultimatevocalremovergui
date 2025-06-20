@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QTabWidget,
     QVBoxLayout,
 )
+from PySide6.QtGui import QIcon
 
 from ..core import app_constants as ac
 from ..core.logger_utils import get_logger
@@ -41,7 +42,9 @@ class DemucsAdvancedDialog(QDialog):
         super().__init__(parent)
         self.current_settings = current_settings or {}
         self.setWindowTitle("Advanced Demucs Options")
+        self.setWindowIcon(QIcon(ac.QRC_ICON_PATH))
         self.setMinimumSize(450, 500)
+        self.setModal(True)
 
         # Lazy loading flags
         self._models_loaded = False

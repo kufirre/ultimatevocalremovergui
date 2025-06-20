@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QTabWidget,
     QVBoxLayout,
 )
+from PySide6.QtGui import QIcon
 
 from ..core import app_constants as ac
 from ..core.model_data import VR_MODELS_DIR_PATH, ModelData
@@ -39,6 +40,7 @@ class VRArchAdvancedDialog(QDialog):
         self.is_vr_mode = is_vr_mode
 
         self.setWindowTitle("Advanced VR Options")
+        self.setWindowIcon(QIcon(ac.QRC_ICON_PATH))
         self.setModal(True)
         self.setMinimumSize(450, 500)  # Consistent with other dialogs
 

@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 from PySide6.QtCore import QFile, QIODevice, Qt, QTextStream
-from PySide6.QtGui import QFont, QFontDatabase
+from PySide6.QtGui import QFont, QFontDatabase, QIcon
 from PySide6.QtWidgets import QApplication
 
 # Import resources to register them with Qt
@@ -115,6 +115,9 @@ def run():
             )
     except Exception as e:
         logger.error(f"Error loading progress bar stylesheet: {e}")
+
+    # Set application icon
+    app.setWindowIcon(QIcon(ac.QRC_ICON_PATH))
 
     window = MainWindowView()
     window.show()

@@ -411,7 +411,13 @@ class TestDownloadWorkerIntegration:
         finished_spy = QSignalSpy(worker.finished)
 
         # Simulate finished signal
-        worker.finished.emit(True, "/path/model.pth", "/path/config.yaml", "Success")
+        worker.finished.emit(
+            True,
+            "/path/model.pth",
+            "/path/config.yaml",
+            "Success",
+            ac.VR_ARCH_MODELS_KEY,
+        )
 
         # Check signal was emitted
         assert finished_spy.count() == 1

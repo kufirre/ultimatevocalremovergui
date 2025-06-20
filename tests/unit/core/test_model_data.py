@@ -551,7 +551,7 @@ class TestModelData:
         """Test determining model process method with unknown extension."""
         model_data = ModelData()
 
-        with patch("uvr_pyside6_ui.core.model_data.logger") as mock_logger:
+        with patch("uvr_pyside6_ui.core.model_utils.logger") as mock_logger:
             result = model_data._determine_model_process_method("model.unknown")
 
             assert result is None

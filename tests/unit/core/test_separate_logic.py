@@ -255,6 +255,27 @@ class TestHelperFunctions:
     @patch("soundfile.write")
     def test_write_audio_logic_sf_write_error(self, mock_sf_write):
         """Test handling of soundfile write errors."""
+        # First call fails, second call (fallback) succeeds
+        mock_sf_write.side_effect = [Exception("Write failed"), None]
+
+        model_data = ModelData()
+        model_data.wav_type_set = "PCM_16"
+        model_data.save_format = ac.WAV
+        model_data.is_normalization = False
+
+        stem_source = np.array([[1, 2, 3], [4, 5, 6]])
+
+        # Should not raise exception, should try fallback and succeed
+        separate_logic.write_audio_logic(
+            "output.wav", stem_source, 44100, model_data, "test_stem"
+        )
+
+        assert mock_sf_write.call_count == 2  # First call fails, second succeeds
+
+    @patch("soundfile.write")
+    def test_write_audio_logic_sf_write_both_fail(self, mock_sf_write):
+        """Test handling when both soundfile write attempts fail."""
+        # Both calls fail
         mock_sf_write.side_effect = Exception("Write failed")
 
         model_data = ModelData()
@@ -264,12 +285,13 @@ class TestHelperFunctions:
 
         stem_source = np.array([[1, 2, 3], [4, 5, 6]])
 
-        # Should not raise exception, should try fallback
-        separate_logic.write_audio_logic(
-            "output.wav", stem_source, 44100, model_data, "test_stem"
-        )
+        # Should raise RuntimeError when both attempts fail
+        with pytest.raises(RuntimeError, match="Failed to write audio file"):
+            separate_logic.write_audio_logic(
+                "output.wav", stem_source, 44100, model_data, "test_stem"
+            )
 
-        assert mock_sf_write.call_count >= 1  # First call fails, tries fallback
+        assert mock_sf_write.call_count == 2  # Both calls attempted
 
     @patch("soundfile.write")
     @patch("pydub.AudioSegment.from_wav")

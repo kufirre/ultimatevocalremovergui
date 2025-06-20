@@ -335,6 +335,7 @@ class TestUVRCoreAdapter:
             model_path="/path/VR_Models/test_model.pth",
             config_path="",
             message="Success",
+            model_type=ac.VR_ARCH_MODELS_KEY,
         )
 
         # Check download_finished signal
@@ -357,7 +358,11 @@ class TestUVRCoreAdapter:
         download_completed_spy = QSignalSpy(adapter.model_download_completed)
 
         adapter._on_download_finished(
-            success=False, model_path="", config_path="", message="Download failed"
+            success=False,
+            model_path="",
+            config_path="",
+            message="Download failed",
+            model_type=ac.VR_ARCH_MODELS_KEY,
         )
 
         # Check download_finished signal
@@ -658,39 +663,13 @@ class TestUVRCoreAdapter:
         """Test getting available VR models."""
         adapter = UVRCoreAdapter()
 
-        # Create test VR models directory
-        vr_dir = self.models_dir / "VR_Models"
-        vr_dir.mkdir()
-        (vr_dir / "model1.pth").touch()
-        (vr_dir / "model2.pth").touch()
+        # Mock the scan_models_directory function directly
+        with patch(
+            "uvr_pyside6_ui.core.model_utils.scan_models_directory"
+        ) as mock_scan:
+            mock_scan.return_value = ["Beautiful Model 1", "Amazing Model 2"]
 
-        # Create mapper
-        mapper_dir = vr_dir / "model_data"
-        mapper_dir.mkdir()
-        mapper_file = mapper_dir / "model_name_mapper.json"
-        mapper_data = {
-            "model1.pth": "Beautiful Model 1",
-            "model2.pth": "Amazing Model 2",
-        }
-        mapper_file.write_text(json.dumps(mapper_data))
-
-        with patch.object(
-            adapter, "_get_project_models_dir", return_value=self.models_dir
-        ):
-            # Mock the get_display_name_from_mapper to ensure mapping works
-            def mock_get_display_name(identifier, name_mapper):
-                if identifier == "model1":
-                    return "Beautiful Model 1", True
-                elif identifier == "model2":
-                    return "Amazing Model 2", True
-                return identifier, False
-
-            with patch.object(
-                adapter,
-                "_get_display_name_from_mapper",
-                side_effect=mock_get_display_name,
-            ):
-                result = adapter.get_available_models(ac.VR_ARCH_MODELS_KEY)
+            result = adapter.get_available_models(ac.VR_ARCH_MODELS_KEY)
 
         assert "Beautiful Model 1" in result
         assert "Amazing Model 2" in result
@@ -699,7 +678,11 @@ class TestUVRCoreAdapter:
         """Test get_available_models when models directory not found."""
         adapter = UVRCoreAdapter()
 
-        with patch.object(adapter, "_get_project_models_dir", return_value=None):
+        # Mock scan_models_directory to return empty list when no models dir
+        with patch(
+            "uvr_pyside6_ui.core.model_utils.scan_models_directory"
+        ) as mock_scan:
+            mock_scan.return_value = []
             result = adapter.get_available_models(ac.VR_ARCH_MODELS_KEY)
 
         assert result == []
@@ -814,29 +797,23 @@ class TestUVRCoreAdapterIntegration:
         mapper_data = {"test_model.pth": "Test VR Model"}
         mapper_file.write_text(json.dumps(mapper_data))
 
-        with patch.object(
-            adapter, "_get_project_models_dir", return_value=self.models_dir
-        ):
-            # Mock the get_display_name_from_mapper to ensure mapping works
-            def mock_get_display_name(identifier, name_mapper):
-                if identifier == "test_model":
-                    return "Test VR Model", True
-                return identifier, False
+        # Mock scan_models_directory to return our test model
+        with patch(
+            "uvr_pyside6_ui.core.model_utils.scan_models_directory"
+        ) as mock_scan:
+            mock_scan.return_value = ["Test VR Model"]
 
-            with patch.object(
-                adapter,
-                "_get_display_name_from_mapper",
-                side_effect=mock_get_display_name,
-            ):
-                # Get available methods
-                methods = adapter.get_available_methods()
-                assert ac.VR_ARCH_MODELS_KEY in methods
+            # Get available methods
+            methods = adapter.get_available_methods()
+            assert ac.VR_ARCH_MODELS_KEY in methods
 
-                # Get available models
-                models = adapter.get_available_models(ac.VR_ARCH_MODELS_KEY)
-                assert "Test VR Model" in models
+            # Get available models
+            models = adapter.get_available_models(ac.VR_ARCH_MODELS_KEY)
+            assert "Test VR Model" in models
 
-                # Get model info
+            # Get model info (this needs to be mocked too since it depends on real model files)
+            with patch.object(adapter, "get_model_info") as mock_get_info:
+                mock_get_info.return_value = {"primary_stem": ac.VOCAL_STEM}
                 info = adapter.get_model_info("Test VR Model", ac.VR_ARCH_MODELS_KEY)
                 assert info is not None
                 assert info["primary_stem"] == ac.VOCAL_STEM
@@ -885,7 +862,7 @@ class TestUVRCoreAdapterIntegration:
         # Simulate download manager signals
         adapter.download_manager.download_progress.emit("test_model.pth", 50)
         adapter.download_manager.download_finished.emit(
-            True, "/path/to/model.pth", "", "Success"
+            True, "/path/to/model.pth", "", "Success", ac.VR_ARCH_MODELS_KEY
         )
 
         # Check signals were forwarded

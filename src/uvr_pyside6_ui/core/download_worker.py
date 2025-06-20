@@ -12,7 +12,9 @@ class DownloadWorker(QObject):
 
     # Signals
     progress = Signal(str, int)  # filename, percentage
-    finished = Signal(bool, str, str, str, str)  # success, model_path, config_path, message, model_type
+    finished = Signal(
+        bool, str, str, str, str
+    )  # success, model_path, config_path, message, model_type
 
     def __init__(
         self,
@@ -50,10 +52,16 @@ class DownloadWorker(QObject):
             if success:
                 message = f"✅ Successfully downloaded {self.model_name}"
                 self.finished.emit(
-                    True, model_path_or_msg, config_path if config_path else "", message, self.model_type
+                    True,
+                    model_path_or_msg,
+                    config_path if config_path else "",
+                    message,
+                    self.model_type,
                 )
             else:
-                self.finished.emit(False, "", "", f"❌ {model_path_or_msg}", self.model_type)
+                self.finished.emit(
+                    False, "", "", f"❌ {model_path_or_msg}", self.model_type
+                )
 
         except Exception as e:
             error_msg = f"❌ Error downloading {self.model_name}: {str(e)}"

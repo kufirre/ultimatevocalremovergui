@@ -171,7 +171,7 @@ class SeparateMDXLogic(SeparatorAttributesLogic):
             if not self._is_running_check():
                 raise InterruptedError("Processing stopped by user.")
             self.progress_value += 1
-            # Dynamic progress: start at 30%, reach 80% at completion  
+            # Dynamic progress: start at 30%, reach 80% at completion
             progress_fraction = 0.3 + (0.5 * (self.progress_value / total_chunks))
             progress_fraction = min(progress_fraction, 0.8)  # Cap at 80%
             self._update_progress(progress_fraction)
@@ -302,11 +302,11 @@ class SeparateMDXLogic(SeparatorAttributesLogic):
 
         # MDX models output the primary stem directly
         # The secondary stem is calculated by subtracting from the mix
-        
+
         # Check if both stems should be saved
         save_primary = not md.is_secondary_stem_only
         save_secondary = not md.is_primary_stem_only
-        
+
         if save_primary:
             logger.info(f"Saving primary stem: {md.primary_stem}")
             self.primary_source = primary_stem_data
@@ -324,13 +324,19 @@ class SeparateMDXLogic(SeparatorAttributesLogic):
             # Handle is_invert_spec for models that output instrumental first
             if md.is_invert_spec and spec_utils:
                 # Use spec_utils.invert_stem for proper calculation
-                secondary_stem_data = spec_utils.invert_stem(mix_audio_norm_np, primary_stem_data)
-                logger.info(f"Used invert_stem for secondary calculation (is_invert_spec=True)")
+                secondary_stem_data = spec_utils.invert_stem(
+                    mix_audio_norm_np, primary_stem_data
+                )
+                logger.info(
+                    "Used invert_stem for secondary calculation (is_invert_spec=True)"
+                )
             else:
                 # Standard subtraction method
                 secondary_stem_data = mix_audio_norm_np - primary_stem_data
-                logger.info(f"Used standard subtraction for secondary calculation (is_invert_spec=False)")
-                
+                logger.info(
+                    "Used standard subtraction for secondary calculation (is_invert_spec=False)"
+                )
+
             self.secondary_source = secondary_stem_data
             self.secondary_source_map = self._final_process_stem(
                 "",

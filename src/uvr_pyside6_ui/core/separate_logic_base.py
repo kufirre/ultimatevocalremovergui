@@ -153,7 +153,9 @@ def write_audio_logic(
             logger.debug(f"Successfully wrote audio with fallback to: {stem_path}")
         except Exception as e_sf_write_fallback:
             logger.error(f"Failed to write audio with fallback: {e_sf_write_fallback}")
-            raise RuntimeError(f"Failed to write audio file {stem_path}: {e_sf_write_fallback}") from e_sf_write_fallback
+            raise RuntimeError(
+                f"Failed to write audio file {stem_path}: {e_sf_write_fallback}"
+            ) from e_sf_write_fallback
 
     # Convert to desired output format if not WAV
     final_path = stem_path  # Default to WAV path
@@ -172,13 +174,17 @@ def write_audio_logic(
             # Remove the temporary WAV file
             stem_path.unlink()
             final_path = stem_path_new
-            logger.info(f"Successfully converted to {model_data.save_format}: {stem_path_new}")
+            logger.info(
+                f"Successfully converted to {model_data.save_format}: {stem_path_new}"
+            )
 
         except Exception as e_convert:
             logger.error(f"Failed to convert audio format: {e_convert}")
             # Don't raise here - keep the WAV file if format conversion fails
-            logger.warning(f"Keeping original WAV file due to conversion failure: {stem_path}")
-    
+            logger.warning(
+                f"Keeping original WAV file due to conversion failure: {stem_path}"
+            )
+
     # Log the final output path
     logger.info(f"Final output saved to: {final_path}")
 
@@ -254,23 +260,23 @@ class SeparatorAttributesLogic:
         """Write processed stem to file."""
         # Get audio_file_base from process_data if available, otherwise use self.audio_file_base
         audio_file_base = self.process_data.get("audio_file_base", self.audio_file_base)
-        
+
         # Ensure we have both export path and audio file base
         if not self.export_path:
             self.export_path = Path(".")
             logger.warning("No export path set, using current directory")
-            
+
         if not audio_file_base:
             audio_file_base = "output"
             logger.warning("No audio file base set, using 'output'")
-        
+
         # Construct the full path for the stem
         # Always use WAV extension initially - write_audio_logic will handle conversion
         stem_path = self.export_path / f"{audio_file_base}_{stem_name}.{ac.WAV.lower()}"
-        
+
         # Ensure the export directory exists
         self.export_path.mkdir(parents=True, exist_ok=True)
-        
+
         try:
             logger.info(f"Writing stem '{stem_name}' to: {stem_path}")
             write_audio_logic(
@@ -286,11 +292,17 @@ class SeparatorAttributesLogic:
             if final_format != ac.WAV:
                 final_path = stem_path.with_suffix(f".{final_format.lower()}")
                 if final_path.exists():
-                    logger.info(f"Successfully wrote stem '{stem_name}' as {final_format}: {final_path}")
+                    logger.info(
+                        f"Successfully wrote stem '{stem_name}' as {final_format}: {final_path}"
+                    )
                 else:
-                    logger.warning(f"Expected {final_format} file not found at {final_path}, check WAV path")
+                    logger.warning(
+                        f"Expected {final_format} file not found at {final_path}, check WAV path"
+                    )
             else:
-                logger.info(f"Successfully wrote stem '{stem_name}' as WAV: {stem_path}")
+                logger.info(
+                    f"Successfully wrote stem '{stem_name}' as WAV: {stem_path}"
+                )
         except Exception as e:
             logger.error(f"Failed to write stem '{stem_name}' to {stem_path}: {e}")
             raise

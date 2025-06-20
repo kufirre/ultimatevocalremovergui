@@ -34,10 +34,9 @@ class ExecutionControlPresenter(QObject):
         if ac.BATCH_FILE_PRESENTER_KEY in self.presenters:
             batch_presenter = self.presenters[ac.BATCH_FILE_PRESENTER_KEY]
             self._batch_worker = BatchProcessingWorker(
-                batch_presenter.get_batch_manager(), 
-                self.adapter
+                batch_presenter.get_batch_manager(), self.adapter
             )
-            
+
             # Connect batch worker signals
             self._batch_worker.batch_started.connect(self._on_batch_started)
             self._batch_worker.batch_completed.connect(self._on_batch_completed)
@@ -58,7 +57,7 @@ class ExecutionControlPresenter(QObject):
         # Get input paths (supports both single and batch modes)
         input_paths = file_io.get_input_paths()
         output_path = file_io.get_output_path()
-        
+
         model_details = model_sel.get_current_selection()
         settings = proc_set.get_settings()
 
@@ -133,10 +132,12 @@ class ExecutionControlPresenter(QObject):
             primary_stem, secondary_stem = model_sel_presenter._get_stems_for_model(
                 model_sel_presenter._current_method, model_sel_presenter._current_model
             )
-            all_settings.update({
-                "primary_stem_text": primary_stem,
-                "secondary_stem_text": secondary_stem,
-            })
+            all_settings.update(
+                {
+                    "primary_stem_text": primary_stem,
+                    "secondary_stem_text": secondary_stem,
+                }
+            )
 
         # Add model selection details last, so model_data can correctly pick up method and model
         all_settings.update(model_details)
@@ -187,7 +188,7 @@ class ExecutionControlPresenter(QObject):
 
             # Determine processing mode
             processing_mode = settings_dict.get("processing_mode", "single")
-            
+
             if processing_mode == "batch":
                 # Start batch processing
                 self._start_batch_processing(settings_dict)
@@ -210,13 +211,15 @@ class ExecutionControlPresenter(QObject):
         """Start batch processing."""
         if not self._batch_worker:
             raise ValueError("Batch processing not initialized")
-            
+
         input_paths = settings_dict.get("input_paths", [])
         if not input_paths:
             raise ValueError("No files in batch queue")
-            
-        self.view.append_log_message(f"Starting batch processing of {len(input_paths)} files...")
-        
+
+        self.view.append_log_message(
+            f"Starting batch processing of {len(input_paths)} files..."
+        )
+
         if self._batch_worker.start_batch_processing(settings_dict):
             self.view.set_start_button_text("Processing Batch")
             self.view.set_progress_text("Starting batch processing...")
@@ -226,26 +229,32 @@ class ExecutionControlPresenter(QObject):
     @Slot(int)
     def _on_batch_started(self, total_files: int):
         """Handle batch processing started."""
-        self.view.append_log_message(f"Batch processing started: {total_files} files in queue")
+        self.view.append_log_message(
+            f"Batch processing started: {total_files} files in queue"
+        )
 
     @Slot(list)
     def _on_batch_completed(self, results: list):
         """Handle batch processing completed."""
-        completed_count = sum(1 for r in results if r['status'] == 'completed')
-        error_count = sum(1 for r in results if r['status'] == 'error')
-        
-        self.view.append_log_message(f"Batch processing completed:")
-        self.view.append_log_message(f"  ✓ Successfully processed: {completed_count} files")
+        completed_count = sum(1 for r in results if r["status"] == "completed")
+        error_count = sum(1 for r in results if r["status"] == "error")
+
+        self.view.append_log_message("Batch processing completed:")
+        self.view.append_log_message(
+            f"  ✓ Successfully processed: {completed_count} files"
+        )
         if error_count > 0:
             self.view.append_log_message(f"  ✗ Files with errors: {error_count}")
-            
+
         # Log individual results
         for result in results:
-            if result['status'] == 'completed':
+            if result["status"] == "completed":
                 self.view.append_log_message(f"  ✓ {result['display_name']}")
-            elif result['status'] == 'error':
-                self.view.append_log_message(f"  ✗ {result['display_name']}: {result.get('error_message', 'Unknown error')}")
-        
+            elif result["status"] == "error":
+                self.view.append_log_message(
+                    f"  ✗ {result['display_name']}: {result.get('error_message', 'Unknown error')}"
+                )
+
         success = error_count == 0
         message = f"Batch completed: {completed_count} successful, {error_count} errors"
         self.on_processing_finished(success, message)
@@ -301,10 +310,10 @@ class ExecutionControlPresenter(QObject):
         """Cancel the current processing operation."""
         if not self._is_processing:
             return
-            
+
         file_io = self.presenters[ac.FILE_IO_PRESENTER_KEY]
         processing_mode = file_io.get_processing_mode()
-        
+
         if processing_mode == "batch" and self._batch_worker:
             self._batch_worker.cancel_batch_processing()
         else:

@@ -100,7 +100,7 @@ class ProcessingSettingsView(QWidget):
 
         main_container_layout.addWidget(settings_group)
         self.setLayout(main_container_layout)
-        
+
         # Ensure the widget is always visible and properly sized
         self.setVisible(True)
         self.show()

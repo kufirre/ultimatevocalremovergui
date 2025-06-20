@@ -35,7 +35,6 @@ class ModelSelectionPresenter(QObject):
         if self._available_methods:
             self._current_method = self.view.method_combo.currentText()
 
-
     def connect_demucs_stem_changes(self, demucs_presenter):
         """Connect to Demucs stem selection changes."""
         if hasattr(demucs_presenter, "view") and hasattr(
@@ -73,7 +72,7 @@ class ModelSelectionPresenter(QObject):
             auto_selected_model = self.view.set_models(
                 models_for_method, current_method=method
             )
-            
+
         if (
             auto_selected_model
             and auto_selected_model != ac.DOWNLOAD_MORE_MODELS_TEXT
@@ -130,18 +129,24 @@ class ModelSelectionPresenter(QObject):
             # No method selected - disable everything
             self.model_changed.emit("", "", "", "")
             return
-            
+
         if not self._current_model:
             # Method selected but no model - provide default stems for the method
             if self._current_method == ac.VR_ARCH_MODELS_KEY:
                 # VR models typically work with vocals/instrumental
-                self.model_changed.emit(self._current_method, "", ac.VOCAL_STEM, ac.INST_STEM)
+                self.model_changed.emit(
+                    self._current_method, "", ac.VOCAL_STEM, ac.INST_STEM
+                )
             elif self._current_method == ac.MDX_NET_MODELS_KEY:
-                # MDX models typically work with vocals/instrumental  
-                self.model_changed.emit(self._current_method, "", ac.VOCAL_STEM, ac.INST_STEM)
+                # MDX models typically work with vocals/instrumental
+                self.model_changed.emit(
+                    self._current_method, "", ac.VOCAL_STEM, ac.INST_STEM
+                )
             elif self._current_method == ac.DEMUCS_MODELS_KEY:
                 # Demucs default stems depend on current selection, but default to vocals/instrumental
-                self.model_changed.emit(self._current_method, "", ac.VOCAL_STEM, ac.INST_STEM)
+                self.model_changed.emit(
+                    self._current_method, "", ac.VOCAL_STEM, ac.INST_STEM
+                )
             else:
                 # Other methods or ensemble - disable checkboxes
                 self.model_changed.emit(self._current_method, "", "", "")

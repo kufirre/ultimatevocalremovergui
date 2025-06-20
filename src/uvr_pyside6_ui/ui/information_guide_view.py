@@ -76,9 +76,9 @@ class InformationGuideView(QDialog):
     def _load_help_content(self):
         """Load help content from HTML files and create comprehensive content."""
         from pathlib import Path
-        
+
         help_dir = Path(__file__).parent.parent / "resources" / "help"
-        
+
         # Base content structure combining HTML files with enhanced information
         help_content = {
             "Getting Started": """

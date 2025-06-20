@@ -352,6 +352,8 @@ QRC_ICON_PATH = ":/uvr/img/uvr-port-icon.png"
 # Processing Status Messages
 STATUS_IDLE = "Idle"
 STATUS_READY = "Ready"
+STATUS_PROCESSING = "Processing..."
+STATUS_STARTING = "Starting..."
 STATUS_WAITING_PROCESS = "Waiting for process to start..."
 STATUS_PROCESSING_COMPLETE = "Processing Complete"
 STATUS_PROCESSING_ERROR = "Processing Error"
@@ -432,11 +434,11 @@ FLAC_EXT = ".flac"
 MP3_EXT = ".mp3"
 
 # Audio Quality Settings
-QUALITY_PCM_16 = "PCM_16"
-QUALITY_PCM_24 = "PCM_24"
-QUALITY_PCM_32 = "PCM_32"
-QUALITY_FLOAT = "FLOAT"
-QUALITY_DOUBLE = "DOUBLE"
+PCM_16 = "PCM_16"
+PCM_24 = "PCM_24"
+PCM_32 = "PCM_32"
+FLOAT = "FLOAT"
+DOUBLE = "DOUBLE"
 
 # Progress Messages
 PROGRESS_LOADING = "Loading..."
@@ -459,17 +461,18 @@ DEBUG_LOG_LEVEL = LOG_LEVEL_DEBUG
 LOG_FORMAT = "%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(message)s"
 LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
+
 # Settings Keys Constants
 class SettingKeys:
     """Constants for settings dictionary keys to prevent typos and ensure consistency."""
-    
+
     # General Settings
     IS_GPU = "is_gpu_conversion"
     GPU_DEVICE_INDEX = "gpu_device_index"
     DEVICE_SET = "device_set"
     PRIMARY_STEM_ONLY = "is_primary_stem_only"
     SECONDARY_STEM_ONLY = "is_secondary_stem_only"
-    
+
     # Audio Settings
     AUDIO_FILE = "audio_file"
     EXPORT_PATH = "export_path"
@@ -479,7 +482,7 @@ class SettingKeys:
     IS_NORMALIZATION = "is_normalization"
     SAMPLE_RATE = "sample_rate"
     MODEL_SAMPLERATE = "model_samplerate"
-    
+
     # Model Settings
     MODEL_NAME = "model_name"
     MODEL_BASENAME = "model_basename"
@@ -488,7 +491,7 @@ class SettingKeys:
     PROCESS_METHOD = "process_method"
     PRIMARY_STEM = "primary_stem"
     SECONDARY_STEM = "secondary_stem"
-    
+
     # VR Settings
     VR_MODEL_PARAM = "vr_model_param"
     WINDOW_SIZE = "window_size"
@@ -501,7 +504,7 @@ class SettingKeys:
     IS_HIGH_END_PROCESS = "is_high_end_process"
     IS_VR_51_MODEL = "is_vr_51_model"
     MODEL_CAPACITY = "model_capacity"
-    
+
     # MDX Settings
     IS_MDX_C = "is_mdx_c"
     MDX_SEGMENT_SIZE = "mdx_segment_size"
@@ -514,7 +517,7 @@ class SettingKeys:
     IS_DENOISE = "is_denoise"
     IS_INVERT_SPEC = "is_invert_spec"
     MDX_BATCH_SIZE = "mdx_batch_size"
-    
+
     # Demucs Settings
     DEMUCS_VERSION = "demucs_version"
     DEMUCS_SOURCE_LIST = "demucs_source_list"
@@ -528,7 +531,7 @@ class SettingKeys:
     OVERLAP = "overlap"
     SHIFTS = "shifts"
     IS_SPLIT_MODE = "is_split_mode"
-    
+
     # Ensemble Settings
     IS_ENSEMBLE_MODE = "is_ensemble_mode"
     ENSEMBLE_MODELS = "ensemble_models"
@@ -536,23 +539,23 @@ class SettingKeys:
     ENSEMBLE_TYPE = "ensemble_type"
     ENSEMBLE_ALGORITHM = "ensemble_algorithm"
     IS_4_STEM_ENSEMBLE = "is_4_stem_ensemble"
-    
+
     # Secondary Model Settings
     SECONDARY_MODEL = "secondary_model"
     IS_SECONDARY_MODEL_CHAIN_ACTIVATED = "is_secondary_model_chain"
     SECONDARY_MODEL_CHAIN_SCALE = "secondary_model_chain_scale"
-    
+
     # Vocal Splitter Settings
     VOCAL_SPLIT_MODEL = "vocal_split_model"
     IS_VOCAL_SPLIT_MODEL_ACTIVATED = "is_vocal_split_model_activated"
     IS_SAVE_INST_VOCAL_SPLITTER = "is_save_inst_set"
-    
+
     # Other Settings
     IS_PITCH_CHANGE = "is_pitch_change"
     SEMITONE_SHIFT = "semitone_shift"
     IS_SAVE_ALL_OUTPUTS = "is_save_all_outputs"
     IS_USING_GPU = "is_using_GPU"
-    
+
     # Demucs-specific stem-only settings
     PRIMARY_STEM_ONLY_DEMUCS = "is_primary_stem_only_Demucs"
     SECONDARY_STEM_ONLY_DEMUCS = "is_secondary_stem_only_Demucs"

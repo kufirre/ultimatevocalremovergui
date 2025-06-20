@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 
 from PySide6.QtCore import QObject, Qt, Signal
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -23,7 +24,6 @@ from PySide6.QtWidgets import (
     QTabWidget,
     QVBoxLayout,
 )
-from PySide6.QtGui import QIcon
 
 from ..core import app_constants as ac
 from ..core.logger_utils import get_logger
@@ -810,6 +810,7 @@ class DemucsAdvancedDialog(QDialog):
     def _get_karaokee_models(self):
         """Get models that are suitable for vocal splitting using shared utility function."""
         from ..core.model_utils import get_karaoke_models
+
         return get_karaoke_models()
 
 

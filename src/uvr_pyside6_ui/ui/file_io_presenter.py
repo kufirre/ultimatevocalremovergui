@@ -1,5 +1,6 @@
+from typing import List
+
 from PySide6.QtCore import QObject, Signal, Slot
-from typing import List, Optional
 
 
 class FileIOPresenter(QObject):
@@ -7,7 +8,7 @@ class FileIOPresenter(QObject):
     Presenter for the File I/O View. Connects View signals to
     handling logic and supports both single file and batch processing modes.
     """
-    
+
     # Signals
     processing_mode_changed = Signal(str)  # "single" or "batch"
 
@@ -15,7 +16,7 @@ class FileIOPresenter(QObject):
         super().__init__()
         self.view = view
         self.batch_presenter = batch_presenter
-        
+
         # --- Store the state ---
         self._input_path = ""
         self._output_path = ""
@@ -26,11 +27,13 @@ class FileIOPresenter(QObject):
         self.view.select_output_clicked.connect(self.handle_select_output)
         self.view.input_path_changed.connect(self.handle_input_path_update)
         self.view.output_path_changed.connect(self.handle_output_path_update)
-        
+
         # Connect to batch presenter if available
         if self.batch_presenter:
-            self.batch_presenter.batch_ready_changed.connect(self._on_batch_ready_changed)
-            
+            self.batch_presenter.batch_ready_changed.connect(
+                self._on_batch_ready_changed
+            )
+
         # Ensure view starts in single file mode
         self._initialize_single_file_mode()
 
@@ -66,11 +69,11 @@ class FileIOPresenter(QObject):
         """Set the processing mode: 'single' or 'batch'."""
         if mode not in ["single", "batch"]:
             raise ValueError("Mode must be 'single' or 'batch'")
-            
+
         if self._processing_mode != mode:
             self._processing_mode = mode
             self.processing_mode_changed.emit(mode)
-            
+
             # Update view based on mode
             if mode == "batch":
                 self.view.set_input_path_text("Batch mode: Use batch queue below")
@@ -82,10 +85,10 @@ class FileIOPresenter(QObject):
                 self.view.select_input_button.setEnabled(True)
                 self.view.output_path_edit.setEnabled(True)
                 self.view.select_output_button.setEnabled(True)
-                
+
                 # Restore proper placeholder text
                 self.view.input_path_edit.setPlaceholderText("Select Input File...")
-                
+
                 # Restore input field text
                 if self._input_path:
                     self.view.set_input_path_text(self._input_path)
@@ -104,7 +107,9 @@ class FileIOPresenter(QObject):
                 # Get file count from batch presenter
                 if self.batch_presenter:
                     file_count = len(self.batch_presenter.get_file_paths())
-                    self.view.set_input_path_text(f"Batch mode: {file_count} files ready")
+                    self.view.set_input_path_text(
+                        f"Batch mode: {file_count} files ready"
+                    )
             else:
                 self.view.set_input_path_text("Batch mode: No files in queue")
 
@@ -149,7 +154,7 @@ class FileIOPresenter(QObject):
         """Check if the file I/O is ready for processing."""
         if not self._output_path:
             return False
-            
+
         if self._processing_mode == "single":
             return bool(self._input_path)
         else:
@@ -162,7 +167,7 @@ class FileIOPresenter(QObject):
         """Validate current paths. Returns (is_valid, error_message)."""
         if not self._output_path:
             return False, "Output folder not selected"
-            
+
         if self._processing_mode == "single":
             if not self._input_path:
                 return False, "Input file not selected"
@@ -170,26 +175,26 @@ class FileIOPresenter(QObject):
         else:
             if not self.batch_presenter or not self.batch_presenter.is_batch_ready():
                 return False, "No files in batch queue"
-                
+
         return True, ""
 
     def _initialize_single_file_mode(self):
         """Initialize the view for single file mode."""
         # Ensure batch mode checkbox is unchecked
         self.view.set_batch_mode(False)
-        
+
         # Ensure input controls are enabled
         self.view.input_path_edit.setEnabled(True)
         self.view.select_input_button.setEnabled(True)
-        
+
         # Ensure output controls are enabled
         self.view.output_path_edit.setEnabled(True)
         self.view.select_output_button.setEnabled(True)
-        
+
         # Clear any batch mode text
         if not self._input_path:
             self.view.set_input_path_text("")
-            
+
         # Set proper placeholder text
         self.view.input_path_edit.setPlaceholderText("Select Input File...")
         self.view.output_path_edit.setPlaceholderText("Select Output Folder...")

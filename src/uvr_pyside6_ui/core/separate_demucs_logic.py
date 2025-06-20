@@ -323,7 +323,9 @@ class SeparateDemucsLogic(SeparatorAttributesLogic):
                     else md.model_path
                 )
                 # Use explicit weights_only=False for v1 models since they contain code
-                loaded_data = torch.load(model_file_path, map_location=CPU_DEVICE, weights_only=False)
+                loaded_data = torch.load(
+                    model_file_path, map_location=CPU_DEVICE, weights_only=False
+                )
                 klass, args, kwargs, state = loaded_data
                 self.model_run_instance = klass(*args, **kwargs)
                 self.model_run_instance.load_state_dict(state)
@@ -339,7 +341,9 @@ class SeparateDemucsLogic(SeparatorAttributesLogic):
                     md.demucs_source_list, md.model_path
                 )  # Use demucs_apply_model_v2
                 # Use regular torch.load for v2 models - only loading state_dict
-                state_dict = torch.load(md.model_path, map_location=CPU_DEVICE, weights_only=True)
+                state_dict = torch.load(
+                    md.model_path, map_location=CPU_DEVICE, weights_only=True
+                )
                 self.model_run_instance.load_state_dict(state_dict)
 
             else:  # Demucs v3/v4

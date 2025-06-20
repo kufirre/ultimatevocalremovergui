@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-import natsort
 from PySide6.QtCore import QObject, Signal
 
 from . import app_constants as ac
@@ -249,7 +248,12 @@ class UVRCoreAdapter(QObject):
         return downloadable_models
 
     def _on_download_finished(
-        self, success: bool, model_path: str, config_path: str, message: str, model_type: str
+        self,
+        success: bool,
+        model_path: str,
+        config_path: str,
+        message: str,
+        model_type: str,
     ):
         """Handle download completion from the download manager."""
         # Extract display name from filename
@@ -258,9 +262,7 @@ class UVRCoreAdapter(QObject):
             model_display_name = Path(model_path).stem
 
         # Emit our signal with the information passed from the worker
-        self.download_finished.emit(
-            model_type, model_display_name, success, message
-        )
+        self.download_finished.emit(model_type, model_display_name, success, message)
 
         # If successful, emit model download completed signal
         if success:
@@ -583,16 +585,17 @@ class UVRCoreAdapter(QObject):
         # Map UI keys to internal constants for the utility function
         method_map = {
             ac.VR_ARCH_MODELS_KEY: ac.VR_ARCH_TYPE,
-            ac.MDX_NET_MODELS_KEY: ac.MDX_ARCH_TYPE, 
+            ac.MDX_NET_MODELS_KEY: ac.MDX_ARCH_TYPE,
             ac.DEMUCS_MODELS_KEY: ac.DEMUCS_ARCH_TYPE,
         }
-        
+
         model_type = method_map.get(method_name)
         if not model_type:
             return []
-            
+
         # Use the utility function for model scanning
         from .model_utils import scan_models_directory
+
         return scan_models_directory(model_type)
 
     def _strip_model_extension(self, model_name: str) -> str:

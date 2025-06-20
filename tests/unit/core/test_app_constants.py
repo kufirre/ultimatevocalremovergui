@@ -199,11 +199,11 @@ class TestAppConstants:
     def test_quality_settings(self):
         """Test audio quality setting constants."""
         quality_settings = [
-            ac.QUALITY_PCM_16,
-            ac.QUALITY_PCM_24,
-            ac.QUALITY_PCM_32,
-            ac.QUALITY_FLOAT,
-            ac.QUALITY_DOUBLE,
+            ac.PCM_16,
+            ac.PCM_24,
+            ac.PCM_32,
+            ac.FLOAT,
+            ac.DOUBLE,
         ]
         for quality in quality_settings:
             assert isinstance(quality, str)

@@ -78,7 +78,7 @@ class SettingsDialogPresenter(QObject):
 
         # Reference to main window presenters for advanced settings
         self._main_window_presenters = None
-        
+
         # References to information guide and error log presenters
         self._information_guide_presenter = None
         self._error_log_presenter = None
@@ -89,11 +89,11 @@ class SettingsDialogPresenter(QObject):
 
         # Connect presenter settings_changed signals to persistence system
         self._connect_presenter_settings_to_persistence()
-        
+
     def set_information_guide_presenter(self, presenter):
         """Set reference to information guide presenter."""
         self._information_guide_presenter = presenter
-        
+
     def set_error_log_presenter(self, presenter):
         """Set reference to error log presenter."""
         self._error_log_presenter = presenter

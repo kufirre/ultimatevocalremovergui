@@ -461,6 +461,25 @@ DEBUG_LOG_LEVEL = LOG_LEVEL_DEBUG
 LOG_FORMAT = "%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(message)s"
 LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
+# --- VIP Verification Constants ---
+# VIP Repository constants
+VIP_REPO = (
+    b"\xf3\xc2W\x19\x1foI)\xc2\xa9\xcc\xb67(Z\xf5",
+    b"gAAAAABjQAIQ-NpNMMxMedpKHHb7ze_nqB05hw0YhbOy3pFzuzDrfqumn8_qvraxEoUpZC5ZXC0gGvfDxFMqyq9VWbYKlA67SUFI_wZB6QoVyGI581vs7kaGfUqlXHIdDS6tQ_U-BfjbEAK9EU_74-R2zXjz8Xzekw==",
+)
+VIP_NO_CODE = "incorrect_code"
+
+# VIP Help URLs
+VIP_HELP_URL = "https://ultimatevocalremover.com/vip/help"
+VIP_SETUP_URL = "https://ultimatevocalremover.com/vip/setup"
+VIP_TROUBLESHOOT_URL = "https://ultimatevocalremover.com/vip/troubleshoot"
+VIP_TECHNICAL_URL = "https://ultimatevocalremover.com/vip/technical"
+VIP_SUPPORT_URL = "https://ultimatevocalremover.com/vip/support"
+VIP_ACTIVATED_URL = "https://ultimatevocalremover.com/vip/activated"
+
+# VIP Verification History Settings
+VIP_MAX_HISTORY_SIZE = 10
+
 
 # Settings Keys Constants
 class SettingKeys:

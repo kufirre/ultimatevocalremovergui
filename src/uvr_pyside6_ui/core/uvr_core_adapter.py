@@ -180,34 +180,34 @@ class UVRCoreAdapter(QObject):
         found_filenames = set()
         if not base_models_dir:
             return found_filenames
-        method_subdir_key = MODEL_SUBDIRS.get(method_name)
+        method_subdir_key = ac.MODEL_SUBDIRS.get(method_name)
         if not method_subdir_key:
             return found_filenames
         method_path = base_models_dir / method_subdir_key
         extensions_to_check = []
         recursive_scan = False
         if method_name == ac.VR_ARCH_MODELS_KEY:
-            extensions_to_check = VR_ARCH_SCAN_EXTENSIONS
+            extensions_to_check = ac.VR_ARCH_SCAN_EXTENSIONS
             recursive_scan = True
         elif method_name == ac.MDX_NET_MODELS_KEY:
-            extensions_to_check = MDX_SCAN_EXTENSIONS
+            extensions_to_check = ac.MDX_SCAN_EXTENSIONS
             recursive_scan = True
         elif method_name == ac.DEMUCS_MODELS_KEY:
             if method_path.is_dir():
                 for item in method_path.iterdir():
                     if (
                         item.is_file()
-                        and item.suffix.lower() in DEMUCS_LEGACY_SCAN_EXTENSIONS
-                        and item.stem not in EXCLUDED_FILENAMES_STEMS
+                        and item.suffix.lower() in ac.DEMUCS_LEGACY_SCAN_EXTENSIONS
+                        and item.stem not in ac.EXCLUDED_FILENAMES_STEMS
                     ):
                         found_filenames.add(item.name)
-            v3_v4_path = method_path / DEMUCS_V3_V4_REPO_DIR_NAME
+            v3_v4_path = method_path / ac.DEMUCS_V3_V4_REPO_DIR_NAME
             if v3_v4_path.is_dir():
                 for item in v3_v4_path.rglob("*"):
                     if (
                         item.is_file()
-                        and item.suffix.lower() in DEMUCS_V3_V4_SCAN_EXTENSIONS
-                        and item.stem not in EXCLUDED_FILENAMES_STEMS
+                        and item.suffix.lower() in ac.DEMUCS_V3_V4_SCAN_EXTENSIONS
+                        and item.stem not in ac.EXCLUDED_FILENAMES_STEMS
                     ):
                         found_filenames.add(item.name)
             return found_filenames
@@ -526,7 +526,7 @@ class UVRCoreAdapter(QObject):
         for item in scan_path.glob(glob_pattern):
             if item.is_file() and item.suffix.lower() in extensions:
                 file_stem = item.stem
-                if file_stem in EXCLUDED_FILENAMES_STEMS:
+                if file_stem in ac.EXCLUDED_FILENAMES_STEMS:
                     continue
                 identifier = file_stem
                 if is_mdx_ckpt_special_case and item.suffix.lower() == ".ckpt":
@@ -535,7 +535,7 @@ class UVRCoreAdapter(QObject):
         return list(set(identifiers))
 
     def _load_name_mapper(self, method_specific_models_path: Path) -> dict:
-        mapper_file_path = method_specific_models_path / MAPPER_FILE_REL_PATH
+        mapper_file_path = method_specific_models_path / ac.MAPPER_FILE_REL_PATH
         if mapper_file_path.is_file():
             try:
                 with open(mapper_file_path, encoding="utf-8") as f:

@@ -377,9 +377,7 @@ class EnsembleAdvancedDialog(QDialog):
         if ensemble_name == "--- Select Saved Ensemble ---":
             return
 
-        ensemble_file = (
-            f"config/saved_ensembles/{ensemble_name.replace(' ', '_')}.json"
-        )
+        ensemble_file = f"config/saved_ensembles/{ensemble_name.replace(' ', '_')}.json"
         if not os.path.exists(ensemble_file):
             QMessageBox.warning(
                 self, "Error", f"Ensemble file not found: {ensemble_name}"

@@ -369,9 +369,16 @@ class DownloadCenterPresenter(QObject):
     def _on_dc_stop_button_clicked(self) -> None:
         """Handle stop download button clicks."""
         logger.info("Stop download requested")
-        # TODO: Implement download cancellation in adapter
+
+        # Cancel downloads through the adapter
+        if self.adapter:
+            self.adapter.cancel_downloads()
+
+        # Update UI to reflect cancellation
         if self.view:
-            self.view.show_status_message("Download stopped", 3000)
+            self.view.show_status_message("Download cancellation requested", 3000)
+            self.view.dc_progress_info_label.setText("🚫 Cancelling download...")
+            # Note: Progress will be reset when download_finished signal is emitted
 
     @Slot()
     def _on_dc_download_button_clicked(self) -> None:

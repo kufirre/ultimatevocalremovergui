@@ -240,18 +240,17 @@ class DownloadCenterView(QWidget):
 
     def show_status_message(self, message: str, duration: int = 3000):
         """Show a status message (for compatibility with presenter)."""
-        # Truncate very long messages to prevent UI stretching
         if len(message) > 100:
+            # For very long messages, show truncated version in info and full in debug
             display_message = message[:97] + "..."
-            logger.info(f"Status (truncated): {display_message}")
+            logger.debug(f"Status (truncated): {display_message}")
             logger.debug(f"Full status message: {message}")
         else:
-            display_message = message
-            logger.info(f"Status: {message}")
+            logger.debug(f"Status: {message}")
 
         # Update progress label if available
         if hasattr(self, "dc_progress_info_label"):
-            self.dc_progress_info_label.setText(display_message)
+            self.dc_progress_info_label.setText(message)
 
     def isVisible(self):
         """Check if the view is visible."""

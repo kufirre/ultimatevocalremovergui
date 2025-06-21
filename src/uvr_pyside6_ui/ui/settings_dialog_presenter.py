@@ -281,6 +281,15 @@ class SettingsDialogPresenter(QObject):
         )
         logger.debug(f"Installed models for {internal_type}: {installed_models}")
 
+        # Get downloadable models for this type
+        downloadable_models = self.adapter.get_downloadable_models_for_type(
+            internal_type
+        )
+
+        logger.debug(
+            f"Downloadable models for {internal_type}: {len(downloadable_models)} total"
+        )
+
         # Filter out models that are already downloaded
         filtered_models = {}
         for model_name, model_info in all_models.items():
@@ -567,6 +576,7 @@ class SettingsDialogPresenter(QObject):
                     ),
                 }
                 dialog.set_available_models(available_models)
+
             except Exception as e:
                 logger.warning(
                     f"Could not load available models for ensemble dialog: {e}"

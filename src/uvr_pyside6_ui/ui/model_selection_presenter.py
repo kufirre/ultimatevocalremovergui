@@ -272,7 +272,7 @@ class ModelSelectionPresenter(QObject):
         if not settings_dict:
             return
 
-        logger.info(f"Loading model selection settings: {settings_dict}")
+        logger.debug(f"Loading model selection settings: {settings_dict}")
 
         # Extract method and model from settings
         method = settings_dict.get("chosen_process_method", "")

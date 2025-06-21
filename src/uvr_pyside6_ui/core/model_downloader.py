@@ -141,7 +141,7 @@ def download_model_file(
             if progress_callback:
                 progress_callback(Path(url).name, 0)
 
-            logger.info(
+            logger.debug(
                 f"Downloading {file_type_name} {Path(url).name} from {url} to {local_path}..."
             )
 
@@ -184,7 +184,7 @@ def download_model_file(
             # Final progress update
             if progress_callback:
                 progress_callback(Path(url).name, 100)
-            logger.info(f"Successfully downloaded {Path(url).name}")
+            logger.debug(f"Successfully downloaded {Path(url).name}")
 
         return True, str(local_model_path), local_config_path_str
 
@@ -212,7 +212,7 @@ def _cleanup_partial_downloads(files_to_download: list) -> None:
         try:
             if local_path.exists():
                 local_path.unlink(missing_ok=True)
-                logger.info(f"Cleaned up partial download: {local_path}")
+                logger.debug(f"Cleaned up partial download: {local_path}")
         except Exception as cleanup_error:
             logger.warning(f"Failed to clean up {local_path}: {cleanup_error}")
 
@@ -220,9 +220,9 @@ def _cleanup_partial_downloads(files_to_download: list) -> None:
 if __name__ == "__main__":
     catalog = fetch_online_model_catalog()
     if catalog:
-        logger.info("\nSample of fetched catalog:")
+        logger.debug("\nSample of fetched catalog:")
         for key, value in list(catalog.items())[:2]:
             if isinstance(value, dict):
-                logger.info(f"  {key}: {list(value.keys())[:3]}...")
+                logger.debug(f"  {key}: {list(value.keys())[:3]}...")
             else:
-                logger.info(f"  {key}: {str(value)[:100]}...")
+                logger.debug(f"  {key}: {str(value)[:100]}...")

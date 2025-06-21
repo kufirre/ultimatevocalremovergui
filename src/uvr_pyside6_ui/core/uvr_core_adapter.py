@@ -15,8 +15,6 @@ from .processing_worker import ProcessingThread
 logger = get_logger(__name__)
 
 
-
-
 class UVRCoreAdapter(QObject):
     progress_updated = Signal(int, str)
     processing_finished = Signal(bool, str)
@@ -623,3 +621,9 @@ class UVRCoreAdapter(QObject):
             # We might want to wait for it to actually finish or provide a timeout.
         else:
             pass  # Or emit a signal
+
+    def cancel_downloads(self):
+        """Cancel all active downloads."""
+        if self.download_manager:
+            self.download_manager.cancel_all_downloads()
+            logger.info("Download cancellation requested")

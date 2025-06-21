@@ -14,20 +14,7 @@ from .processing_worker import ProcessingThread
 
 logger = get_logger(__name__)
 
-# ... (MODEL_SUBDIRS and other constants as in response #35, ensure ac.ENSEMBLE_MODELS_KEY is used) ...
-MODEL_SUBDIRS = {
-    ac.VR_ARCH_MODELS_KEY: "VR_Models",
-    ac.MDX_NET_MODELS_KEY: "MDX_Net_Models",
-    ac.DEMUCS_MODELS_KEY: "Demucs_Models",
-    ac.ENSEMBLE_MODELS_KEY: None,  # Ensemble configs are in gui_data/saved_ensembles
-}
-VR_ARCH_SCAN_EXTENSIONS = [".pth"]
-MDX_SCAN_EXTENSIONS = [".onnx", ".ckpt"]
-DEMUCS_LEGACY_SCAN_EXTENSIONS = [".ckpt", ".gz", ".th"]
-DEMUCS_V3_V4_REPO_DIR_NAME = "v3_v4_repo"
-DEMUCS_V3_V4_SCAN_EXTENSIONS = [".yaml"]
-MAPPER_FILE_REL_PATH = Path("model_data") / "model_name_mapper.json"
-EXCLUDED_FILENAMES_STEMS = ["model_data", "model_name_mapper", "download_links"]
+
 
 
 class UVRCoreAdapter(QObject):
@@ -219,7 +206,7 @@ class UVRCoreAdapter(QObject):
                 if (
                     item.is_file()
                     and item.suffix.lower() in extensions_to_check
-                    and item.stem not in EXCLUDED_FILENAMES_STEMS
+                    and item.stem not in ac.EXCLUDED_FILENAMES_STEMS
                 ):
                     found_filenames.add(item.name)
         return found_filenames

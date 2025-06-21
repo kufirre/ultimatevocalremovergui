@@ -9,12 +9,6 @@ from typing import Optional
 
 from . import app_constants as ac
 
-# Define log level constants directly to avoid circular imports
-DEFAULT_LOG_LEVEL = "INFO"
-DEBUG_LOG_LEVEL = "DEBUG"
-LOG_FORMAT = "%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(message)s"
-LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
-
 
 class UVRLogger:
     """Centralized logger for UVR application."""

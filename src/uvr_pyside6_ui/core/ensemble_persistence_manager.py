@@ -31,8 +31,8 @@ class EnsemblePersistenceManager(QObject):
         super().__init__()
 
         # Use provided directory or default
-        self.ensemble_cache_dir = (
-            ensemble_cache_dir or Path("gui_data") / "saved_ensembles"
+        self.ensemble_cache_dir = Path(
+            ensemble_cache_dir or Path("config") / "saved_ensembles"
         )
 
         # Ensure directory exists

@@ -36,7 +36,7 @@ VR_PARAM_DIR_PATH = get_project_root() / "lib_v5" / "vr_network" / "modelparams"
 MDX_HASH_DIR_PATH = MDX_MODELS_DIR_PATH / "model_data"
 VR_HASH_DIR_PATH = VR_MODELS_DIR_PATH / "model_data"
 MDX_C_CONFIG_PATH_DIR = MDX_HASH_DIR_PATH / "mdx_c_configs"
-ENSEMBLE_CACHE_DIR = get_project_root() / "gui_data" / "saved_ensembles"
+ENSEMBLE_CACHE_DIR = get_project_root() / "config" / "saved_ensembles"
 
 
 @dataclass
@@ -1093,13 +1093,17 @@ class ModelData:
                 member_model_data = ModelData.from_settings_dict(
                     member_settings,
                     _model_name_override=model_full_name,
+                    _process_method_override=model_process_method,
                     _is_ensemble_member=True,
                 )
                 if member_model_data.model_status:
                     self.ensemble_models.append(member_model_data)
+                    logger.info(
+                        f"✓ Added ensemble member: {model_name} ({model_process_method})"
+                    )
                 else:
                     logger.warning(
-                        f"Warning: Failed to load ensemble member: {model_full_name}"
+                        f"Warning: Failed to load ensemble member: {model_name}"
                     )
             if not self.ensemble_models:
                 logger.warning("Warning: Ensemble loaded no valid models.")

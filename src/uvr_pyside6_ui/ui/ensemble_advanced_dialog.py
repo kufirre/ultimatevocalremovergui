@@ -362,7 +362,7 @@ class EnsembleAdvancedDialog(QDialog):
         self.saved_ensembles_combo.clear()
         self.saved_ensembles_combo.addItem("--- Select Saved Ensemble ---")
 
-        ensemble_cache_dir = Path("gui_data/saved_ensembles")
+        ensemble_cache_dir = Path("config/saved_ensembles")
         if ensemble_cache_dir.exists():
             for json_file in ensemble_cache_dir.glob("*.json"):
                 try:
@@ -378,7 +378,7 @@ class EnsembleAdvancedDialog(QDialog):
             return
 
         ensemble_file = (
-            f"gui_data/saved_ensembles/{ensemble_name.replace(' ', '_')}.json"
+            f"config/saved_ensembles/{ensemble_name.replace(' ', '_')}.json"
         )
         if not os.path.exists(ensemble_file):
             QMessageBox.warning(
@@ -439,7 +439,7 @@ class EnsembleAdvancedDialog(QDialog):
         }
 
         # Ensure directory exists
-        ensemble_dir = Path("gui_data/saved_ensembles")
+        ensemble_dir = Path("config/saved_ensembles")
         ensemble_dir.mkdir(parents=True, exist_ok=True)
 
         ensemble_file = ensemble_dir / f"{name.replace(' ', '_')}.json"
@@ -470,7 +470,7 @@ class EnsembleAdvancedDialog(QDialog):
 
         if reply == QMessageBox.Yes:
             ensemble_file = (
-                f"gui_data/saved_ensembles/{ensemble_name.replace(' ', '_')}.json"
+                f"config/saved_ensembles/{ensemble_name.replace(' ', '_')}.json"
             )
             try:
                 if os.path.exists(ensemble_file):

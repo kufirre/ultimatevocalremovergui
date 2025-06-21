@@ -1099,11 +1099,11 @@ class ModelData:
                 if member_model_data.model_status:
                     self.ensemble_models.append(member_model_data)
                     logger.info(
-                        f"✓ Added ensemble member: {model_name} ({model_process_method})"
+                        f"✓ Added ensemble member: {model_full_name} ({model_process_method})"
                     )
                 else:
                     logger.warning(
-                        f"Warning: Failed to load ensemble member: {model_name}"
+                        f"Warning: Failed to load ensemble member: {model_full_name}"
                     )
             if not self.ensemble_models:
                 logger.warning("Warning: Ensemble loaded no valid models.")

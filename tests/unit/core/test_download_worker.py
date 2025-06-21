@@ -79,7 +79,12 @@ class TestDownloadWorker:
 
         # Check that download was called with correct parameters
         mock_download.assert_called_once_with(
-            "Test Model", "url", ac.VR_ARCH_MODELS_KEY, None, worker.progress.emit
+            model_name="Test Model",
+            download_url="url",
+            model_type=ac.VR_ARCH_MODELS_KEY,
+            config_url=None,
+            progress_callback=worker.progress.emit,
+            cancellation_callback=worker._is_cancellation_requested,
         )
 
         # Check finished signal was emitted with success
@@ -140,11 +145,12 @@ class TestDownloadWorker:
         worker.run()
 
         mock_download.assert_called_once_with(
-            "Test",
-            "model_url",
-            ac.DEMUCS_MODELS_KEY,
-            "config_url",
-            worker.progress.emit,
+            model_name="Test",
+            download_url="model_url",
+            model_type=ac.DEMUCS_MODELS_KEY,
+            config_url="config_url",
+            progress_callback=worker.progress.emit,
+            cancellation_callback=worker._is_cancellation_requested,
         )
 
     @patch("uvr_pyside6_ui.core.download_worker.model_downloader.download_model_file")

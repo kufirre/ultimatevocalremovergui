@@ -1,4 +1,9 @@
-"""Model downloader module for UVR PySide6 application."""
+"""
+Model downloader module for UVR PySide6 application.
+
+This module handles downloading model files and configurations from remote URLs
+to the appropriate local directories.
+"""
 
 import json
 from pathlib import Path
@@ -63,11 +68,27 @@ def download_model_file(
     model_type: str,
     config_url: Optional[str] = None,
     progress_callback: Optional[Callable[[str, int], None]] = None,
+    cancellation_callback: Optional[Callable[[], bool]] = None,
 ) -> Tuple[bool, str, Optional[str]]:
     """
     Downloads a model file and its optional config to the appropriate directory.
-    Reports progress via the progress_callback(filename, percentage).
-    Returns (success, message_or_main_file_path, local_config_path).
+
+    Args:
+        model_name: Display name of the model being downloaded
+        download_url: URL to download the main model file from
+        model_type: Type of model (VR, MDX, Demucs) for directory selection
+        config_url: Optional URL for downloading config file
+        progress_callback: Optional callback for progress updates (filename, percentage)
+        cancellation_callback: Optional callback that returns True if download should be cancelled
+
+    Returns:
+        Tuple of (success, message_or_main_file_path, local_config_path)
+        - success: True if download completed successfully
+        - message_or_main_file_path: Error message on failure, file path on success
+        - local_config_path: Path to config file if downloaded, None otherwise
+
+    Raises:
+        None - All exceptions are caught and returned as failure status
     """
     target_dir = MODEL_TYPE_PATHS.get(model_type)
     if not target_dir:
@@ -110,22 +131,46 @@ def download_model_file(
 
     try:
         for url, local_path, file_type_name in files_to_download:
+            # Check for cancellation before starting each file
+            if cancellation_callback and cancellation_callback():
+                logger.info(
+                    f"Download cancelled before starting {file_type_name} {Path(url).name}"
+                )
+                return False, "Download cancelled by user", None
+
             if progress_callback:
                 progress_callback(Path(url).name, 0)
 
             logger.info(
                 f"Downloading {file_type_name} {Path(url).name} from {url} to {local_path}..."
             )
-            response = requests.get(url, stream=True, timeout=60)  # Increased timeout
+
+            # Use longer timeout and stream=True for better cancellation responsiveness
+            response = requests.get(url, stream=True, timeout=60)
             response.raise_for_status()
 
             total_size = int(response.headers.get("content-length", 0))
             downloaded_size = 0
 
+            # Create parent directory if it doesn't exist
+            local_path.parent.mkdir(parents=True, exist_ok=True)
+
             with open(local_path, "wb") as f:
                 for chunk in response.iter_content(chunk_size=8192):
+                    # Check for cancellation during download - this is the key improvement
+                    if cancellation_callback and cancellation_callback():
+                        logger.info(
+                            f"Download cancelled during {file_type_name} {Path(url).name}"
+                        )
+                        # Clean up partial file
+                        f.close()
+                        if local_path.exists():
+                            local_path.unlink(missing_ok=True)
+                        return False, "Download cancelled by user", None
+
                     f.write(chunk)
                     downloaded_size += len(chunk)
+
                     if total_size > 0 and progress_callback:
                         percentage = int((downloaded_size / total_size) * 100)
                         # Call progress callback more frequently for smooth updates
@@ -136,6 +181,7 @@ def download_model_file(
                             Path(url).name, min(50, downloaded_size // 1024)
                         )  # Rough progress based on KB
 
+            # Final progress update
             if progress_callback:
                 progress_callback(Path(url).name, 100)
             logger.info(f"Successfully downloaded {Path(url).name}")
@@ -146,17 +192,29 @@ def download_model_file(
         msg = f"Error downloading {model_name}: {e}"
         logger.error(msg)
         # Clean up any partial downloads
-        for _, local_p, _ in files_to_download:
-            if local_p.exists():
-                local_p.unlink(missing_ok=True)
+        _cleanup_partial_downloads(files_to_download)
         return False, msg, None
     except Exception as e_gen:
         msg = f"An unexpected error occurred downloading {model_name}: {e_gen}"
         logger.error(msg)
-        for _, local_p, _ in files_to_download:
-            if local_p.exists():
-                local_p.unlink(missing_ok=True)
+        _cleanup_partial_downloads(files_to_download)
         return False, msg, None
+
+
+def _cleanup_partial_downloads(files_to_download: list) -> None:
+    """
+    Clean up any partial downloads.
+
+    Args:
+        files_to_download: List of (url, local_path, file_type) tuples to clean up
+    """
+    for _, local_path, _ in files_to_download:
+        try:
+            if local_path.exists():
+                local_path.unlink(missing_ok=True)
+                logger.info(f"Cleaned up partial download: {local_path}")
+        except Exception as cleanup_error:
+            logger.warning(f"Failed to clean up {local_path}: {cleanup_error}")
 
 
 if __name__ == "__main__":

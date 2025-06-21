@@ -8,7 +8,9 @@ from . import model_downloader
 
 
 class DownloadWorker(QObject):
-    """Worker object that runs in a separate thread to download models."""
+    """
+    Worker object that runs in a separate thread to download models.
+    """
 
     # Signals
     progress = Signal(str, int)  # filename, percentage
@@ -31,21 +33,35 @@ class DownloadWorker(QObject):
         self._is_cancelled = False
 
     def cancel(self):
-        """Cancels the download operation if possible."""
+        """
+        Cancels the download operation if possible.
+        """
         self._is_cancelled = True
+
+    def _is_cancellation_requested(self) -> bool:
+        """
+        Check if cancellation has been requested.
+
+        Returns:
+            True if cancellation has been requested, False otherwise
+        """
+        return self._is_cancelled
 
     @Slot()
     def run(self):
-        """Main worker method that runs in the thread."""
+        """
+        Main worker method that runs in the thread.
+        """
         try:
-            # Use the progress signal as the callback
+            # Use the enhanced download function with cancellation support
             success, model_path_or_msg, config_path = (
                 model_downloader.download_model_file(
-                    self.model_name,
-                    self.download_url,
-                    self.model_type,
-                    self.config_url,
-                    self.progress.emit,  # Pass the signal directly as the callback
+                    model_name=self.model_name,
+                    download_url=self.download_url,
+                    model_type=self.model_type,
+                    config_url=self.config_url,
+                    progress_callback=self.progress.emit,  # Progress reporting
+                    cancellation_callback=self._is_cancellation_requested,
                 )
             )
 
@@ -59,9 +75,13 @@ class DownloadWorker(QObject):
                     self.model_type,
                 )
             else:
-                self.finished.emit(
-                    False, "", "", f"❌ {model_path_or_msg}", self.model_type
-                )
+                # Handle both cancellation and other failures gracefully
+                if self._is_cancelled and "cancelled" in model_path_or_msg.lower():
+                    message = f"🚫 Download cancelled: {self.model_name}"
+                else:
+                    message = f"❌ {model_path_or_msg}"
+
+                self.finished.emit(False, "", "", message, self.model_type)
 
         except Exception as e:
             error_msg = f"❌ Error downloading {self.model_name}: {str(e)}"
@@ -69,7 +89,9 @@ class DownloadWorker(QObject):
 
 
 class DownloadManager(QObject):
-    """Manages download workers and threads."""
+    """
+    Manages download workers and threads.
+    """
 
     # Forward signals from workers
     download_progress = Signal(str, int)  # filename, percentage
@@ -88,8 +110,18 @@ class DownloadManager(QObject):
         download_url: str,
         model_type: str,
         config_url: Optional[str] = None,
-    ):
-        """Starts a download in a separate thread."""
+    ) -> DownloadWorker:
+        """
+        Starts a download in a separate thread.
+        Args:
+            model_name: Display name of the model
+            download_url: URL to download from
+            model_type: Type of model for directory selection
+            config_url: Optional config file URL
+
+        Returns:
+            DownloadWorker instance for potential cancellation
+        """
 
         # Create worker and thread
         worker = DownloadWorker(model_name, download_url, model_type, config_url)
@@ -114,16 +146,35 @@ class DownloadManager(QObject):
         # Start the thread
         thread.start()
 
-        return worker  # Return worker in case caller wants to cancel
+        return worker  # Return worker for potential cancellation
 
     def _cleanup_thread(self, thread: QThread, worker: DownloadWorker):
-        """Remove thread and worker from active lists when finished."""
+        """
+        Remove thread and worker from active lists when finished.
+        """
         if thread in self.active_threads:
             self.active_threads.remove(thread)
         if worker in self.active_workers:
             self.active_workers.remove(worker)
 
     def cancel_all_downloads(self):
-        """Attempts to cancel all active downloads."""
+        """
+        Attempts to cancel all active downloads.
+        """
         for worker in self.active_workers:
             worker.cancel()
+
+    def get_active_download_count(self) -> int:
+        """
+        Get the number of currently active downloads.
+        """
+        return len(self.active_workers)
+
+    def is_downloading(self) -> bool:
+        """
+        Check if any downloads are currently active.
+
+        Returns:
+            True if downloads are in progress, False otherwise
+        """
+        return len(self.active_workers) > 0

@@ -28,13 +28,16 @@ class UVRCoreAdapter(QObject):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.processing_thread: ProcessingThread | None = None
-        self._online_catalog_data_cache: dict | None = None
+        self.processing_thread = None
+        self._online_catalog_data_cache = None
         self.download_manager = DownloadManager()
-        self._vip_link: str | None = None
+        self._vip_link = None
 
-        # Connect download manager signals to our signals
-        self.download_manager.download_progress.connect(self.download_progress)
+        # Minimal state tracking for multi-file downloads only
+        self._multi_file_download_state = None
+
+        # Connect download manager signals
+        self.download_manager.download_progress.connect(self._on_download_progress)
         self.download_manager.download_finished.connect(self._on_download_finished)
 
     def _on_processing_thread_finished(self):
@@ -241,17 +244,77 @@ class UVRCoreAdapter(QObject):
         model_type: str,
     ):
         """Handle download completion from the download manager."""
-        # Extract display name from filename
-        model_display_name = ""
-        if model_path:
-            model_display_name = Path(model_path).stem
 
-        # Emit our signal with the information passed from the worker
-        self.download_finished.emit(model_type, model_display_name, success, message)
+        # Check if this is part of a multi-file download
+        if self._multi_file_download_state:
+            state = self._multi_file_download_state
 
-        # If successful, emit model download completed signal
-        if success:
-            self.model_download_completed.emit(model_type)
+            if success:
+                state["completed_files"] += 1
+                # Track successfully downloaded files for potential cleanup
+                if model_path:
+                    state["downloaded_files"].append(Path(model_path))
+                if config_path:
+                    state["downloaded_files"].append(Path(config_path))
+            else:
+                state["failed_files"] += 1
+
+            # Check if all files are done (completed or failed)
+            total_done = state["completed_files"] + state["failed_files"]
+
+            if total_done >= state["total_files"]:
+                # All files are done - emit final signal
+                if state["failed_files"] == 0:
+                    # All files succeeded
+                    self.download_finished.emit(
+                        state["model_type_ui_name"],
+                        state["model_display_name"],
+                        True,
+                        f"✅ Successfully downloaded {state['model_display_name']} ({state['total_files']} files)",
+                    )
+                    self.model_download_completed.emit(state["model_type_ui_name"])
+                else:
+                    # Some files failed - but check if this is due to cancellation
+                    # If the state is None, it means cancellation was already handled
+                    if self._multi_file_download_state is not None:
+                        self.download_finished.emit(
+                            state["model_type_ui_name"],
+                            state["model_display_name"],
+                            False,
+                            f"❌ Download failed: {state['failed_files']} of {state['total_files']} files failed",
+                        )
+
+                # Reset state (if not already reset by cancellation)
+                if self._multi_file_download_state is not None:
+                    self._multi_file_download_state = None
+            # If not all files are done yet, don't emit any signal
+
+        else:
+            # Single file download - handle normally (keep existing working behavior)
+            # Extract display name from filename
+            model_display_name = ""
+            if model_path:
+                model_display_name = Path(model_path).stem
+
+            # Emit our signal with the information passed from the worker
+            self.download_finished.emit(
+                model_type, model_display_name, success, message
+            )
+
+            # If successful, emit model download completed signal
+            if success:
+                self.model_download_completed.emit(model_type)
+
+    def _on_download_progress(self, model_name: str, percentage: int):
+        """Handle download progress from the download manager."""
+        # For multi-file downloads, we might want to coordinate progress
+        if self._multi_file_download_state:
+            # Update the overall model name instead of individual file names
+            display_name = self._multi_file_download_state["model_display_name"]
+            self.download_progress.emit(display_name, percentage)
+        else:
+            # For single file downloads, forward as-is
+            self.download_progress.emit(model_name, percentage)
 
     def get_model_info(self, model_name: str, model_type: str) -> dict | None:
         """Get basic model information for filtering purposes.
@@ -354,6 +417,17 @@ class UVRCoreAdapter(QObject):
 
         if is_multi_file_demucs:
             # For multi-file Demucs models, we need to download each file separately
+            # Set up minimal state tracking for coordination
+            self._multi_file_download_state = {
+                "total_files": len(download_target_info),
+                "completed_files": 0,
+                "failed_files": 0,
+                "model_display_name": model_display_name,
+                "model_type_ui_name": model_type_ui_name,
+                "downloaded_files": [],  # Track successfully downloaded files for cleanup
+                "all_file_paths": [],  # Track all expected file paths for cleanup
+            }
+
             all_files_successful = True
             error_messages = []
             num_files = len(download_target_info)
@@ -385,6 +459,18 @@ class UVRCoreAdapter(QObject):
                 model_name_for_download = (
                     model_display_name if is_v3_v4_model_set else file_name_in_dict
                 )
+
+                # Predict where this file will be saved for cleanup tracking
+                predicted_path = self._predict_download_path(
+                    model_name_for_download,
+                    file_name_in_dict,
+                    model_type_ui_name,
+                    is_v3_v4_model_set,
+                )
+                if predicted_path:
+                    self._multi_file_download_state["all_file_paths"].append(
+                        predicted_path
+                    )
 
                 # Start download for this file
                 self.download_manager.start_download(
@@ -627,3 +713,96 @@ class UVRCoreAdapter(QObject):
         if self.download_manager:
             self.download_manager.cancel_all_downloads()
             logger.info("Download cancellation requested")
+
+            # If we have a multi-file download in progress, handle cleanup and emit cancellation signal
+            if self._multi_file_download_state:
+                state = self._multi_file_download_state
+
+                # Clean up any partially downloaded files
+                self._cleanup_multi_file_download(state)
+
+                # Emit cancellation signal immediately (only once)
+                self.download_finished.emit(
+                    state["model_type_ui_name"],
+                    state["model_display_name"],
+                    False,
+                    "🚫 Download cancelled by user",
+                )
+
+                # Reset state to prevent further processing
+                self._multi_file_download_state = None
+
+    def _predict_download_path(
+        self, model_name: str, file_name: str, model_type: str, is_v3_v4_model_set: bool
+    ) -> Path:
+        """Predict where a file will be downloaded based on the download logic."""
+        # Get the base models directory
+        base_models_dir = self._get_project_models_dir()
+        if not base_models_dir:
+            return Path()
+
+        # Map model type to subdirectory
+        model_subdirs = {
+            ac.VR_ARCH_MODELS_KEY: "VR_Models",
+            ac.MDX_NET_MODELS_KEY: "MDX_Net_Models",
+            ac.DEMUCS_MODELS_KEY: "Demucs_Models",
+        }
+
+        subdir = model_subdirs.get(model_type)
+        if not subdir:
+            return Path()
+
+        target_dir = base_models_dir / subdir
+
+        # For Demucs v3/v4 models, they go to the v3_v4_repo subdirectory
+        if model_type == ac.DEMUCS_MODELS_KEY and is_v3_v4_model_set:
+            target_dir = target_dir / ac.DEMUCS_V3_V4_REPO_DIR_NAME
+
+        return target_dir / file_name
+
+    def _cleanup_multi_file_download(self, state: dict):
+        """Clean up partially downloaded files when multi-file download is cancelled."""
+        if not state:
+            return
+
+        cleaned_files = []
+        failed_cleanups = []
+
+        # Clean up all tracked file paths (both completed and in-progress)
+        all_paths_to_check = []
+
+        # Add successfully downloaded files
+        if "downloaded_files" in state:
+            all_paths_to_check.extend(state["downloaded_files"])
+
+        # Add all predicted file paths (includes in-progress files)
+        if "all_file_paths" in state:
+            all_paths_to_check.extend(state["all_file_paths"])
+
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_paths = []
+        for path in all_paths_to_check:
+            if path not in seen:
+                seen.add(path)
+                unique_paths.append(path)
+
+        for file_path in unique_paths:
+            try:
+                if isinstance(file_path, str):
+                    file_path = Path(file_path)
+
+                if file_path.exists():
+                    file_path.unlink()
+                    cleaned_files.append(str(file_path))
+                    logger.debug(f"Cleaned up cancelled download: {file_path}")
+            except Exception as e:
+                failed_cleanups.append(str(file_path))
+                logger.warning(f"Failed to clean up file {file_path}: {e}")
+
+        if cleaned_files:
+            logger.info(
+                f"Cleaned up {len(cleaned_files)} files from cancelled download"
+            )
+        if failed_cleanups:
+            logger.warning(f"Failed to clean up {len(failed_cleanups)} files")

@@ -546,16 +546,30 @@ class DownloadCenterPresenter(QObject):
                 )
 
             else:
-                # Error - show brief error in UI, full details in log
-                brief_error = "Download failed"
-                self.view.dc_progress_info_label.setText(f"❌ {brief_error}")
-                self.view.dc_progress_percent_label.setText("Failed")
-                self.view.dc_progress_bar.setValue(0)
+                # Check if this is a cancellation or actual failure
+                is_cancellation = "cancelled" in message.lower()
 
-                # Log full error details
-                logger.error(f"Download failed for {model_display_name}: {message}")
+                if is_cancellation:
+                    # Cancellation - show cancellation message
+                    self.view.dc_progress_info_label.setText("🚫 Download cancelled")
+                    self.view.dc_progress_percent_label.setText("Cancelled")
+                    self.view.dc_progress_bar.setValue(0)
 
-                # Reset after longer delay for error message
+                    # Log as info, not error
+                    logger.info(
+                        f"Download cancelled for {model_display_name}: {message}"
+                    )
+                else:
+                    # Actual error - show error message
+                    brief_error = "Download failed"
+                    self.view.dc_progress_info_label.setText(f"❌ {brief_error}")
+                    self.view.dc_progress_percent_label.setText("Failed")
+                    self.view.dc_progress_bar.setValue(0)
+
+                    # Log full error details
+                    logger.error(f"Download failed for {model_display_name}: {message}")
+
+                # Reset after longer delay for error/cancellation message
                 QTimer.singleShot(5000, lambda: self._reset_download_progress_display())
 
     def _reset_download_progress_display(self):

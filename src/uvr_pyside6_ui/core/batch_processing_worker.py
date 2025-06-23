@@ -1,7 +1,8 @@
 """Batch processing worker for UVR PySide6 application."""
 
 import os
-from typing import Dict
+from pathlib import Path
+from typing import Dict, List
 
 from PySide6.QtCore import QObject, Signal, Slot
 
@@ -190,9 +191,8 @@ class BatchProcessingWorker(QObject):
         current_file = self.batch_manager.get_queue()[self._current_file_index]
 
         if success:
-            # For now, we don't have output file information from the signal
-            # The processing system handles file output internally
-            output_files = []  # TODO: Extract output files if needed
+            # Extract output files from the processing results
+            output_files = self._extract_output_files(current_file)
 
             # Mark file as completed
             self.batch_manager.mark_file_processing_completed(
@@ -216,6 +216,66 @@ class BatchProcessingWorker(QObject):
         # Move to next file
         self._current_file_index += 1
         self._process_next_file()
+
+    def _extract_output_files(self, file_item) -> List[str]:
+        """Extract the list of output files generated for a processed file."""
+        output_files = []
+
+        try:
+            # Get the output directory from settings
+            output_path = self._settings_template.get("output_path", "")
+            if not output_path:
+                return output_files
+
+            output_dir = Path(output_path)
+            if not output_dir.exists():
+                return output_files
+
+            # Get the base filename without extension
+            input_path = Path(file_item.file_path)
+            base_name = input_path.stem
+
+            # Common output file patterns based on processing type
+            # These patterns match what UVR typically generates
+            common_patterns = [
+                f"{base_name}_(Vocals).wav",
+                f"{base_name}_(Instrumental).wav",
+                f"{base_name}_(Drums).wav",
+                f"{base_name}_(Bass).wav",
+                f"{base_name}_(Other).wav",
+                f"{base_name}_vocals.wav",
+                f"{base_name}_instrumental.wav",
+                f"{base_name}_drums.wav",
+                f"{base_name}_bass.wav",
+                f"{base_name}_other.wav",
+            ]
+
+            # Check for files matching common patterns
+            for pattern in common_patterns:
+                output_file = output_dir / pattern
+                if output_file.exists():
+                    output_files.append(str(output_file))
+
+            # If no common patterns found, look for any files with the base name
+            if not output_files:
+                for output_file in output_dir.glob(f"{base_name}*"):
+                    if output_file.is_file() and output_file.suffix.lower() in [
+                        ".wav",
+                        ".flac",
+                        ".mp3",
+                    ]:
+                        output_files.append(str(output_file))
+
+            logger.debug(
+                f"Found {len(output_files)} output files for {file_item.display_name}"
+            )
+
+        except Exception as e:
+            logger.error(
+                f"Error extracting output files for {file_item.display_name}: {e}"
+            )
+
+        return output_files
 
     def _handle_file_error(self, error_message: str):
         """Handle an error for the current file."""

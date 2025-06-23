@@ -1,18 +1,20 @@
 from typing import Dict, List
 
 import natsort
-from PySide6.QtCore import QObject, QTimer, Slot
-from PySide6.QtWidgets import (  # Added QApplication for parent
-    QInputDialog,
-    QMessageBox,
-)
+from PySide6.QtCore import QObject, Slot
+from PySide6.QtWidgets import QMessageBox
+
+from uvr_pyside6_ui.core.logger_utils import get_logger
 
 from ..core import app_constants as ac
 from ..core.uvr_core_adapter import UVRCoreAdapter
+from .ensemble_advanced_dialog import EnsembleAdvancedDialog
+
+logger = get_logger(__name__)
 
 
 class EnsembleSettingsPresenter(QObject):
-    """Presenter for Ensemble settings."""
+    """Presenter for Ensemble settings that delegates persistence to advanced dialog."""
 
     def __init__(self, view, adapter: UVRCoreAdapter):
         super().__init__()
@@ -27,8 +29,6 @@ class EnsembleSettingsPresenter(QObject):
             ac.ENSEMBLE_ALGORITHM_OPTIONS[0] if ac.ENSEMBLE_ALGORITHM_OPTIONS else ""
         )
         self._currently_selected_models_for_ensemble: List[str] = []
-        # Example structure for saved ensembles: {"UserEnsembleName": {"main_stem_pair": "...", "algorithm": "...", "models": [...]}}
-        self._saved_ensembles: Dict[str, dict] = {}
 
         # Connect view signals
         self.view.main_stem_pair_changed.connect(self.on_main_stem_pair_changed)
@@ -37,9 +37,9 @@ class EnsembleSettingsPresenter(QObject):
         self.view.ensemble_action_requested.connect(self.handle_ensemble_action)
 
         self._initialize_settings()
-        # Debug print removed
 
     def _initialize_settings(self):
+        """Initialize ensemble settings and load available models."""
         self._all_local_models_by_type = {
             ac.VR_ARCH_MODELS_KEY: self.adapter.get_available_models(
                 ac.VR_ARCH_MODELS_KEY
@@ -53,163 +53,75 @@ class EnsembleSettingsPresenter(QObject):
         }
 
         # Set initial stem pair, which triggers algorithm and model list update
-        self.view.set_current_stem_pair(
-            self._current_main_stem_pair
-        )  # This will also emit main_stem_pair_changed
-        # Ensure on_main_stem_pair_changed is robust to be called multiple times or sets state first
+        self.view.set_current_stem_pair(self._current_main_stem_pair)
         self.on_main_stem_pair_changed(self._current_main_stem_pair)
-
-        # TODO: Load saved ensembles from a persistent file (e.g., JSON)
-        # self._load_saved_ensembles_from_store()
-        # The view's action combo is now static, so we don't populate it with saved ensembles here.
-        # Saved ensembles will be loaded via a dialog or a separate mechanism.
-
-    def _filter_models_by_stem_compatibility(self, stem_pair: str) -> List[str]:
-        """Filter models to only include those compatible with the selected stem pair.
-
-        This mimics the filtering logic from UVR.py's model_list() function.
-        """
-        if stem_pair == "4 Stem Ensemble":
-            # For 4-stem ensemble, include all Demucs 4-stem models and multi-stem MDX models
-            filtered_models = []
-
-            # Get all models and check which ones support 4-stem output
-            for model_type, models in self._all_local_models_by_type.items():
-                for model_name in models:
-                    try:
-                        # Check model capabilities through adapter
-                        model_info = self.adapter.get_model_info(model_name, model_type)
-                        if model_info:
-                            # For Demucs models, check if they output 4 stems
-                            if model_type == ac.DEMUCS_MODELS_KEY:
-                                # Most Demucs models output 4 stems (vocals, drums, bass, other)
-                                filtered_models.append(f"{model_type}:{model_name}")
-                            # For MDX models, check if they output multiple stems
-                            elif model_type == ac.MDX_NET_MODELS_KEY and hasattr(
-                                model_info, "mdx_stem_count"
-                            ):
-                                if getattr(model_info, "mdx_stem_count", 0) >= 4:
-                                    filtered_models.append(f"{model_type}:{model_name}")
-                    except Exception:
-                        # If we can't get model info, skip this model
-                        continue
-
-            return filtered_models
-
-        elif stem_pair == "Multi-stem Ensemble":
-            # Include all models for multi-stem ensemble
-            all_models = []
-            for model_type, models in self._all_local_models_by_type.items():
-                for model_name in models:
-                    all_models.append(f"{model_type}:{model_name}")
-            return all_models
-
-        else:
-            # For specific stem pairs (Vocals/Instrumental, Bass/No Bass, etc.)
-            # Parse the stem pair to get primary and secondary stems
-            if "/" in stem_pair:
-                primary_stem, secondary_stem = stem_pair.split("/", 1)
-            else:
-                primary_stem = stem_pair
-                secondary_stem = f"No {primary_stem}"
-
-            filtered_models = []
-
-            for model_type, models in self._all_local_models_by_type.items():
-                for model_name in models:
-                    try:
-                        # Check if model can produce the required stems
-                        model_info = self.adapter.get_model_info(model_name, model_type)
-                        if model_info:
-                            model_can_produce_stems = False
-
-                            # For VR models, check primary stem
-                            if model_type == ac.VR_ARCH_MODELS_KEY:
-                                if hasattr(model_info, "primary_stem"):
-                                    model_primary = getattr(
-                                        model_info, "primary_stem", ""
-                                    )
-                                    if model_primary in [primary_stem, secondary_stem]:
-                                        model_can_produce_stems = True
-
-                            # For MDX models, check if they can produce the required stems
-                            elif model_type == ac.MDX_NET_MODELS_KEY:
-                                if hasattr(model_info, "mdx_model_stems"):
-                                    model_stems = getattr(
-                                        model_info, "mdx_model_stems", []
-                                    )
-                                    if primary_stem in model_stems or any(
-                                        stem in model_stems
-                                        for stem in [primary_stem, secondary_stem]
-                                    ):
-                                        model_can_produce_stems = True
-                                # Also check for common vocal/instrumental models
-                                elif primary_stem in [ac.VOCAL_STEM, ac.INST_STEM]:
-                                    # Most MDX models can do vocal/instrumental separation
-                                    model_can_produce_stems = True
-
-                            # For Demucs models, check if they output the required stem
-                            elif model_type == ac.DEMUCS_MODELS_KEY:
-                                # Demucs models typically output vocals, drums, bass, other
-                                demucs_stems = [
-                                    ac.VOCAL_STEM,
-                                    ac.DRUM_STEM,
-                                    ac.BASS_STEM,
-                                    ac.OTHER_STEM,
-                                ]
-                                if primary_stem in demucs_stems:
-                                    model_can_produce_stems = True
-
-                            if model_can_produce_stems:
-                                filtered_models.append(f"{model_type}:{model_name}")
-
-                    except Exception:
-                        # If we can't get model info, include it anyway (safer approach)
-                        filtered_models.append(f"{model_type}:{model_name}")
-                        continue
-
-            return filtered_models
 
     @Slot(str)
     def handle_ensemble_action(self, action_text: str):
-        # Debug print removed
+        """Handle ensemble actions by delegating to the advanced dialog."""
         if action_text == ac.ENSEMBLE_ACTION_SAVE_AS:
-            self.on_save_ensemble()
+            self._open_advanced_dialog_for_save()
         elif action_text == ac.ENSEMBLE_ACTION_CLEAR_SELECTION:
             self.on_clear_model_selection()
         elif action_text == ac.ENSEMBLE_ACTION_LOAD:
-            # Placeholder: In a real app, this would open a dialog to select a saved ensemble.
-            # For now, let's just list available saved ensembles in a message box.
-            saved_ensemble_names = natsort.natsorted(
-                [
-                    data.get("display_name", name)
-                    for name, data in self._saved_ensembles.items()
-                ]
-            )
-            if not saved_ensemble_names:
-                QMessageBox.information(
-                    self.view.window(),
-                    "Load Ensemble",
-                    "No saved ensembles available to load.",
-                )
-                return
+            self._open_advanced_dialog_for_load()
 
-            chosen_ensemble, ok = QInputDialog.getItem(
+    def _open_advanced_dialog_for_save(self):
+        """Open advanced dialog for saving ensemble."""
+        if not self._currently_selected_models_for_ensemble:
+            QMessageBox.warning(
                 self.view.window(),
-                "Load Ensemble",
-                "Select an ensemble to load:",
-                saved_ensemble_names,
-                0,  # current item index
-                False,  # editable?
+                "Save Ensemble",
+                "No models selected for the ensemble.",
             )
-            if ok and chosen_ensemble:
-                self.on_load_ensemble(chosen_ensemble)
-        # No 'else' needed here as the combo only contains predefined actions now.
+            return
+
+        self._open_advanced_dialog()
+
+    def _open_advanced_dialog_for_load(self):
+        """Open advanced dialog for loading ensemble."""
+        self._open_advanced_dialog()
+
+    def _open_advanced_dialog(self):
+        """Open the advanced dialog with current settings."""
+        current_settings = self.get_settings()
+        dialog = EnsembleAdvancedDialog(current_settings, self.view.window())
+
+        # Set available models
+        try:
+            dialog.set_available_models(self._all_local_models_by_type)
+        except Exception as e:
+            logger.warning(f"Could not load available models for ensemble dialog: {e}")
+
+        # Connect to handle settings updates
+        dialog.settings_updated.connect(self._on_advanced_dialog_settings_updated)
+
+        dialog.exec()
+
+    @Slot(dict)
+    def _on_advanced_dialog_settings_updated(self, settings: dict):
+        """Handle settings update from advanced dialog."""
+        self._current_main_stem_pair = settings.get(
+            "ensemble_main_stem_pair", self._current_main_stem_pair
+        )
+        self._current_algorithm = settings.get(
+            "ensemble_algorithm", self._current_algorithm
+        )
+        self._currently_selected_models_for_ensemble = settings.get(
+            "ensemble_selected_models", []
+        )
+
+        # Update view to reflect changes
+        self.view.set_current_stem_pair(self._current_main_stem_pair)
+        self.on_main_stem_pair_changed(self._current_main_stem_pair)
+        self.view.set_current_algorithm(self._current_algorithm)
+        self.view.set_selected_models_in_list(
+            self._currently_selected_models_for_ensemble
+        )
 
     @Slot(str)
     def on_main_stem_pair_changed(self, stem_pair: str):
-        # ... (Keep as before, ensure _current_algorithm is updated after set_ensemble_algorithms) ...
-        # Debug print removed
+        """Handle stem pair change and update available algorithms and models."""
         self._current_main_stem_pair = stem_pair
 
         if stem_pair == ac.ENSEMBLE_MAIN_STEM_OPTIONS[4]:  # "4 Stem Ensemble"
@@ -217,16 +129,12 @@ class EnsembleSettingsPresenter(QObject):
         else:
             self.view.set_ensemble_algorithms(ac.ENSEMBLE_ALGORITHM_OPTIONS)
 
-        if (
-            self.view.algorithm_combo.count() > 0
-        ):  # Update internal state after algorithms are set
+        if self.view.algorithm_combo.count() > 0:
             self._current_algorithm = self.view.algorithm_combo.itemText(0)
-            self.view.set_current_algorithm(self._current_algorithm)  # Reflect in view
+            self.view.set_current_algorithm(self._current_algorithm)
 
-        # CRITICAL FIX: Filter models based on stem compatibility instead of showing all models
+        # Filter and display compatible models
         filtered_models = self._filter_models_by_stem_compatibility(stem_pair)
-
-        # Convert from "model_type:model_name" format back to just model names for display
         display_models = []
         for model_entry in filtered_models:
             if ":" in model_entry:
@@ -239,141 +147,213 @@ class EnsembleSettingsPresenter(QObject):
         self.view.populate_available_models(unique_display_models)
 
         # Filter currently selected models to only include compatible ones
-        compatible_selected_models = []
-        for selected_model in self._currently_selected_models_for_ensemble:
-            if selected_model in unique_display_models:
-                compatible_selected_models.append(selected_model)
-
+        compatible_selected_models = [
+            model
+            for model in self._currently_selected_models_for_ensemble
+            if model in unique_display_models
+        ]
         self._currently_selected_models_for_ensemble = compatible_selected_models
         self.view.set_selected_models_in_list(
             self._currently_selected_models_for_ensemble
         )
 
+    def _filter_models_by_stem_compatibility(self, stem_pair: str) -> List[str]:
+        """Filter models to only include those compatible with the selected stem pair.
+
+        This implements the exact logic from UVR.py's matches_stem function and model_list method.
+        """
+        # Parse stem pair to get primary and secondary stems
+        primary_stem, secondary_stem = self._parse_stem_pair(stem_pair)
+
+        # Determine filtering mode based on stem pair
+        is_4_stem_check = stem_pair == "4 Stem Ensemble"
+        is_multi_stem = stem_pair == "Multi-stem Ensemble"
+
+        filtered_models = []
+
+        # Get all available models with their metadata
+        for model_type, models in self._all_local_models_by_type.items():
+            for model_name in models:
+                try:
+                    # Create minimal ModelData to check compatibility
+                    model_data = self._get_model_data_for_filtering(
+                        model_name, model_type
+                    )
+
+                    if not model_data or not model_data.model_status:
+                        continue
+
+                    # Apply the filtering logic from UVR.py
+                    if is_multi_stem:
+                        # Multi-stem ensemble: include all models
+                        filtered_models.append(f"{model_type}:{model_name}")
+                    elif is_4_stem_check:
+                        # 4-stem ensemble: only models with 4+ stems
+                        if (
+                            hasattr(model_data, "demucs_stem_count")
+                            and model_data.demucs_stem_count == 4
+                        ) or (
+                            hasattr(model_data, "mdx_model_stems")
+                            and len(model_data.mdx_model_stems) == 4
+                        ):
+                            filtered_models.append(f"{model_type}:{model_name}")
+                    else:
+                        # Standard 2-stem filtering using matches_stem logic
+                        if self._matches_stem(model_data, primary_stem, secondary_stem):
+                            filtered_models.append(f"{model_type}:{model_name}")
+
+                except Exception as e:
+                    logger.debug(
+                        f"Error checking model compatibility for {model_name}: {e}"
+                    )
+                    continue
+
+        return filtered_models
+
+    def _parse_stem_pair(self, stem_pair: str) -> tuple[str, str]:
+        """Parse stem pair string to get primary and secondary stems."""
+        if stem_pair == "4 Stem Ensemble":
+            return ac.VOCAL_STEM, ac.INST_STEM  # Default for 4-stem
+        elif stem_pair == "Multi-stem Ensemble":
+            return ac.VOCAL_STEM, ac.INST_STEM  # Default for multi-stem
+        elif stem_pair == "Vocals/Instrumental":
+            return ac.VOCAL_STEM, ac.INST_STEM
+        elif stem_pair == "Other/No Other":
+            return ac.OTHER_STEM, ac.secondary_stem(ac.OTHER_STEM)
+        elif stem_pair == "Drums/No Drums":
+            return ac.DRUM_STEM, ac.secondary_stem(ac.DRUM_STEM)
+        elif stem_pair == "Bass/No Bass":
+            return ac.BASS_STEM, ac.secondary_stem(ac.BASS_STEM)
+        elif "/" in stem_pair:
+            # Generic parsing for any "Primary/Secondary" format
+            primary, secondary = stem_pair.split("/", 1)
+            primary = primary.strip()
+            secondary = secondary.strip()
+
+            # Map common UI names to internal constants
+            stem_name_map = {
+                "Vocals": ac.VOCAL_STEM,
+                "Vocal": ac.VOCAL_STEM,
+                "Instrumental": ac.INST_STEM,
+                "Instruments": ac.INST_STEM,
+                "Bass": ac.BASS_STEM,
+                "Drums": ac.DRUM_STEM,
+                "Drum": ac.DRUM_STEM,
+                "Other": ac.OTHER_STEM,
+                "Others": ac.OTHER_STEM,
+            }
+
+            primary_stem = stem_name_map.get(primary, primary)
+            secondary_stem = stem_name_map.get(secondary, secondary)
+
+            return primary_stem, secondary_stem
+        else:
+            return ac.VOCAL_STEM, ac.INST_STEM  # Default fallback
+
+    def _get_model_data_for_filtering(self, model_name: str, model_type: str):
+        """Create minimal ModelData instance for filtering purposes."""
+        try:
+            from ..core.model_data import ModelData
+
+            # Create minimal settings for ModelData creation
+            temp_settings = {
+                "chosen_process_method": self._get_process_method_for_model_type(
+                    model_type
+                ),
+                "is_gpu_conversion": False,
+                "is_normalization": False,
+            }
+
+            # Map model type to process method
+            process_method = self._get_process_method_for_model_type(model_type)
+
+            # Create ModelData instance for filtering
+            model_data = ModelData.from_settings_dict(
+                temp_settings,
+                _model_name_override=model_name,
+                _process_method_override=process_method,
+                _is_secondary_model_instance=True,  # For filtering purposes
+            )
+
+            return model_data
+
+        except Exception as e:
+            logger.debug(f"Error creating ModelData for filtering {model_name}: {e}")
+            return None
+
+    def _get_process_method_for_model_type(self, model_type: str) -> str:
+        """Map model type key to process method constant."""
+        type_map = {
+            ac.VR_ARCH_MODELS_KEY: ac.VR_ARCH_TYPE,
+            ac.MDX_NET_MODELS_KEY: ac.MDX_ARCH_TYPE,
+            ac.DEMUCS_MODELS_KEY: ac.DEMUCS_ARCH_TYPE,
+        }
+        return type_map.get(model_type, ac.VR_ARCH_TYPE)
+
+    def _matches_stem(self, model_data, primary_stem: str, secondary_stem: str) -> bool:
+        """Implement the exact matches_stem logic from UVR.py.
+
+        This is the core filtering logic that determines if a model is compatible
+        with the selected stem pair.
+        """
+        try:
+            # PRIMARY MATCH: Check if model's primary stem matches either primary or secondary stem
+            primary_match = False
+            if hasattr(model_data, "primary_stem") and model_data.primary_stem:
+                primary_match = model_data.primary_stem in {
+                    primary_stem,
+                    secondary_stem,
+                }
+
+            # MDX STEM MATCH: Check MDX stem compatibility (for 2-stem models only)
+            mdx_stem_match = False
+            if hasattr(model_data, "mdx_model_stems") and model_data.mdx_model_stems:
+                if (
+                    hasattr(model_data, "mdx_stem_count")
+                    and getattr(model_data, "mdx_stem_count", 1) <= 2
+                ):
+                    mdx_stem_match = primary_stem in model_data.mdx_model_stems
+                else:
+                    # For models with more than 2 stems, check if primary stem is in the list
+                    mdx_stem_match = primary_stem in model_data.mdx_model_stems
+
+            # DEMUCS SOURCE MATCH: Check Demucs source compatibility
+            demucs_source_match = False
+            if (
+                hasattr(model_data, "demucs_source_list")
+                and model_data.demucs_source_list
+            ):
+                demucs_source_match = primary_stem.lower() in [
+                    s.lower() for s in model_data.demucs_source_list
+                ]
+
+            # Apply the exact UVR.py matches_stem logic:
+            # return primary_match or mdx_stem_match if is_no_demucs else primary_match or primary_stem in model.mdx_model_stems
+            # For ensemble filtering, we include all compatible models (not excluding Demucs)
+            return primary_match or mdx_stem_match or demucs_source_match
+
+        except Exception as e:
+            logger.debug(f"Error in matches_stem check: {e}")
+            return False
+
     @Slot(str)
-    def on_ensemble_algorithm_changed(self, algorithm: str):  # Unchanged
-        # Debug print removed
+    def on_ensemble_algorithm_changed(self, algorithm: str):
+        """Handle algorithm change."""
         self._current_algorithm = algorithm
 
     @Slot(list)
-    def on_models_selected_for_ensemble(self, selected_models: List[str]):  # Unchanged
-        # Debug print removed
+    def on_models_selected_for_ensemble(self, selected_models: List[str]):
+        """Handle model selection change."""
         self._currently_selected_models_for_ensemble = selected_models
 
-    # @Slot() # This is now triggered by handle_ensemble_action
-    def on_save_ensemble(self):  # Keep internal method
-        if not self._currently_selected_models_for_ensemble:
-            QMessageBox.warning(
-                self.view.window(),
-                "Save Ensemble",
-                "No models selected for the ensemble.",
-            )
-            return
-
-        # Get MainWindow instance to use as parent for QInputDialog if possible
-        parent_window = self.view.window()  # QWidget.window() gets the top-level window
-
-        ensemble_name, ok = QInputDialog.getText(
-            parent_window, "Save Ensemble", "Enter Ensemble Name:"
-        )
-        if ok and ensemble_name:
-            clean_ensemble_name = ensemble_name.replace(" ", "_")
-
-            if clean_ensemble_name in self._saved_ensembles:
-                overwrite = QMessageBox.question(
-                    parent_window,
-                    "Overwrite Ensemble",
-                    f"Ensemble '{ensemble_name}' already exists. Overwrite?",
-                )
-                if (
-                    overwrite == QMessageBox.No or not overwrite
-                ):  # Check for None if dialog is closed
-                    return
-
-            self._saved_ensembles[clean_ensemble_name] = {
-                "display_name": ensemble_name,  # Store original display name too
-                "main_stem_pair": self._current_main_stem_pair,
-                "algorithm": self._current_algorithm,
-                "models": self._currently_selected_models_for_ensemble,
-            }
-            # TODO: Save self._saved_ensembles to a persistent file
-            # Debug print removed
-            # The view's action combo is static, no need to update it with saved ensemble names.
-            # The presenter will handle loading via a dialog.
-            QMessageBox.information(
-                self.view.window(),
-                "Ensemble Saved",
-                f"Ensemble '{ensemble_name}' has been saved.",
-            )
-        else:
-            # Debug print removed
-            pass  # Or log this event
-
-    # This method is called by handle_ensemble_action after user selects from a dialog.
-    def on_load_ensemble(
-        self, ensemble_display_name_to_load: str
-    ):  # Keep internal method
-        if not ensemble_display_name_to_load:
-            # Debug print removed
-            return
-
-        # Debug print removed
-
-        # Find the internal key (name_with_underscores) from the display name
-        internal_key_to_load = None
-        for key, data in self._saved_ensembles.items():
-            if data.get("display_name", key) == ensemble_display_name_to_load:
-                internal_key_to_load = key
-                break
-
-        if not internal_key_to_load:
-            QMessageBox.warning(
-                self.view.window(),
-                "Load Ensemble",
-                f"Could not find configuration for ensemble: {ensemble_display_name_to_load}",
-            )
-            return
-
-        saved_config = self._saved_ensembles.get(internal_key_to_load)
-        if saved_config:
-            self._current_main_stem_pair = saved_config["main_stem_pair"]
-            self._current_algorithm = saved_config["algorithm"]
-            self._currently_selected_models_for_ensemble = saved_config["models"]
-
-            self.view.set_current_stem_pair(self._current_main_stem_pair)
-            # on_main_stem_pair_changed will repopulate algorithms and available models
-            # We need to ensure algorithm is set *after* algorithms are populated by stem_pair change
-            # And models are selected *after* available models are populated
-
-            # Defer setting algorithm and selected models until after stem pair change has propagated
-            QTimer.singleShot(
-                0, lambda: self.view.set_current_algorithm(self._current_algorithm)
-            )
-            QTimer.singleShot(
-                0,
-                lambda: self.view.set_selected_models_in_list(
-                    self._currently_selected_models_for_ensemble
-                ),
-            )
-
-            # Debug print removed
-        else:
-            # This case should ideally not be reached if lookup by display name worked
-            QMessageBox.warning(
-                self.view.window(),
-                "Load Ensemble",
-                f"Internal error finding config for: {ensemble_display_name_to_load}",
-            )
-
-    # @Slot() # This is now triggered by handle_ensemble_action
-    def on_clear_model_selection(self):  # Keep internal method
-        # Debug print removed
-        self.view.available_models_list.clearSelection()  # This might be redundant if view handles it
-        self.view.set_selected_models_in_list(
-            []
-        )  # Ensure presenter and view are in sync
+    def on_clear_model_selection(self):
+        """Clear model selection."""
+        self.view.available_models_list.clearSelection()
+        self.view.set_selected_models_in_list([])
         self._currently_selected_models_for_ensemble = []
 
     def get_settings(self):
+        """Get current ensemble settings."""
         return {
             "ensemble_main_stem_pair": self._current_main_stem_pair,
             "ensemble_algorithm": self._current_algorithm,

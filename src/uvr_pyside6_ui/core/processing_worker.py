@@ -1260,20 +1260,30 @@ class ProcessingWorker(QObject):
                     f"  Produced stems: {list(member_results.keys())}", ""
                 )
 
-                # Save individual model outputs
-                for stem_name in stems_to_process:
-                    if stem_name in member_results:
-                        stem_audio = member_results[stem_name]
-                        if stem_audio is not None and stem_audio.size > 0:
-                            self._write_to_console(
-                                f"  {stem_name} shape: {stem_audio.shape}", ""
-                            )
+                # Save individual model outputs:
+                # - Only save individual files for stems that are part of the ensemble (stems_to_process)
+                # - If save_all_outputs=True: keep these individual files after ensemble creation
+                # - If save_all_outputs=False: delete these individual files after ensemble creation
+                for stem_name, stem_audio in member_results.items():
+                    if stem_audio is not None and stem_audio.size > 0:
+                        self._write_to_console(
+                            f"  {stem_name} shape: {stem_audio.shape}", ""
+                        )
 
-                            # Save individual model output with model name in filename
+                        # Only save and process stems that are part of the ensemble
+                        if stem_name in stems_to_process:
+                            # Store for ensemble combination
+                            all_outputs_by_stem[stem_name].append(stem_audio)
+                            
+                            # Save individual file (will be kept or deleted later based on save_all_outputs)
+                            # Use the same format as the ensemble output
+                            save_format = getattr(self.model_data, "save_format", "WAV").upper()
+                            file_ext = save_format.lower()
+                            
                             cleaned_model_name = self._clean_model_name_for_filename(
                                 member_model_data.model_basename
                             )
-                            individual_output_filename = f"{ensemble_output_base}_{cleaned_model_name}_({stem_name}).wav"
+                            individual_output_filename = f"{ensemble_output_base}_{cleaned_model_name}_({stem_name}).{file_ext}"
                             individual_output_path = (
                                 Path(self.model_data.export_path)
                                 / individual_output_filename
@@ -1304,15 +1314,14 @@ class ProcessingWorker(QObject):
                                     44100,
                                 )
 
-                                self._write_to_console(
-                                    f"  ✓ Saved individual output: {individual_output_filename}",
-                                    "",
-                                )
-
-                                # Store for ensemble combination
-                                all_outputs_by_stem[stem_name].append(stem_audio)
+                                # Track saved files for potential cleanup
                                 all_saved_files_by_stem[stem_name].append(
                                     str(individual_output_path)
+                                )
+
+                                self._write_to_console(
+                                    f"  💾 Saved for ensemble: {individual_output_filename}",
+                                    "",
                                 )
 
                             except Exception as save_error:
@@ -1320,13 +1329,17 @@ class ProcessingWorker(QObject):
                                     f"❌ Error saving individual output {individual_output_filename}: {save_error}",
                                     "",
                                 )
+                            
+                            self._write_to_console(
+                                f"  ✓ Added {stem_name} to ensemble collection", ""
+                            )
                         else:
                             self._write_to_console(
-                                f"  {stem_name} is None or empty, skipping", ""
+                                f"  ℹ️ {stem_name} not needed for ensemble (stems_to_process: {stems_to_process}) - skipping", ""
                             )
                     else:
                         self._write_to_console(
-                            f"  {stem_name} not found in results, skipping", ""
+                            f"  {stem_name} is None or empty, skipping", ""
                         )
             elif self._is_running:
                 self._write_to_console(
@@ -1455,12 +1468,13 @@ class ProcessingWorker(QObject):
                     )
 
                     # Clean up individual files if not saving all outputs
+                    # Only clean up files that were part of the ensemble combination
                     if not save_all_outputs:
                         for individual_file in all_saved_files_by_stem[stem_name]:
                             try:
                                 Path(individual_file).unlink()
                                 self._write_to_console(
-                                    f"  🗑️ Cleaned up: {Path(individual_file).name}", ""
+                                    f"  🗑️ Cleaned up ensemble source: {Path(individual_file).name}", ""
                                 )
                             except Exception:
                                 pass

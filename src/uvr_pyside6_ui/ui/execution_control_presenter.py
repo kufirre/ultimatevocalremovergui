@@ -24,7 +24,6 @@ class ExecutionControlPresenter(QObject):
 
         # --- Connect View Signals ---
         self.view.start_processing_clicked.connect(self.handle_start_processing)
-        # TODO: Connect stop button later
 
         # --- Connect Adapter Signals (for single file processing) ---
         self.adapter.progress_updated.connect(self.on_progress_update)
@@ -317,6 +316,6 @@ class ExecutionControlPresenter(QObject):
         if processing_mode == "batch" and self._batch_worker:
             self._batch_worker.cancel_batch_processing()
         else:
-            # Cancel single file processing (if adapter supports it)
-            # TODO: Implement cancellation in adapter
-            pass
+            # Cancel single file processing via adapter
+            if hasattr(self.adapter, "stop_processing"):
+                self.adapter.stop_processing()

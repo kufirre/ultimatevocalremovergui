@@ -813,7 +813,9 @@ For more information, visit the project documentation."""
     def _on_dc_stop_button_clicked(self) -> None:
         """Handle stop download button clicks."""
         logger.info("Stop download requested")
-        # TODO: Implement download cancellation in adapter
+        # Cancel downloads via adapter
+        if hasattr(self.adapter, "cancel_downloads"):
+            self.adapter.cancel_downloads()
         self.view.show_status_message("Download stopped", 3000)
 
     @Slot()
@@ -957,7 +959,7 @@ For more information, visit the project documentation."""
                 # So the main UI should already be getting the refresh signal
 
             else:
-                # Error - show error with better formatting
+                # Error - show error
                 self.view.dc_progress_info_label.setText(
                     f"❌ Download failed: {message}"
                 )

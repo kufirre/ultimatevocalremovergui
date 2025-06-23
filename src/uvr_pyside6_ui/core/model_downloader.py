@@ -5,6 +5,7 @@ This module handles downloading model files and configurations from remote URLs
 to the appropriate local directories.
 """
 
+import datetime
 import json
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Tuple
@@ -32,30 +33,62 @@ CACHE_DIR = Path.home() / ac.CACHE_DIR_NAME
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 ONLINE_CATALOG_CACHE_FILE = CACHE_DIR / ac.ONLINE_CATALOG_CACHE_FILENAME
 
+# Cache expiry time (24 hours)
+CACHE_EXPIRY_HOURS = 24
+
 
 def fetch_online_model_catalog() -> Dict[str, Any]:
     """Fetches the online model catalog, using cache if available and recent."""
+    cache_is_valid = False
+
     if ONLINE_CATALOG_CACHE_FILE.exists():
         try:
-            # TODO: Add cache expiry (e.g., if file is older than 1 day, refresh)
-            with open(ONLINE_CATALOG_CACHE_FILE, encoding="utf-8") as f:
-                logger.info("Using cached online model catalog.")
-                return json.load(f)
+            # Check cache age
+            cache_modified_time = datetime.datetime.fromtimestamp(
+                ONLINE_CATALOG_CACHE_FILE.stat().st_mtime
+            )
+            current_time = datetime.datetime.now()
+            cache_age = current_time - cache_modified_time
+
+            # Cache is valid if it's less than CACHE_EXPIRY_HOURS old
+            if cache_age.total_seconds() < (CACHE_EXPIRY_HOURS * 3600):
+                cache_is_valid = True
+                with open(ONLINE_CATALOG_CACHE_FILE, encoding="utf-8") as f:
+                    logger.info(f"Using cached online model catalog (age: {cache_age})")
+                    return json.load(f)
+            else:
+                logger.info(f"Cache expired (age: {cache_age}), fetching fresh catalog")
+
         except Exception as e:
             logger.error(f"Error reading cached catalog: {e}. Fetching fresh.")
 
+    # Fetch fresh catalog if cache is invalid or expired
     try:
         response = requests.get(ac.DOWNLOAD_CHECKS_URL, timeout=10)
         response.raise_for_status()
         catalog_data = response.json()
+
+        # Save to cache
         with open(ONLINE_CATALOG_CACHE_FILE, "w", encoding="utf-8") as f:
             json.dump(catalog_data, f, indent=4)
         logger.info("Fetched and cached online model catalog.")
         return catalog_data
+
     except requests.RequestException as e:
         logger.error(f"Error fetching online model catalog: {e}")
+
+        # If we have an expired cache, use it as fallback
+        if ONLINE_CATALOG_CACHE_FILE.exists():
+            try:
+                with open(ONLINE_CATALOG_CACHE_FILE, encoding="utf-8") as f:
+                    logger.info("Using expired cache as fallback due to network error.")
+                    return json.load(f)
+            except Exception as cache_e:
+                logger.error(f"Error reading expired cache: {cache_e}")
+
         logger.info("Using fallback catalog.")
         return ac.FALLBACK_ONLINE_CATALOG.copy()  # Ensure it's a copy
+
     except json.JSONDecodeError as e:
         logger.error(f"Error decoding online model catalog JSON: {e}")
         logger.info("Using fallback catalog.")

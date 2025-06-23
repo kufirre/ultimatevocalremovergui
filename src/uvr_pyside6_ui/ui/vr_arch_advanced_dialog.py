@@ -645,7 +645,14 @@ class VRArchAdvancedDialog(QDialog):
 
         except Exception as e:
             logger.error(f"Failed to open VR models folder: {e}")
-            # TODO: Show error dialog to user
+            # Show error dialog to user
+            QMessageBox.critical(
+                self,
+                "Error Opening Folder",
+                f"Failed to open the models folder:\n\n{str(e)}\n\n"
+                f"You can manually navigate to:\n{models_path}",
+                QMessageBox.Ok,
+            )
 
     def _create_vocal_splitter_tab(self, tab_widget):
         """Create the vocal splitter tab."""
@@ -766,7 +773,7 @@ class VRArchAdvancedDialog(QDialog):
             logger.error(
                 f"Error getting filtered VR models for {primary_stem}/{secondary_stem}: {e}"
             )
-            # If all else fails, return just NO_MODEL - no hardcoded fallback
+            # If all else fails, return just NO_MODEL
             return [ac.NO_MODEL]
 
     def _get_process_method_for_arch(self, arch_key):

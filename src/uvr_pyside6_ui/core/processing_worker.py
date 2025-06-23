@@ -1156,19 +1156,37 @@ class ProcessingWorker(QObject):
         self._write_to_console(f"Starting ensemble with {num_models} models", "")
 
         # Get the primary and secondary stems for this ensemble
-        primary_stem = getattr(self.model_data, "ensemble_primary_stem", ac.VOCAL_STEM)
-        secondary_stem = getattr(
+        ensemble_primary_stem = getattr(self.model_data, "ensemble_primary_stem", ac.VOCAL_STEM)
+        ensemble_secondary_stem = getattr(
             self.model_data, "ensemble_secondary_stem", ac.INST_STEM
         )
-
-        self._write_to_console(f"🎯 Ensemble primary stem: {primary_stem}", "")
-        self._write_to_console(f"🎯 Ensemble secondary stem: {secondary_stem}", "")
 
         # Check the actual stem-only settings from the master model_data
         is_primary_stem_only = getattr(self.model_data, "is_primary_stem_only", False)
         is_secondary_stem_only = getattr(
             self.model_data, "is_secondary_stem_only", False
         )
+
+        # Determine the actual target stem based on user selection
+        # When user selects "instrumental only", we want instrumental as the main target
+        if is_secondary_stem_only and not is_primary_stem_only:
+            # User wants secondary stem only (e.g., instrumental only)
+            primary_stem = ensemble_secondary_stem  # Make instrumental the primary target
+            secondary_stem = ensemble_primary_stem
+            self._write_to_console(f"🎯 Adjusted for secondary-stem-only: target={primary_stem}", "")
+        elif is_primary_stem_only and not is_secondary_stem_only:
+            # User wants primary stem only (e.g., vocals only)
+            primary_stem = ensemble_primary_stem
+            secondary_stem = ensemble_secondary_stem
+            self._write_to_console(f"🎯 Using primary-stem-only: target={primary_stem}", "")
+        else:
+            # User wants both stems or default behavior
+            primary_stem = ensemble_primary_stem
+            secondary_stem = ensemble_secondary_stem
+            self._write_to_console(f"🎯 Using standard stem assignment", "")
+
+        self._write_to_console(f"🎯 Ensemble primary stem: {primary_stem}", "")
+        self._write_to_console(f"🎯 Ensemble secondary stem: {secondary_stem}", "")
 
         self._write_to_console(f"🎯 Primary stem only: {is_primary_stem_only}", "")
         self._write_to_console(f"🎯 Secondary stem only: {is_secondary_stem_only}", "")

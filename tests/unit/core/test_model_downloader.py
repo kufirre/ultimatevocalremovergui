@@ -72,8 +72,8 @@ class TestModelDownloader:
                     mock_json_dump.assert_called_once()
 
     def test_fetch_online_model_catalog_uses_cache(self):
-        """Test that cached catalog is used when available."""
-        cached_catalog = {"cached": "data"}
+        """Test that cached catalog is used when available and fresh."""
+        cached_catalog = {"cached": "data", "timestamp": "2023-01-01"}
         cache_file = self.cache_dir / ac.ONLINE_CATALOG_CACHE_FILENAME
 
         # Create cache file
@@ -85,7 +85,11 @@ class TestModelDownloader:
             catalog = model_downloader.fetch_online_model_catalog()
 
             assert catalog == cached_catalog
-            mock_logger.info.assert_called_with("Using cached online model catalog.")
+            # Check that the log message contains the expected text about using cached catalog
+            # The new implementation includes cache age, so we check for the key part
+            mock_logger.info.assert_called()
+            log_call_args = mock_logger.info.call_args[0][0]
+            assert "Using cached online model catalog" in log_call_args
 
     def test_fetch_online_model_catalog_cache_error_fallback(self):
         """Test fallback when cache file is corrupted."""

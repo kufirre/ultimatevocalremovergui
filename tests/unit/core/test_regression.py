@@ -1,10 +1,3 @@
-"""
-Regression tests for specific issues that were fixed.
-
-This module contains tests that prevent regression of specific bugs and issues
-that were identified and resolved during development.
-"""
-
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -17,8 +10,8 @@ from uvr_pyside6_ui.core.processing_worker import ProcessingWorker
 
 @pytest.mark.regression
 @pytest.mark.critical
-class TestVRArchitectureRegressionFixes:
-    """Regression tests for VR architecture processing fixes."""
+class TestVRArchitectureRegression:
+    """Regression tests for VR architecture processing."""
 
     def test_vr_progress_never_stuck_at_30_percent(self, valid_settings_dict):
         """
@@ -146,8 +139,8 @@ class TestVRArchitectureRegressionFixes:
 
 @pytest.mark.regression
 @pytest.mark.critical
-class TestCodeDuplicationRegressionFixes:
-    """Regression tests for DRY principle fixes (code duplication elimination)."""
+class TestCodeDuplicationRegression:
+    """Regression tests for DRY principle (code duplication elimination)."""
 
     def test_karaoke_models_fetched_from_shared_method(self):
         """
@@ -224,8 +217,8 @@ class TestCodeDuplicationRegressionFixes:
 
 @pytest.mark.regression
 @pytest.mark.critical
-class TestHelpSystemRegressionFixes:
-    """Regression tests for help system integration fixes."""
+class TestHelpSystemRegression:
+    """Regression tests for help system integration."""
 
     def test_help_menu_keyboard_shortcuts_work(self):
         """
@@ -257,7 +250,7 @@ class TestHelpSystemRegressionFixes:
         Regression test: troubleshooting.html file should exist.
 
         This test prevents regression where the missing troubleshooting.html
-        file was created as part of the help system fixes.
+        file was created as part of the help system.
         """
         # Test that the file exists in the filesystem - use absolute path from project root
         project_root = Path(__file__).parent.parent.parent.parent
@@ -271,8 +264,8 @@ class TestHelpSystemRegressionFixes:
 
 @pytest.mark.regression
 @pytest.mark.critical
-class TestImportPracticesRegressionFixes:
-    """Regression tests for import practices fixes."""
+class TestImportPracticesRegression:
+    """Regression tests for import practices."""
 
     def test_model_data_imports_at_top_level(self):
         """
@@ -309,8 +302,8 @@ class TestImportPracticesRegressionFixes:
 
 @pytest.mark.regression
 @pytest.mark.integration
-class TestQualityAssuranceRegressionFixes:
-    """Regression tests for quality assurance fixes."""
+class TestQualityAssuranceRegression:
+    """Regression tests for quality assurance."""
 
     def test_model_data_serialization_works(self):
         """
@@ -336,8 +329,8 @@ class TestQualityAssuranceRegressionFixes:
 
 @pytest.mark.regression
 @pytest.mark.edge_case
-class TestEdgeCaseRegressionFixes:
-    """Regression tests for edge case fixes."""
+class TestEdgeCaseRegression:
+    """Regression tests for edge case."""
 
     def test_empty_model_lists_handled_gracefully(self):
         """

@@ -6,7 +6,6 @@ audio processing, and model management functionality.
 """
 
 import shutil
-import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -14,8 +13,6 @@ from unittest.mock import Mock, patch
 import numpy as np
 import pytest
 from PySide6.QtWidgets import QApplication
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from uvr_pyside6_ui.core import app_constants as ac
 from uvr_pyside6_ui.core.model_data import ModelData

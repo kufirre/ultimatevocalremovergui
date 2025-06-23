@@ -319,20 +319,47 @@ class SeparateMDXLogic(SeparatorAttributesLogic):
             )
             outputs.update(self.primary_source_map)
 
-        if save_secondary and primary_stem_data.shape == mix_audio_norm_np.shape:
+        if save_secondary:
+            # Handle shape mismatch by aligning audio lengths before calculating secondary stem
+            if primary_stem_data.shape != mix_audio_norm_np.shape:
+                logger.warning(
+                    f"Shape mismatch detected: primary={primary_stem_data.shape} vs mix={mix_audio_norm_np.shape}"
+                )
+                
+                # Align to the minimum length to ensure compatibility
+                if len(primary_stem_data.shape) == 2 and len(mix_audio_norm_np.shape) == 2:
+                    min_length = min(primary_stem_data.shape[0], mix_audio_norm_np.shape[0])
+                    logger.info(f"Aligning audio to minimum length: {min_length}")
+                    
+                    # Trim both arrays to the same length
+                    primary_aligned = primary_stem_data[:min_length, :]
+                    mix_aligned = mix_audio_norm_np[:min_length, :]
+                    
+                    logger.info(f"Aligned shapes: primary={primary_aligned.shape}, mix={mix_aligned.shape}")
+                else:
+                    logger.error(f"Cannot align shapes - unexpected dimensions: primary={primary_stem_data.shape}, mix={mix_audio_norm_np.shape}")
+                    # Skip secondary stem calculation but don't fail completely
+                    logger.info("Skipping secondary stem due to shape mismatch")
+                    clear_gpu_cache_logic()
+                    return outputs
+            else:
+                # Shapes match - use original arrays
+                primary_aligned = primary_stem_data
+                mix_aligned = mix_audio_norm_np
+            
             logger.info(f"Saving secondary stem: {md.secondary_stem}")
             # Handle is_invert_spec for models that output instrumental first
             if md.is_invert_spec and spec_utils:
                 # Use spec_utils.invert_stem for proper calculation
                 secondary_stem_data = spec_utils.invert_stem(
-                    mix_audio_norm_np, primary_stem_data
+                    mix_aligned, primary_aligned
                 )
                 logger.info(
                     "Used invert_stem for secondary calculation (is_invert_spec=True)"
                 )
             else:
                 # Standard subtraction method
-                secondary_stem_data = mix_audio_norm_np - primary_stem_data
+                secondary_stem_data = mix_aligned - primary_aligned
                 logger.info(
                     "Used standard subtraction for secondary calculation (is_invert_spec=False)"
                 )

@@ -253,7 +253,7 @@ class SeparateMDXLogic(SeparatorAttributesLogic):
                 return None
             logger.info("Loading MDX CKPT model...")
             try:
-                # Fix for PyTorch 2.6+ - add weights_only=False for model loading
+                # For PyTorch 2.6+ - add weights_only=False for model loading
                 model_checkpoint = torch.load(
                     md.model_path,
                     map_location=lambda storage, loc: storage,
@@ -264,7 +264,7 @@ class SeparateMDXLogic(SeparatorAttributesLogic):
                     model_checkpoint["hop_length"],
                 )
                 separator = MdxnetSet.ConvTDFNet(**model_checkpoint)
-                # Fix for PyTorch 2.6+ - add weights_only=False for model loading
+                # For PyTorch 2.6+ - add weights_only=False for model loading
                 self.model_run_instance = (
                     separator.load_from_checkpoint(md.model_path).to(self.device).eval()
                 )
@@ -276,9 +276,7 @@ class SeparateMDXLogic(SeparatorAttributesLogic):
             if md.mdx_segment_size == md.mdx_dim_t_set and not (
                 self.device.type == "mps"
             ):
-                self.model_run_instance = onnxruntime.InferenceSession(
-                    md.model_path, providers=self.run_type
-                )
+                self.model_run_instance = onnxruntime.InferenceSession(md.model_path, providers=self.run_type)
             else:
                 if not onnx_load or not onnx_ConvertModel:
                     logger.error("ONNX conversion modules not available.")
@@ -300,21 +298,36 @@ class SeparateMDXLogic(SeparatorAttributesLogic):
         logger.info(f"MDX is_primary_stem_only: {md.is_primary_stem_only}")
         logger.info(f"MDX is_secondary_stem_only: {md.is_secondary_stem_only}")
 
-        # MDX models output the primary stem directly
-        # The secondary stem is calculated by subtracting from the mix
+        # Check if user made a specific stem request (for ensemble processing)
+        user_requested_specific_stem = getattr(md, "user_requested_stem", None)
+        if user_requested_specific_stem:
+            logger.info(f"MDX: User specifically requested: {user_requested_specific_stem}")
+            logger.info(f"MDX: Model primary_stem={md.primary_stem}, secondary_stem={md.secondary_stem}")
 
         # Check if both stems should be saved
         save_primary = not md.is_secondary_stem_only
         save_secondary = not md.is_primary_stem_only
 
         if save_primary:
-            logger.info(f"Saving primary stem: {md.primary_stem}")
+            # Determine the correct stem name for primary output
+            # MDX models output their primary stem directly from the model
+            if user_requested_specific_stem:
+                # If user wants what this model outputs as primary, name it correctly
+                if user_requested_specific_stem == md.primary_stem:
+                    primary_stem_name = user_requested_specific_stem
+                else:
+                    # User wants something else, but we're outputting the model's primary stem
+                    primary_stem_name = md.primary_stem
+            else:
+                primary_stem_name = md.primary_stem
+                
+            logger.info(f"Saving primary stem as: {primary_stem_name}")
             self.primary_source = primary_stem_data
             self.primary_source_map = self._final_process_stem(
                 "",
                 primary_stem_data,
                 getattr(self, "secondary_source_primary", None),
-                md.primary_stem,
+                primary_stem_name,
                 md.model_samplerate,
             )
             outputs.update(self.primary_source_map)
@@ -347,36 +360,39 @@ class SeparateMDXLogic(SeparatorAttributesLogic):
                 primary_aligned = primary_stem_data
                 mix_aligned = mix_audio_norm_np
             
-            logger.info(f"Saving secondary stem: {md.secondary_stem}")
-            # Handle is_invert_spec for models that output instrumental first
+            # Calculate secondary stem
             if md.is_invert_spec and spec_utils:
                 # Use spec_utils.invert_stem for proper calculation
-                secondary_stem_data = spec_utils.invert_stem(
-                    mix_aligned, primary_aligned
-                )
-                logger.info(
-                    "Used invert_stem for secondary calculation (is_invert_spec=True)"
-                )
+                secondary_stem_data = spec_utils.invert_stem(mix_aligned, primary_aligned)
+                logger.info("Used invert_stem for secondary calculation (is_invert_spec=True)")
             else:
                 # Standard subtraction method
                 secondary_stem_data = mix_aligned - primary_aligned
-                logger.info(
-                    "Used standard subtraction for secondary calculation (is_invert_spec=False)"
-                )
+                logger.info("Used standard subtraction for secondary calculation (is_invert_spec=False)")
+
+            # Determine the correct stem name for secondary output
+            # MDX secondary stem is calculated by subtraction/inversion
+            if user_requested_specific_stem:
+                # If user wants what this model calculates as secondary, name it correctly
+                if user_requested_specific_stem == md.secondary_stem:
+                    secondary_stem_name = user_requested_specific_stem
+                else:
+                    # User wants something else, but we're outputting the model's secondary stem
+                    secondary_stem_name = md.secondary_stem
+            else:
+                secondary_stem_name = md.secondary_stem
+                
+            logger.info(f"Saving secondary stem as: {secondary_stem_name}")
 
             self.secondary_source = secondary_stem_data
             self.secondary_source_map = self._final_process_stem(
                 "",
                 secondary_stem_data,
                 getattr(self, "secondary_source_secondary", None),
-                md.secondary_stem,
+                secondary_stem_name,
                 md.model_samplerate,
             )
             outputs.update(self.secondary_source_map)
-        elif save_secondary:
-            logger.warning(
-                f"Cannot calculate secondary stem - shape mismatch: {primary_stem_data.shape} vs {mix_audio_norm_np.shape}"
-            )
 
         clear_gpu_cache_logic()
         return outputs

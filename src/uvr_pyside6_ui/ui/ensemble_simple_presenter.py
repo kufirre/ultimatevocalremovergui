@@ -165,6 +165,7 @@ class EnsembleSimplePresenter(QObject):
     def get_current_ui_state(self) -> dict:
         """Get current UI state for communication with advanced dialog."""
         return {
+            "chosen_process_method": ac.ENSEMBLE_MODE,  # Tell ModelData this is ensemble processing
             "ensemble_main_stem_pair": self._current_main_stem_pair,
             "ensemble_algorithm": self._current_algorithm,
             "ensemble_selected_models": self._currently_selected_models.copy(),

@@ -1161,65 +1161,10 @@ class ProcessingWorker(QObject):
             self.model_data, "ensemble_secondary_stem", ac.INST_STEM
         )
 
-        # Check the actual stem-only settings from the master model_data
-        is_primary_stem_only = getattr(self.model_data, "is_primary_stem_only", False)
-        is_secondary_stem_only = getattr(
-            self.model_data, "is_secondary_stem_only", False
-        )
-
-        # Determine the actual target stem based on user selection
-        # When user selects "instrumental only", we want instrumental as the main target
-        if is_secondary_stem_only and not is_primary_stem_only:
-            # User wants secondary stem only (e.g., instrumental only)
-            primary_stem = ensemble_secondary_stem  # Make instrumental the primary target
-            secondary_stem = ensemble_primary_stem
-            self._write_to_console(f"🎯 Adjusted for secondary-stem-only: target={primary_stem}", "")
-        elif is_primary_stem_only and not is_secondary_stem_only:
-            # User wants primary stem only (e.g., vocals only)
-            primary_stem = ensemble_primary_stem
-            secondary_stem = ensemble_secondary_stem
-            self._write_to_console(f"🎯 Using primary-stem-only: target={primary_stem}", "")
-        else:
-            # User wants both stems or default behavior
-            primary_stem = ensemble_primary_stem
-            secondary_stem = ensemble_secondary_stem
-            self._write_to_console(f"🎯 Using standard stem assignment", "")
-
-        self._write_to_console(f"🎯 Ensemble primary stem: {primary_stem}", "")
-        self._write_to_console(f"🎯 Ensemble secondary stem: {secondary_stem}", "")
-
-        self._write_to_console(f"🎯 Primary stem only: {is_primary_stem_only}", "")
-        self._write_to_console(f"🎯 Secondary stem only: {is_secondary_stem_only}", "")
-
-        # Determine what stems to process based on ensemble settings
-        stems_to_process = []
-
-        # If not is_secondary_stem_only, process primary; if not is_primary_stem_only, process secondary
-        if not is_secondary_stem_only:
-            stems_to_process.append(primary_stem)
-            self._write_to_console(f"  ✓ Will process primary stem: {primary_stem}", "")
-        if not is_primary_stem_only:
-            stems_to_process.append(secondary_stem)
-            self._write_to_console(
-                f"  ✓ Will process secondary stem: {secondary_stem}", ""
-            )
-
-        if not stems_to_process:
-            self.processing_finished.emit(
-                False, "No stems to process based on ensemble settings"
-            )
-            return
-
-        self._write_to_console(f"🎯 Stems to process: {stems_to_process}", "")
-
         # Store all outputs from ensemble models grouped by stem
+        # We'll collect all stems produced by models and then ensemble them
         all_outputs_by_stem: Dict[str, List[np.ndarray]] = {}
-        all_saved_files_by_stem: Dict[str, List[str]] = (
-            {}
-        )  # Track saved file paths for ensemble combination
-        for stem in stems_to_process:
-            all_outputs_by_stem[stem] = []
-            all_saved_files_by_stem[stem] = []
+        all_saved_files_by_stem: Dict[str, List[str]] = {}
 
         ensemble_output_base = (
             Path(self.model_data.audio_file).stem
@@ -1278,83 +1223,79 @@ class ProcessingWorker(QObject):
                     f"  Produced stems: {list(member_results.keys())}", ""
                 )
 
-                # Save individual model outputs:
-                # - Only save individual files for stems that are part of the ensemble (stems_to_process)
-                # - If save_all_outputs=True: keep these individual files after ensemble creation
-                # - If save_all_outputs=False: delete these individual files after ensemble creation
+                # Collect all stems produced by this model
                 for stem_name, stem_audio in member_results.items():
                     if stem_audio is not None and stem_audio.size > 0:
                         self._write_to_console(
                             f"  {stem_name} shape: {stem_audio.shape}", ""
                         )
 
-                        # Only save and process stems that are part of the ensemble
-                        if stem_name in stems_to_process:
-                            # Store for ensemble combination
-                            all_outputs_by_stem[stem_name].append(stem_audio)
-                            
-                            # Save individual file (will be kept or deleted later based on save_all_outputs)
-                            # Use the same format as the ensemble output
-                            save_format = getattr(self.model_data, "save_format", "WAV").upper()
-                            file_ext = save_format.lower()
-                            
-                            cleaned_model_name = self._clean_model_name_for_filename(
-                                member_model_data.model_basename
-                            )
-                            individual_output_filename = f"{ensemble_output_base}_{cleaned_model_name}_({stem_name}).{file_ext}"
-                            individual_output_path = (
-                                Path(self.model_data.export_path)
-                                / individual_output_filename
-                            )
+                        # Initialize lists for new stems
+                        if stem_name not in all_outputs_by_stem:
+                            all_outputs_by_stem[stem_name] = []
+                            all_saved_files_by_stem[stem_name] = []
 
-                            try:
-                                # Ensure proper audio format for writing
-                                if stem_audio.ndim == 1:
-                                    stem_audio_to_save = np.column_stack(
-                                        [stem_audio, stem_audio]
-                                    )
-                                elif stem_audio.ndim == 2:
-                                    if stem_audio.shape[0] == 2:
-                                        stem_audio_to_save = stem_audio.T
-                                    else:
-                                        stem_audio_to_save = stem_audio
+                        # Store for ensemble combination
+                        all_outputs_by_stem[stem_name].append(stem_audio)
+                        
+                        # Save individual file (will be kept or deleted later based on save_all_outputs)
+                        # Use the same format as the ensemble output
+                        save_format = getattr(self.model_data, "save_format", "WAV").upper()
+                        file_ext = save_format.lower()
+                        
+                        cleaned_model_name = self._clean_model_name_for_filename(
+                            member_model_data.model_basename
+                        )
+                        individual_output_filename = f"{ensemble_output_base}_{cleaned_model_name}_({stem_name}).{file_ext}"
+                        individual_output_path = (
+                            Path(self.model_data.export_path)
+                            / individual_output_filename
+                        )
+
+                        try:
+                            # Ensure proper audio format for writing
+                            if stem_audio.ndim == 1:
+                                stem_audio_to_save = np.column_stack(
+                                    [stem_audio, stem_audio]
+                                )
+                            elif stem_audio.ndim == 2:
+                                if stem_audio.shape[0] == 2:
+                                    stem_audio_to_save = stem_audio.T
                                 else:
-                                    self._write_to_console(
-                                        f"❌ Invalid audio dimensions for {stem_name}: {stem_audio.shape}",
-                                        "",
-                                    )
-                                    continue
-
-                                # Save individual output
-                                sf.write(
-                                    str(individual_output_path),
-                                    stem_audio_to_save,
-                                    44100,
-                                )
-
-                                # Track saved files for potential cleanup
-                                all_saved_files_by_stem[stem_name].append(
-                                    str(individual_output_path)
-                                )
-
+                                    stem_audio_to_save = stem_audio
+                            else:
                                 self._write_to_console(
-                                    f"  💾 Saved for ensemble: {individual_output_filename}",
+                                    f"❌ Invalid audio dimensions for {stem_name}: {stem_audio.shape}",
                                     "",
                                 )
+                                continue
 
-                            except Exception as save_error:
-                                self._write_to_console(
-                                    f"❌ Error saving individual output {individual_output_filename}: {save_error}",
-                                    "",
-                                )
-                            
-                            self._write_to_console(
-                                f"  ✓ Added {stem_name} to ensemble collection", ""
+                            # Save individual output
+                            sf.write(
+                                str(individual_output_path),
+                                stem_audio_to_save,
+                                44100,
                             )
-                        else:
-                            self._write_to_console(
-                                f"  ℹ️ {stem_name} not needed for ensemble (stems_to_process: {stems_to_process}) - skipping", ""
+
+                            # Track saved files for potential cleanup
+                            all_saved_files_by_stem[stem_name].append(
+                                str(individual_output_path)
                             )
+
+                            self._write_to_console(
+                                f"  💾 Saved for ensemble: {individual_output_filename}",
+                                "",
+                            )
+
+                        except Exception as save_error:
+                            self._write_to_console(
+                                f"❌ Error saving individual output {individual_output_filename}: {save_error}",
+                                "",
+                            )
+                        
+                        self._write_to_console(
+                            f"  ✓ Added {stem_name} to ensemble collection", ""
+                        )
                     else:
                         self._write_to_console(
                             f"  {stem_name} is None or empty, skipping", ""
@@ -1378,9 +1319,9 @@ class ProcessingWorker(QObject):
             self.processing_finished.emit(False, f"Ensemble failed: {error_msg}")
             return
 
-        # Check if any stems have valid outputs
+        # Check if any stems have valid outputs (need at least 2 models producing the same stem)
         valid_stems = [
-            stem for stem in stems_to_process if len(all_outputs_by_stem[stem]) >= 2
+            stem for stem in all_outputs_by_stem.keys() if len(all_outputs_by_stem[stem]) >= 2
         ]
         if not valid_stems:
             self.processing_finished.emit(
@@ -1414,7 +1355,8 @@ class ProcessingWorker(QObject):
             if "/" in ensemble_algorithm:
                 # Primary/Secondary algorithm pair like "Max Spec/Min Spec"
                 primary_alg, secondary_alg = ensemble_algorithm.split("/", 1)
-                if stem_name == primary_stem:
+                # Use primary algorithm for vocals, secondary for everything else
+                if stem_name == ensemble_primary_stem:
                     algorithm_for_stem = primary_alg.strip()
                 else:
                     algorithm_for_stem = secondary_alg.strip()
@@ -1553,22 +1495,62 @@ class ProcessingWorker(QObject):
                 )
                 return None
 
-            # Pass ensemble master's stem-only settings to individual models
-            # This ensures individual models only process the requested stems
-            if hasattr(self.model_data, "is_primary_stem_only"):
-                model_data.is_primary_stem_only = self.model_data.is_primary_stem_only
-                self._write_to_console(
-                    f"  📋 Inherited primary stem only: {model_data.is_primary_stem_only}",
-                    "",
-                )
-            if hasattr(self.model_data, "is_secondary_stem_only"):
-                model_data.is_secondary_stem_only = (
-                    self.model_data.is_secondary_stem_only
-                )
-                self._write_to_console(
-                    f"  📋 Inherited secondary stem only: {model_data.is_secondary_stem_only}",
-                    "",
-                )
+            # Each model in the ensemble should respect its own stem settings.
+            
+            # However, for ensemble mode, we need to translate the user's stem selection
+            # (from the master model_data) to each individual model's stem configuration
+            master_is_primary_stem_only = getattr(self.model_data, 'is_primary_stem_only', False)
+            master_is_secondary_stem_only = getattr(self.model_data, 'is_secondary_stem_only', False)
+            
+            if master_is_primary_stem_only or master_is_secondary_stem_only:
+                # User selected either "Vocals Only" or "Instruments Only"
+                # We need to determine what stem type the user wants
+                ensemble_primary_stem = getattr(self.model_data, "ensemble_primary_stem", ac.VOCAL_STEM)
+                ensemble_secondary_stem = getattr(self.model_data, "ensemble_secondary_stem", ac.INST_STEM)
+                
+                if master_is_primary_stem_only:
+                    # User wants primary stem only (typically vocals)
+                    target_stem_type = ensemble_primary_stem
+                    self._write_to_console(f"  🎯 User wants primary stem only: {target_stem_type}", "")
+                elif master_is_secondary_stem_only:
+                    # User wants secondary stem only (typically instrumental)
+                    target_stem_type = ensemble_secondary_stem  
+                    self._write_to_console(f"  🎯 User wants secondary stem only: {target_stem_type}", "")
+                
+                # Now configure this model's stem-only flags based on its stem assignments
+                model_primary_stem = getattr(model_data, 'primary_stem', ac.VOCAL_STEM)
+                model_secondary_stem = getattr(model_data, 'secondary_stem', ac.INST_STEM)
+                
+                self._write_to_console(f"  🎯 Model {model_data.model_basename}: primary={model_primary_stem}, secondary={model_secondary_stem}", "")
+                
+                if target_stem_type == model_primary_stem:
+                    # User wants this model's primary stem
+                    model_data.is_primary_stem_only = True
+                    model_data.is_secondary_stem_only = False
+                    self._write_to_console(f"  ✅ Configured model to output primary stem only: {model_primary_stem}", "")
+                elif target_stem_type == model_secondary_stem:
+                    # User wants this model's secondary stem  
+                    model_data.is_primary_stem_only = False
+                    model_data.is_secondary_stem_only = True
+                    self._write_to_console(f"  ✅ Configured model to output secondary stem only: {model_secondary_stem}", "")
+                else:
+                    # This model doesn't produce the stem the user wants - skip it
+                    self._write_to_console(f"  ⚠️ Model doesn't produce target stem {target_stem_type}, will output both stems", "")
+                    model_data.is_primary_stem_only = False
+                    model_data.is_secondary_stem_only = False
+            else:
+                # User wants both stems - let model use its default settings
+                self._write_to_console(f"  🎯 User wants both stems - using model defaults", "")
+
+            # Log the model's actual stem configuration for debugging
+            self._write_to_console(
+                f"  📋 Model's actual primary_stem: {getattr(model_data, 'primary_stem', 'Unknown')}",
+                "",
+            )
+            self._write_to_console(
+                f"  📋 Model's actual secondary_stem: {getattr(model_data, 'secondary_stem', 'Unknown')}",
+                "",
+            )
 
             # Save input audio to temp file - all separators expect file paths
             temp_audio_file = self._save_temp_audio(input_audio)

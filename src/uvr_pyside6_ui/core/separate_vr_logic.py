@@ -509,146 +509,69 @@ class SeparateVRLogic(SeparatorAttributesLogic):
             f"VR processing: model primary_stem={md.primary_stem}, secondary_stem={md.secondary_stem}"
         )
 
-        # Check if user made a specific stem request
-        user_requested_specific_stem = getattr(md, "user_requested_stem", None)
-        model_primary_stem = md.primary_stem
-        model_secondary_stem = md.secondary_stem
-
-        if user_requested_specific_stem:
-            logger.info(f"User specifically requested: {user_requested_specific_stem}")
-            logger.info(
-                f"Model outputs: primary={model_primary_stem}, secondary={model_secondary_stem}"
-            )
-
-            # Determine which spectrogram contains the user's requested stem
-            if user_requested_specific_stem == model_primary_stem:
-                # User wants what's in the primary stem (y_spec)
-                target_primary_spec = y_spec
-                target_secondary_spec = v_spec
-                logger.info(
-                    f"User wants primary stem: using y_spec for {user_requested_specific_stem}"
-                )
-            elif user_requested_specific_stem == model_secondary_stem:
-                # User wants what's in the secondary stem (v_spec)
-                target_primary_spec = v_spec
-                target_secondary_spec = y_spec
-                logger.info(
-                    f"User wants secondary stem: using v_spec for {user_requested_specific_stem}"
-                )
-            else:
-                # Fallback: user requested something not in this model's capabilities
-                target_primary_spec = y_spec
-                target_secondary_spec = v_spec
-                logger.warning(
-                    f"User requested {user_requested_specific_stem} but model only has {model_primary_stem}/{model_secondary_stem}"
-                )
-        else:
-            # No specific user request - use standard mapping
-            target_primary_spec = y_spec
-            target_secondary_spec = v_spec
-            logger.info("No specific user request: using standard mapping")
+        # Use standard mapping - model's primary_stem is in y_spec, secondary_stem is in v_spec
 
         self._update_progress(0.80, message="Processing stems...")
 
+        # Respect the model's stem-only settings
+        
         if not md.is_secondary_stem_only:
-            primary_wave = self._spec_to_wav_vr_logic(target_primary_spec)
+            primary_wave = self._spec_to_wav_vr_logic(y_spec)
 
             if primary_wave is not None:
                 if primary_wave.size == 0:
-                    logger.warning(
-                        "Warning: output wave is empty. Creating silent output."
-                    )
+                    logger.warning("Warning: primary output wave is empty. Creating silent output.")
                     primary_wave = np.zeros_like(original_mix_audio_array)
 
-                if (
-                    md.model_samplerate != ac.DEFAULT_SAMPLE_RATE
-                    and primary_wave.size > 0
-                ):  # Ensure not resampling empty array
+                if (md.model_samplerate != ac.DEFAULT_SAMPLE_RATE and primary_wave.size > 0):
                     primary_wave = librosa.resample(
                         primary_wave.T,
                         orig_sr=md.model_samplerate,
                         target_sr=ac.DEFAULT_SAMPLE_RATE,
                     ).T
-                elif (
-                    primary_wave.size == 0
-                    and md.model_samplerate != ac.DEFAULT_SAMPLE_RATE
-                ):
-                    # If it was empty and SR mismatch, it remains an empty array correctly shaped by np.zeros_like
-                    pass
 
                 self.primary_source = primary_wave
-
-                # Use the user's requested stem name if available, otherwise use model's primary stem
-                output_stem_name = (
-                    user_requested_specific_stem
-                    if user_requested_specific_stem
-                    else md.primary_stem
-                )
-
                 self.primary_source_map = self._final_process_stem(
                     "",
                     primary_wave,
                     self.secondary_source_primary,
-                    output_stem_name,
+                    md.primary_stem,  # Always use the model's actual primary stem name
                     ac.DEFAULT_SAMPLE_RATE,
                 )
                 outputs.update(self.primary_source_map)
+                logger.info(f"VR: Output {md.primary_stem} from y_spec")
             else:
-                logger.warning(f"Failed to convert {md.primary_stem} (returned None).")
+                logger.warning("Failed to convert y_spec (returned None).")
 
         self._update_progress(0.90, message="Finalizing...")
 
         if not md.is_primary_stem_only:
-            secondary_wave = self._spec_to_wav_vr_logic(target_secondary_spec)
+            secondary_wave = self._spec_to_wav_vr_logic(v_spec)
 
             if secondary_wave is not None:
                 if secondary_wave.size == 0:
-                    logger.warning(
-                        "Warning: secondary output wave is empty. Creating silent output."
-                    )
+                    logger.warning("Warning: secondary output wave is empty. Creating silent output.")
                     secondary_wave = np.zeros_like(original_mix_audio_array)
 
-                if (
-                    md.model_samplerate != ac.DEFAULT_SAMPLE_RATE
-                    and secondary_wave.size > 0
-                ):  # Ensure not resampling empty array
+                if (md.model_samplerate != ac.DEFAULT_SAMPLE_RATE and secondary_wave.size > 0):
                     secondary_wave = librosa.resample(
                         secondary_wave.T,
                         orig_sr=md.model_samplerate,
                         target_sr=ac.DEFAULT_SAMPLE_RATE,
                     ).T
-                elif (
-                    secondary_wave.size == 0
-                    and md.model_samplerate != ac.DEFAULT_SAMPLE_RATE
-                ):
-                    pass
 
-                # VR secondary stem is just the converted spectrogram
                 self.secondary_source = secondary_wave
-
-                # Determine the secondary stem name based on what we're outputting
-                if user_requested_specific_stem:
-                    # If user requested a specific stem, the secondary is the other one
-                    secondary_stem_name = (
-                        model_primary_stem
-                        if user_requested_specific_stem == model_secondary_stem
-                        else model_secondary_stem
-                    )
-                else:
-                    secondary_stem_name = md.secondary_stem
-
                 self.secondary_source_map = self._final_process_stem(
                     "",
                     secondary_wave,
                     self.secondary_source_secondary,
-                    secondary_stem_name,
+                    md.secondary_stem,  # Always use the model's actual secondary stem name
                     ac.DEFAULT_SAMPLE_RATE,
                 )
                 outputs.update(self.secondary_source_map)
+                logger.info(f"VR: Output {md.secondary_stem} from v_spec")
             else:
-                logger.warning(
-                    f"Failed to convert {md.secondary_stem} (returned None)."
-                )
+                logger.warning("Failed to convert v_spec (returned None).")
 
         clear_gpu_cache_logic()
         return outputs

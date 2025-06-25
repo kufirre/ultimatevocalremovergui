@@ -297,7 +297,7 @@ class EnsembleSettingsPresenter(QObject):
         with the selected stem pair.
         """
         try:
-            # PRIMARY MATCH: Check if model's primary stem matches either primary or secondary stem
+            # Check if model's primary stem matches either primary or secondary stem
             primary_match = False
             if hasattr(model_data, "primary_stem") and model_data.primary_stem:
                 primary_match = model_data.primary_stem in {
@@ -305,7 +305,7 @@ class EnsembleSettingsPresenter(QObject):
                     secondary_stem,
                 }
 
-            # MDX STEM MATCH: Check MDX stem compatibility (for 2-stem models only)
+            # Check MDX stem compatibility (for 2-stem models only)
             mdx_stem_match = False
             if hasattr(model_data, "mdx_model_stems") and model_data.mdx_model_stems:
                 if (
@@ -317,7 +317,7 @@ class EnsembleSettingsPresenter(QObject):
                     # For models with more than 2 stems, check if primary stem is in the list
                     mdx_stem_match = primary_stem in model_data.mdx_model_stems
 
-            # DEMUCS SOURCE MATCH: Check Demucs source compatibility
+            # Check Demucs source compatibility
             demucs_source_match = False
             if (
                 hasattr(model_data, "demucs_source_list")
@@ -327,8 +327,7 @@ class EnsembleSettingsPresenter(QObject):
                     s.lower() for s in model_data.demucs_source_list
                 ]
 
-            # Apply the exact UVR.py matches_stem logic:
-            # return primary_match or mdx_stem_match if is_no_demucs else primary_match or primary_stem in model.mdx_model_stems
+            # Return primary_match or mdx_stem_match if is_no_demucs else primary_match or primary_stem in model.mdx_model_stems
             # For ensemble filtering, we include all compatible models (not excluding Demucs)
             return primary_match or mdx_stem_match or demucs_source_match
 
@@ -355,6 +354,7 @@ class EnsembleSettingsPresenter(QObject):
     def get_settings(self):
         """Get current ensemble settings."""
         return {
+            "chosen_process_method": ac.ENSEMBLE_MODE,  # Tell ModelData this is ensemble processing
             "ensemble_main_stem_pair": self._current_main_stem_pair,
             "ensemble_algorithm": self._current_algorithm,
             "ensemble_selected_models": self._currently_selected_models_for_ensemble,

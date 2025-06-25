@@ -1,4 +1,9 @@
-"""Unit tests for ensemble functionality including simple presenter and advanced dialog."""
+"""
+Unit tests for ensemble UI integration functionality.
+
+Tests the complete integration between ensemble UI components (presenters, views, dialogs)
+and core ensemble functionality, including save/load operations and file management.
+"""
 
 import json
 import tempfile
@@ -646,18 +651,18 @@ class TestEnsembleSaveAllOutputs:
 
     def test_save_all_outputs_logic_with_vocals_only(self):
         """Test the core logic of save_all_outputs with vocals_only mode.
-        
+
         This test verifies that when save_all_outputs=True and vocals_only=True,
         only vocal individual files are saved, not instrumental files.
         This matches the original UVR behavior where get_files_to_ensemble only
         looks for files with specific stem suffixes.
         """
-        from unittest.mock import Mock, patch
+
         import numpy as np
-        
+
         # Test the core logic: when save_all_outputs=True and vocals_only=True,
         # only vocal individual files should be saved, instrumental files should be skipped
-        
+
         # Mock model results - each model produces both stems
         model_results = {
             "VocalModel": {
@@ -669,14 +674,14 @@ class TestEnsembleSaveAllOutputs:
                 "Vocals": np.random.random((2, 44100)).astype(np.float32),
             },
         }
-        
+
         save_all_outputs = True
         stems_to_process = ["Vocals"]  # Vocals only mode
-        
+
         # Simulate the corrected logic
         saved_files = []
         ensemble_stems = []
-        
+
         for model_name, results in model_results.items():
             for stem_name, audio_data in results.items():
                 # Only save and process stems that are part of the ensemble
@@ -686,13 +691,13 @@ class TestEnsembleSaveAllOutputs:
                     # This stem would be added to ensemble collection
                     ensemble_stems.append(stem_name)
                 # Stems not in stems_to_process are completely skipped
-        
+
         # Verify the corrected behavior
         assert len(saved_files) == 2  # Only 2 vocal files saved
         assert saved_files == ["VocalModel_(Vocals).wav", "InstModel_(Vocals).wav"]
         assert all("Vocals" in f for f in saved_files)
         assert not any("Instrumental" in f for f in saved_files)
-        
+
         # Verify ensemble collection
         assert len(ensemble_stems) == 2
         assert all(stem == "Vocals" for stem in ensemble_stems)
@@ -700,7 +705,7 @@ class TestEnsembleSaveAllOutputs:
     def test_save_all_outputs_logic_with_instrumental_only(self):
         """Test save_all_outputs with instrumental_only mode."""
         import numpy as np
-        
+
         # Mock model results
         model_results = {
             "VocalModel": {
@@ -712,29 +717,32 @@ class TestEnsembleSaveAllOutputs:
                 "Vocals": np.random.random((2, 44100)).astype(np.float32),
             },
         }
-        
+
         save_all_outputs = True
         stems_to_process = ["Instrumental"]  # Instrumental only mode
-        
+
         # Simulate the corrected logic
         saved_files = []
-        
+
         for model_name, results in model_results.items():
             for stem_name, audio_data in results.items():
                 # Only save stems that are part of the ensemble
                 if stem_name in stems_to_process:
                     saved_files.append(f"{model_name}_({stem_name}).wav")
-        
+
         # Verify only instrumental files are saved
         assert len(saved_files) == 2
-        assert saved_files == ["VocalModel_(Instrumental).wav", "InstModel_(Instrumental).wav"]
+        assert saved_files == [
+            "VocalModel_(Instrumental).wav",
+            "InstModel_(Instrumental).wav",
+        ]
         assert all("Instrumental" in f for f in saved_files)
         assert not any("Vocals" in f for f in saved_files)
 
     def test_save_all_outputs_logic_with_both_stems(self):
         """Test save_all_outputs when both stems are being processed."""
         import numpy as np
-        
+
         # Mock model results
         model_results = {
             "GeneralModel": {
@@ -742,19 +750,19 @@ class TestEnsembleSaveAllOutputs:
                 "Instrumental": np.random.random((2, 44100)).astype(np.float32),
             },
         }
-        
+
         save_all_outputs = True
         stems_to_process = ["Vocals", "Instrumental"]  # Both stems
-        
+
         # Simulate the corrected logic
         saved_files = []
-        
+
         for model_name, results in model_results.items():
             for stem_name, audio_data in results.items():
                 # Save all stems that are part of the ensemble
                 if stem_name in stems_to_process:
                     saved_files.append(f"{model_name}_({stem_name}).wav")
-        
+
         # Verify both stems are saved
         assert len(saved_files) == 2
         assert "GeneralModel_(Vocals).wav" in saved_files
@@ -763,7 +771,7 @@ class TestEnsembleSaveAllOutputs:
     def test_save_all_outputs_disabled_only_saves_ensemble_stems(self):
         """Test that when save_all_outputs=False, individual files are still created for ensemble but cleaned up after."""
         import numpy as np
-        
+
         # Mock model results
         model_results = {
             "VocalModel": {
@@ -771,14 +779,14 @@ class TestEnsembleSaveAllOutputs:
                 "Instrumental": np.random.random((2, 44100)).astype(np.float32),
             },
         }
-        
+
         save_all_outputs = False
         stems_to_process = ["Vocals"]  # Vocals only mode
-        
+
         # Simulate the logic
         temporarily_saved_files = []
         files_to_cleanup = []
-        
+
         for model_name, results in model_results.items():
             for stem_name, audio_data in results.items():
                 # Only process stems that are part of the ensemble
@@ -788,7 +796,7 @@ class TestEnsembleSaveAllOutputs:
                     # These files would be cleaned up after ensemble creation if save_all_outputs=False
                     if not save_all_outputs:
                         files_to_cleanup.append(file_path)
-        
+
         # Verify that individual files are created temporarily but marked for cleanup
         assert len(temporarily_saved_files) == 1
         assert temporarily_saved_files[0] == "VocalModel_(Vocals).wav"
@@ -798,14 +806,14 @@ class TestEnsembleSaveAllOutputs:
     def test_output_format_consistency(self):
         """Test that individual model outputs use the same format as ensemble output."""
         import numpy as np
-        
+
         # Test different output formats
         test_formats = [
             ("WAV", "wav"),
-            ("FLAC", "flac"), 
+            ("FLAC", "flac"),
             ("MP3", "mp3"),
         ]
-        
+
         for save_format, expected_ext in test_formats:
             # Mock model results
             model_results = {
@@ -813,30 +821,34 @@ class TestEnsembleSaveAllOutputs:
                     "Vocals": np.random.random((2, 44100)).astype(np.float32),
                 },
             }
-            
+
             stems_to_process = ["Vocals"]
-            
+
             # Simulate the format logic from the fixed code
             individual_files = []
             ensemble_files = []
-            
+
             for model_name, results in model_results.items():
                 for stem_name, audio_data in results.items():
                     if stem_name in stems_to_process:
                         # Individual file uses selected format
-                        individual_file = f"song_{model_name}_({stem_name}).{expected_ext}"
+                        individual_file = (
+                            f"song_{model_name}_({stem_name}).{expected_ext}"
+                        )
                         individual_files.append(individual_file)
-            
+
             # Ensemble file also uses selected format
             ensemble_file = f"song_Ensemble_(Vocals).{expected_ext}"
             ensemble_files.append(ensemble_file)
-            
+
             # Verify format consistency
             assert len(individual_files) == 1
             assert individual_files[0] == f"song_TestModel_(Vocals).{expected_ext}"
             assert ensemble_files[0] == f"song_Ensemble_(Vocals).{expected_ext}"
-            
+
             # Verify all files have the same extension
             all_files = individual_files + ensemble_files
-            extensions = [f.split('.')[-1] for f in all_files]
-            assert all(ext == expected_ext for ext in extensions), f"Format inconsistency for {save_format}: {extensions}"
+            extensions = [f.split(".")[-1] for f in all_files]
+            assert all(
+                ext == expected_ext for ext in extensions
+            ), f"Format inconsistency for {save_format}: {extensions}"

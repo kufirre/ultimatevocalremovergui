@@ -276,7 +276,9 @@ class SeparateMDXLogic(SeparatorAttributesLogic):
             if md.mdx_segment_size == md.mdx_dim_t_set and not (
                 self.device.type == "mps"
             ):
-                self.model_run_instance = onnxruntime.InferenceSession(md.model_path, providers=self.run_type)
+                self.model_run_instance = onnxruntime.InferenceSession(
+                    md.model_path, providers=self.run_type
+                )
             else:
                 if not onnx_load or not onnx_ConvertModel:
                     logger.error("ONNX conversion modules not available.")
@@ -301,8 +303,12 @@ class SeparateMDXLogic(SeparatorAttributesLogic):
         # Check if user made a specific stem request (for ensemble processing)
         user_requested_specific_stem = getattr(md, "user_requested_stem", None)
         if user_requested_specific_stem:
-            logger.info(f"MDX: User specifically requested: {user_requested_specific_stem}")
-            logger.info(f"MDX: Model primary_stem={md.primary_stem}, secondary_stem={md.secondary_stem}")
+            logger.info(
+                f"MDX: User specifically requested: {user_requested_specific_stem}"
+            )
+            logger.info(
+                f"MDX: Model primary_stem={md.primary_stem}, secondary_stem={md.secondary_stem}"
+            )
 
         # Check if both stems should be saved
         save_primary = not md.is_secondary_stem_only
@@ -320,7 +326,7 @@ class SeparateMDXLogic(SeparatorAttributesLogic):
                     primary_stem_name = md.primary_stem
             else:
                 primary_stem_name = md.primary_stem
-                
+
             logger.info(f"Saving primary stem as: {primary_stem_name}")
             self.primary_source = primary_stem_data
             self.primary_source_map = self._final_process_stem(
@@ -338,19 +344,28 @@ class SeparateMDXLogic(SeparatorAttributesLogic):
                 logger.warning(
                     f"Shape mismatch detected: primary={primary_stem_data.shape} vs mix={mix_audio_norm_np.shape}"
                 )
-                
+
                 # Align to the minimum length to ensure compatibility
-                if len(primary_stem_data.shape) == 2 and len(mix_audio_norm_np.shape) == 2:
-                    min_length = min(primary_stem_data.shape[0], mix_audio_norm_np.shape[0])
+                if (
+                    len(primary_stem_data.shape) == 2
+                    and len(mix_audio_norm_np.shape) == 2
+                ):
+                    min_length = min(
+                        primary_stem_data.shape[0], mix_audio_norm_np.shape[0]
+                    )
                     logger.info(f"Aligning audio to minimum length: {min_length}")
-                    
+
                     # Trim both arrays to the same length
                     primary_aligned = primary_stem_data[:min_length, :]
                     mix_aligned = mix_audio_norm_np[:min_length, :]
-                    
-                    logger.info(f"Aligned shapes: primary={primary_aligned.shape}, mix={mix_aligned.shape}")
+
+                    logger.info(
+                        f"Aligned shapes: primary={primary_aligned.shape}, mix={mix_aligned.shape}"
+                    )
                 else:
-                    logger.error(f"Cannot align shapes - unexpected dimensions: primary={primary_stem_data.shape}, mix={mix_audio_norm_np.shape}")
+                    logger.error(
+                        f"Cannot align shapes - unexpected dimensions: primary={primary_stem_data.shape}, mix={mix_audio_norm_np.shape}"
+                    )
                     # Skip secondary stem calculation but don't fail completely
                     logger.info("Skipping secondary stem due to shape mismatch")
                     clear_gpu_cache_logic()
@@ -359,16 +374,22 @@ class SeparateMDXLogic(SeparatorAttributesLogic):
                 # Shapes match - use original arrays
                 primary_aligned = primary_stem_data
                 mix_aligned = mix_audio_norm_np
-            
+
             # Calculate secondary stem
             if md.is_invert_spec and spec_utils:
                 # Use spec_utils.invert_stem for proper calculation
-                secondary_stem_data = spec_utils.invert_stem(mix_aligned, primary_aligned)
-                logger.info("Used invert_stem for secondary calculation (is_invert_spec=True)")
+                secondary_stem_data = spec_utils.invert_stem(
+                    mix_aligned, primary_aligned
+                )
+                logger.info(
+                    "Used invert_stem for secondary calculation (is_invert_spec=True)"
+                )
             else:
                 # Standard subtraction method
                 secondary_stem_data = mix_aligned - primary_aligned
-                logger.info("Used standard subtraction for secondary calculation (is_invert_spec=False)")
+                logger.info(
+                    "Used standard subtraction for secondary calculation (is_invert_spec=False)"
+                )
 
             # Determine the correct stem name for secondary output
             # MDX secondary stem is calculated by subtraction/inversion
@@ -381,7 +402,7 @@ class SeparateMDXLogic(SeparatorAttributesLogic):
                     secondary_stem_name = md.secondary_stem
             else:
                 secondary_stem_name = md.secondary_stem
-                
+
             logger.info(f"Saving secondary stem as: {secondary_stem_name}")
 
             self.secondary_source = secondary_stem_data

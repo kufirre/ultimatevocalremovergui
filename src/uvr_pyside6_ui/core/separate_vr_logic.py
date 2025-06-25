@@ -514,16 +514,21 @@ class SeparateVRLogic(SeparatorAttributesLogic):
         self._update_progress(0.80, message="Processing stems...")
 
         # Respect the model's stem-only settings
-        
+
         if not md.is_secondary_stem_only:
             primary_wave = self._spec_to_wav_vr_logic(y_spec)
 
             if primary_wave is not None:
                 if primary_wave.size == 0:
-                    logger.warning("Warning: primary output wave is empty. Creating silent output.")
+                    logger.warning(
+                        "Warning: primary output wave is empty. Creating silent output."
+                    )
                     primary_wave = np.zeros_like(original_mix_audio_array)
 
-                if (md.model_samplerate != ac.DEFAULT_SAMPLE_RATE and primary_wave.size > 0):
+                if (
+                    md.model_samplerate != ac.DEFAULT_SAMPLE_RATE
+                    and primary_wave.size > 0
+                ):
                     primary_wave = librosa.resample(
                         primary_wave.T,
                         orig_sr=md.model_samplerate,
@@ -550,10 +555,15 @@ class SeparateVRLogic(SeparatorAttributesLogic):
 
             if secondary_wave is not None:
                 if secondary_wave.size == 0:
-                    logger.warning("Warning: secondary output wave is empty. Creating silent output.")
+                    logger.warning(
+                        "Warning: secondary output wave is empty. Creating silent output."
+                    )
                     secondary_wave = np.zeros_like(original_mix_audio_array)
 
-                if (md.model_samplerate != ac.DEFAULT_SAMPLE_RATE and secondary_wave.size > 0):
+                if (
+                    md.model_samplerate != ac.DEFAULT_SAMPLE_RATE
+                    and secondary_wave.size > 0
+                ):
                     secondary_wave = librosa.resample(
                         secondary_wave.T,
                         orig_sr=md.model_samplerate,

@@ -1156,7 +1156,9 @@ class ProcessingWorker(QObject):
         self._write_to_console(f"Starting ensemble with {num_models} models", "")
 
         # Get the primary and secondary stems for this ensemble
-        ensemble_primary_stem = getattr(self.model_data, "ensemble_primary_stem", ac.VOCAL_STEM)
+        ensemble_primary_stem = getattr(
+            self.model_data, "ensemble_primary_stem", ac.VOCAL_STEM
+        )
         ensemble_secondary_stem = getattr(
             self.model_data, "ensemble_secondary_stem", ac.INST_STEM
         )
@@ -1237,12 +1239,14 @@ class ProcessingWorker(QObject):
 
                         # Store for ensemble combination
                         all_outputs_by_stem[stem_name].append(stem_audio)
-                        
+
                         # Save individual file (will be kept or deleted later based on save_all_outputs)
                         # Use the same format as the ensemble output
-                        save_format = getattr(self.model_data, "save_format", "WAV").upper()
+                        save_format = getattr(
+                            self.model_data, "save_format", "WAV"
+                        ).upper()
                         file_ext = save_format.lower()
-                        
+
                         cleaned_model_name = self._clean_model_name_for_filename(
                             member_model_data.model_basename
                         )
@@ -1292,7 +1296,7 @@ class ProcessingWorker(QObject):
                                 f"❌ Error saving individual output {individual_output_filename}: {save_error}",
                                 "",
                             )
-                        
+
                         self._write_to_console(
                             f"  ✓ Added {stem_name} to ensemble collection", ""
                         )
@@ -1321,7 +1325,9 @@ class ProcessingWorker(QObject):
 
         # Check if any stems have valid outputs (need at least 2 models producing the same stem)
         valid_stems = [
-            stem for stem in all_outputs_by_stem.keys() if len(all_outputs_by_stem[stem]) >= 2
+            stem
+            for stem in all_outputs_by_stem.keys()
+            if len(all_outputs_by_stem[stem]) >= 2
         ]
         if not valid_stems:
             self.processing_finished.emit(
@@ -1434,7 +1440,8 @@ class ProcessingWorker(QObject):
                             try:
                                 Path(individual_file).unlink()
                                 self._write_to_console(
-                                    f"  🗑️ Cleaned up ensemble source: {Path(individual_file).name}", ""
+                                    f"  🗑️ Cleaned up ensemble source: {Path(individual_file).name}",
+                                    "",
                                 )
                             except Exception:
                                 pass
@@ -1496,51 +1503,79 @@ class ProcessingWorker(QObject):
                 return None
 
             # Each model in the ensemble should respect its own stem settings.
-            
+
             # However, for ensemble mode, we need to translate the user's stem selection
             # (from the master model_data) to each individual model's stem configuration
-            master_is_primary_stem_only = getattr(self.model_data, 'is_primary_stem_only', False)
-            master_is_secondary_stem_only = getattr(self.model_data, 'is_secondary_stem_only', False)
-            
+            master_is_primary_stem_only = getattr(
+                self.model_data, "is_primary_stem_only", False
+            )
+            master_is_secondary_stem_only = getattr(
+                self.model_data, "is_secondary_stem_only", False
+            )
+
             if master_is_primary_stem_only or master_is_secondary_stem_only:
                 # User selected either "Vocals Only" or "Instruments Only"
                 # We need to determine what stem type the user wants
-                ensemble_primary_stem = getattr(self.model_data, "ensemble_primary_stem", ac.VOCAL_STEM)
-                ensemble_secondary_stem = getattr(self.model_data, "ensemble_secondary_stem", ac.INST_STEM)
-                
+                ensemble_primary_stem = getattr(
+                    self.model_data, "ensemble_primary_stem", ac.VOCAL_STEM
+                )
+                ensemble_secondary_stem = getattr(
+                    self.model_data, "ensemble_secondary_stem", ac.INST_STEM
+                )
+
                 if master_is_primary_stem_only:
                     # User wants primary stem only (typically vocals)
                     target_stem_type = ensemble_primary_stem
-                    self._write_to_console(f"  🎯 User wants primary stem only: {target_stem_type}", "")
+                    self._write_to_console(
+                        f"  🎯 User wants primary stem only: {target_stem_type}", ""
+                    )
                 elif master_is_secondary_stem_only:
                     # User wants secondary stem only (typically instrumental)
-                    target_stem_type = ensemble_secondary_stem  
-                    self._write_to_console(f"  🎯 User wants secondary stem only: {target_stem_type}", "")
-                
+                    target_stem_type = ensemble_secondary_stem
+                    self._write_to_console(
+                        f"  🎯 User wants secondary stem only: {target_stem_type}", ""
+                    )
+
                 # Now configure this model's stem-only flags based on its stem assignments
-                model_primary_stem = getattr(model_data, 'primary_stem', ac.VOCAL_STEM)
-                model_secondary_stem = getattr(model_data, 'secondary_stem', ac.INST_STEM)
-                
-                self._write_to_console(f"  🎯 Model {model_data.model_basename}: primary={model_primary_stem}, secondary={model_secondary_stem}", "")
-                
+                model_primary_stem = getattr(model_data, "primary_stem", ac.VOCAL_STEM)
+                model_secondary_stem = getattr(
+                    model_data, "secondary_stem", ac.INST_STEM
+                )
+
+                self._write_to_console(
+                    f"  🎯 Model {model_data.model_basename}: primary={model_primary_stem}, secondary={model_secondary_stem}",
+                    "",
+                )
+
                 if target_stem_type == model_primary_stem:
                     # User wants this model's primary stem
                     model_data.is_primary_stem_only = True
                     model_data.is_secondary_stem_only = False
-                    self._write_to_console(f"  ✅ Configured model to output primary stem only: {model_primary_stem}", "")
+                    self._write_to_console(
+                        f"  ✅ Configured model to output primary stem only: {model_primary_stem}",
+                        "",
+                    )
                 elif target_stem_type == model_secondary_stem:
-                    # User wants this model's secondary stem  
+                    # User wants this model's secondary stem
                     model_data.is_primary_stem_only = False
                     model_data.is_secondary_stem_only = True
-                    self._write_to_console(f"  ✅ Configured model to output secondary stem only: {model_secondary_stem}", "")
+                    self._write_to_console(
+                        f"  ✅ Configured model to output secondary stem only: {model_secondary_stem}",
+                        "",
+                    )
                 else:
                     # This model doesn't produce the stem the user wants - skip it
-                    self._write_to_console(f"  ⚠️ Model doesn't produce target stem {target_stem_type}, will output both stems", "")
+                    self._write_to_console(
+                        f"  ⚠️ Model doesn't produce target stem {target_stem_type}, will output both stems",
+                        "",
+                    )
                     model_data.is_primary_stem_only = False
                     model_data.is_secondary_stem_only = False
             else:
                 # User wants both stems - let model use its default settings
-                self._write_to_console(f"  🎯 User wants both stems - using model defaults", "")
+                self._write_to_console(
+                    "  🎯 User wants both stems - using model defaults", ""
+                )
 
             # Log the model's actual stem configuration for debugging
             self._write_to_console(

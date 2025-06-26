@@ -309,11 +309,11 @@ class TestEnsembleAdvancedDialog:
 
         dialog.set_available_models(models_by_type)
 
-        # With stem filtering enabled, test models that don't exist will be filtered out
-        # because they can't create valid ModelData instances
+        # With the new lightweight filtering, all models are assumed to be available
+        # for UI purposes, so none should be filtered out.
         assert (
-            dialog.available_models_list.count() == 0
-        )  # Models filtered out due to invalid ModelData
+            dialog.available_models_list.count() == 6
+        ), "All models should be displayed in the list"
 
         # Verify the models_by_type was stored correctly
         assert dialog._available_models_by_type == models_by_type
@@ -416,8 +416,8 @@ class TestEnsembleAdvancedDialog:
 
     @patch("builtins.open", new_callable=mock_open)
     @patch("uvr_pyside6_ui.ui.ensemble_advanced_dialog.QInputDialog.getText")
-    @patch("uvr_pyside6_ui.ui.ensemble_advanced_dialog.QMessageBox.exec")
-    def test_save_ensemble_success(self, mock_msg_exec, mock_input, mock_open, qapp):
+    @patch("uvr_pyside6_ui.ui.ensemble_advanced_dialog.QMessageBox.information")
+    def test_save_ensemble_success(self, mock_msg_info, mock_input, mock_open, qapp):
         """Test successful ensemble saving."""
         current_settings = {
             "ensemble_main_stem_pair": "Vocals/Instrumental",
@@ -446,12 +446,12 @@ class TestEnsembleAdvancedDialog:
         assert final_call[0][1] == "w"  # Write mode
 
         mock_input.assert_called_once()
-        mock_msg_exec.assert_called_once()  # Success message
+        mock_msg_info.assert_called_once()  # Assert that the non-blocking method was called
 
-    @patch("uvr_pyside6_ui.ui.ensemble_advanced_dialog.QMessageBox")
-    def test_save_ensemble_no_models(self, mock_msg_box, qapp):
+    @patch("uvr_pyside6_ui.ui.ensemble_advanced_dialog.QMessageBox.warning")
+    def test_save_ensemble_no_models(self, mock_msg_warning, qapp):
         """Test save ensemble with no models selected."""
-        mock_msg_box.return_value = Mock()
+        mock_msg_warning.return_value = Mock()
 
         dialog = EnsembleAdvancedDialog({})
         dialog._currently_selected_models = []
@@ -459,14 +459,16 @@ class TestEnsembleAdvancedDialog:
         dialog._save_ensemble()
 
         # Should show warning message
-        mock_msg_box.assert_called_once()
+        mock_msg_warning.assert_called_once()
 
     @patch("uvr_pyside6_ui.ui.ensemble_advanced_dialog.QInputDialog")
-    @patch("uvr_pyside6_ui.ui.ensemble_advanced_dialog.QMessageBox")
-    def test_save_ensemble_invalid_name(self, mock_msg_box, mock_input_dialog, qapp):
+    @patch("uvr_pyside6_ui.ui.ensemble_advanced_dialog.QMessageBox.warning")
+    def test_save_ensemble_invalid_name(
+        self, mock_msg_warning, mock_input_dialog, qapp
+    ):
         """Test save ensemble with invalid name."""
         mock_input_dialog.getText.return_value = ("Invalid@Name!", True)
-        mock_msg_box.return_value = Mock()
+        mock_msg_warning.return_value = Mock()
 
         dialog = EnsembleAdvancedDialog({})
         dialog._currently_selected_models = ["Model1", "Model2"]
@@ -474,7 +476,7 @@ class TestEnsembleAdvancedDialog:
         dialog._save_ensemble()
 
         # Should show invalid name warning
-        mock_msg_box.assert_called_once()
+        mock_msg_warning.assert_called_once()
 
     def test_apply_settings(self, qapp):
         """Test applying settings."""

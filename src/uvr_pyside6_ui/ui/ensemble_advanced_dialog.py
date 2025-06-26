@@ -333,6 +333,7 @@ class EnsembleAdvancedDialog(QDialog):
                 display_models.append(model_entry)
         try:
             import natsort
+
             unique_display_models = natsort.natsorted(
                 list(set(display_models)), key=str.lower
             )
@@ -496,7 +497,7 @@ class EnsembleAdvancedDialog(QDialog):
                     self.saved_ensembles_combo.addItem(display_name)
                 except Exception as e:
                     logger.warning(f"Error loading ensemble {json_file}: {e}")
-                    
+
     def _show_message_box(self, title: str, text: str, icon: QMessageBox.Icon):
         """Displays a standardized message box."""
         msg_box = QMessageBox(self)
@@ -513,7 +514,11 @@ class EnsembleAdvancedDialog(QDialog):
             return
         ensemble_file = f"config/saved_ensembles/{ensemble_name.replace(' ', '_')}.json"
         if not os.path.exists(ensemble_file):
-            self._show_message_box("Error", f"Ensemble file not found: {ensemble_name}", QMessageBox.Warning)
+            self._show_message_box(
+                "Error",
+                f"Ensemble file not found: {ensemble_name}",
+                QMessageBox.Warning,
+            )
             return
         try:
             with open(ensemble_file, "r") as f:
@@ -530,20 +535,30 @@ class EnsembleAdvancedDialog(QDialog):
             self.algorithm_combo.setCurrentText(self._current_algorithm)
             self._update_model_lists()
             self._update_selected_models()
-            self._show_message_box("Success", f"Loaded ensemble: {ensemble_name}", QMessageBox.Information)
+            self._show_message_box(
+                "Success", f"Loaded ensemble: {ensemble_name}", QMessageBox.Information
+            )
         except Exception as e:
-            self._show_message_box("Error", f"Failed to load ensemble: {e}", QMessageBox.Critical)
+            self._show_message_box(
+                "Error", f"Failed to load ensemble: {e}", QMessageBox.Critical
+            )
 
     def _save_ensemble(self):
         """Save current ensemble configuration."""
         if not self._currently_selected_models:
-            self._show_message_box("Warning", "No models selected for ensemble.", QMessageBox.Warning)
+            self._show_message_box(
+                "Warning", "No models selected for ensemble.", QMessageBox.Warning
+            )
             return
         name, ok = QInputDialog.getText(self, "Save Ensemble", "Enter ensemble name:")
         if not ok or not name.strip():
             return
         if not all(c.isalnum() or c in " -_" for c in name):
-            self._show_message_box("Invalid Name", "Only letters, numbers, spaces, and dashes allowed.", QMessageBox.Warning)
+            self._show_message_box(
+                "Invalid Name",
+                "Only letters, numbers, spaces, and dashes allowed.",
+                QMessageBox.Warning,
+            )
             return
         name = name.strip()
         ensemble_data = {
@@ -557,31 +572,50 @@ class EnsembleAdvancedDialog(QDialog):
         try:
             with open(ensemble_file, "w") as f:
                 json.dump(ensemble_data, f, indent=2)
-            self._show_message_box("Success", f"Ensemble saved as: {name}", QMessageBox.Information)
+            self._show_message_box(
+                "Success", f"Ensemble saved as: {name}", QMessageBox.Information
+            )
             self._load_saved_ensembles()
         except Exception as e:
-            self._show_message_box("Error", f"Failed to save ensemble: {e}", QMessageBox.Critical)
+            self._show_message_box(
+                "Error", f"Failed to save ensemble: {e}", QMessageBox.Critical
+            )
 
     def _delete_ensemble(self):
         """Delete selected ensemble."""
         ensemble_name = self.saved_ensembles_combo.currentText()
         if ensemble_name == "--- Select Saved Ensemble ---":
-            self._show_message_box("Warning", "Please select an ensemble to delete.", QMessageBox.Warning)
+            self._show_message_box(
+                "Warning", "Please select an ensemble to delete.", QMessageBox.Warning
+            )
             return
-        reply = QMessageBox.question(self, "Confirm Delete", 
-                                     f"Are you sure you want to delete the ensemble '{ensemble_name}'?",
-                                     QMessageBox.Yes | QMessageBox.No)
+        reply = QMessageBox.question(
+            self,
+            "Confirm Delete",
+            f"Are you sure you want to delete the ensemble '{ensemble_name}'?",
+            QMessageBox.Yes | QMessageBox.No,
+        )
         if reply == QMessageBox.Yes:
-            ensemble_file = f"config/saved_ensembles/{ensemble_name.replace(' ', '_')}.json"
+            ensemble_file = (
+                f"config/saved_ensembles/{ensemble_name.replace(' ', '_')}.json"
+            )
             try:
                 if os.path.exists(ensemble_file):
                     os.remove(ensemble_file)
-                    self._show_message_box("Success", f"Deleted ensemble: {ensemble_name}", QMessageBox.Information)
+                    self._show_message_box(
+                        "Success",
+                        f"Deleted ensemble: {ensemble_name}",
+                        QMessageBox.Information,
+                    )
                     self._load_saved_ensembles()
                 else:
-                    self._show_message_box("Error", "Ensemble file not found.", QMessageBox.Warning)
+                    self._show_message_box(
+                        "Error", "Ensemble file not found.", QMessageBox.Warning
+                    )
             except Exception as e:
-                self._show_message_box("Error", f"Failed to delete ensemble: {e}", QMessageBox.Critical)
+                self._show_message_box(
+                    "Error", f"Failed to delete ensemble: {e}", QMessageBox.Critical
+                )
 
     def _apply_settings(self):
         """Apply current settings without closing dialog."""

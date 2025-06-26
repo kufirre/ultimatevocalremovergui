@@ -164,16 +164,39 @@ class SeparateDemucsLogic(SeparatorAttributesLogic):
                             )
                             logger.info(f"  - device: {self.device}")
 
-                            processed_sources_tensor = demucs_apply_model(
-                                self.model_run_instance,
-                                mix_tensor_input,
-                                md.shifts,
-                                md.is_split_mode,
-                                md.overlap,
-                                static_shifts=1 if md.shifts == 0 else md.shifts,
-                                set_progress_bar=self.set_progress_bar,
-                                device=self.device,
-                            )
+                            try:
+                                processed_sources_tensor = demucs_apply_model(
+                                    self.model_run_instance,
+                                    mix_tensor_input,
+                                    md.shifts,
+                                    md.is_split_mode,
+                                    md.overlap,
+                                    static_shifts=1 if md.shifts == 0 else md.shifts,
+                                    set_progress_bar=self.set_progress_bar,
+                                    device=self.device,
+                                )
+                            except ValueError as e:
+                                if (
+                                    not md.is_split_mode
+                                    and "longer than training length" in str(e)
+                                ):
+                                    logger.warning(
+                                        "Audio length exceeds Demucs training length; automatically retrying with split_mode=True"
+                                    )
+                                    processed_sources_tensor = demucs_apply_model(
+                                        self.model_run_instance,
+                                        mix_tensor_input,
+                                        md.shifts,
+                                        True,  # Force split mode on retry
+                                        md.overlap,
+                                        static_shifts=(
+                                            1 if md.shifts == 0 else md.shifts
+                                        ),
+                                        set_progress_bar=self.set_progress_bar,
+                                        device=self.device,
+                                    )
+                                else:
+                                    raise
 
                         logger.info("demucs_apply_model completed successfully")
                         if processed_sources_tensor is not None:

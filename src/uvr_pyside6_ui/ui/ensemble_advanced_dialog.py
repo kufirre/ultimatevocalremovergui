@@ -2,7 +2,6 @@
 
 import json
 import os
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -24,101 +23,9 @@ from PySide6.QtWidgets import (
 
 from ..core import app_constants as ac
 from ..core.logger_utils import get_logger
+from ..core.model_utils import LightweightModelInfo, ModelInferenceEngine
 
 logger = get_logger(__name__)
-
-
-@dataclass
-class LightweightModelInfo:
-    """Lightweight model information for ensemble filtering without file I/O."""
-
-    model_name: str
-    model_type: str
-    model_status: bool = True
-    primary_stem: str = ac.VOCAL_STEM
-    secondary_stem: str = ac.INST_STEM
-    process_method: str = ac.VR_ARCH_TYPE
-    mdx_model_stems: Optional[List[str]] = None
-    mdx_stem_count: int = 2
-    demucs_source_list: Optional[List[str]] = None
-    demucs_stem_count: int = 4
-
-
-class ModelInferenceEngine:
-    """Engine for inferring model properties from names and types."""
-
-    @staticmethod
-    def _infer_primary_stem_from_name(model_name: str) -> str:
-        """Infer primary stem from model name patterns."""
-        name_lower = model_name.lower()
-        if any(pattern in name_lower for pattern in ["inst", "instrumental", "music"]):
-            return ac.INST_STEM
-        if any(pattern in name_lower for pattern in ["bass"]):
-            return ac.BASS_STEM
-        if any(pattern in name_lower for pattern in ["drum"]):
-            return ac.DRUM_STEM
-        if any(pattern in name_lower for pattern in ["other"]):
-            return ac.OTHER_STEM
-        return ac.VOCAL_STEM
-
-    @staticmethod
-    def _infer_secondary_stem(primary_stem: str) -> str:
-        """Get the secondary stem for a given primary stem."""
-        return ac.secondary_stem(primary_stem)
-
-    @staticmethod
-    def _infer_mdx_stems(model_name: str) -> list:
-        """Infer MDX model stems from name patterns."""
-        name_lower = model_name.lower()
-        if any(pattern in name_lower for pattern in ["4stem", "4_stem", "multi"]):
-            return [ac.VOCAL_STEM, ac.DRUM_STEM, ac.BASS_STEM, ac.OTHER_STEM]
-        primary_stem = ModelInferenceEngine._infer_primary_stem_from_name(model_name)
-        return [primary_stem, ModelInferenceEngine._infer_secondary_stem(primary_stem)]
-
-    @staticmethod
-    def _infer_demucs_sources(model_name: str) -> list:
-        """Infer Demucs source list from name patterns."""
-        name_lower = model_name.lower()
-        if any(pattern in name_lower for pattern in ["6stem", "6_stem"]):
-            return [
-                ac.VOCAL_STEM,
-                ac.DRUM_STEM,
-                ac.BASS_STEM,
-                ac.OTHER_STEM,
-                "piano",
-                "guitar",
-            ]
-        if any(pattern in name_lower for pattern in ["2stem", "2_stem", "vocals"]):
-            return [ac.VOCAL_STEM, ac.INST_STEM]
-        return [ac.VOCAL_STEM, ac.DRUM_STEM, ac.BASS_STEM, ac.OTHER_STEM]
-
-    @classmethod
-    def create_lightweight_model_info(
-        cls, model_name: str, model_type: str
-    ) -> LightweightModelInfo:
-        """Create lightweight model info for the given model."""
-        primary_stem = cls._infer_primary_stem_from_name(model_name)
-        secondary_stem = cls._infer_secondary_stem(primary_stem)
-
-        info = LightweightModelInfo(
-            model_name=model_name,
-            model_type=model_type,
-            primary_stem=primary_stem,
-            secondary_stem=secondary_stem,
-        )
-
-        if model_type == ac.VR_ARCH_MODELS_KEY:
-            info.process_method = ac.VR_ARCH_TYPE
-        elif model_type == ac.MDX_NET_MODELS_KEY:
-            info.process_method = ac.MDX_ARCH_TYPE
-            info.mdx_model_stems = cls._infer_mdx_stems(model_name)
-            info.mdx_stem_count = len(info.mdx_model_stems)
-        elif model_type == ac.DEMUCS_MODELS_KEY:
-            info.process_method = ac.DEMUCS_ARCH_TYPE
-            info.demucs_source_list = cls._infer_demucs_sources(model_name)
-            info.demucs_stem_count = len(info.demucs_source_list)
-
-        return info
 
 
 class EnsembleAdvancedDialog(QDialog):
@@ -353,8 +260,6 @@ class EnsembleAdvancedDialog(QDialog):
 
     def _initialize_data(self):
         """Initialize data and UI state."""
-        # Load available models (this would need to be passed from main app)
-        # For now, we'll use placeholder data
         self._load_available_models()
         self._update_algorithm_options()
         self._load_saved_ensembles()
@@ -364,7 +269,6 @@ class EnsembleAdvancedDialog(QDialog):
     def _load_available_models(self):
         """Load available models from the adapter."""
         # This should be populated by the main application
-        # For now, using placeholder data
         self._available_models_by_type = {
             ac.VR_ARCH_MODELS_KEY: ["VR Model 1", "VR Model 2"],
             ac.MDX_NET_MODELS_KEY: ["MDX Model 1", "MDX Model 2"],
@@ -376,8 +280,6 @@ class EnsembleAdvancedDialog(QDialog):
         self._current_main_stem_pair = stem_pair
         self._update_algorithm_options()
         self._update_model_lists()
-
-        # Filter currently selected models to only include compatible ones
         filtered_models = self._filter_models_by_stem_compatibility(stem_pair)
         display_models = []
         for model_entry in filtered_models:
@@ -386,8 +288,6 @@ class EnsembleAdvancedDialog(QDialog):
                 display_models.append(model_name)
             else:
                 display_models.append(model_entry)
-
-        # Remove incompatible models from current selection
         compatible_selected_models = [
             model
             for model in self._currently_selected_models
@@ -405,10 +305,8 @@ class EnsembleAdvancedDialog(QDialog):
         self.algorithm_combo.clear()
 
         if self._current_main_stem_pair == "4 Stem Ensemble":
-            # 4-stem ensembles use simpler algorithm options
             algorithms = ac.ENSEMBLE_ALGORITHM_4_STEM_OPTIONS
         else:
-            # Standard 2-stem ensembles use full algorithm options
             algorithms = ac.ENSEMBLE_ALGORITHM_OPTIONS
 
         self.algorithm_combo.addItems(algorithms)
@@ -423,13 +321,9 @@ class EnsembleAdvancedDialog(QDialog):
     def _update_model_lists(self):
         """Update available models list based on stem pair selection."""
         self.available_models_list.clear()
-
-        # Apply stem filtering based on the selected stem pair
         filtered_models = self._filter_models_by_stem_compatibility(
             self._current_main_stem_pair
         )
-
-        # Extract display names from the filtered models
         display_models = []
         for model_entry in filtered_models:
             if ":" in model_entry:
@@ -437,46 +331,33 @@ class EnsembleAdvancedDialog(QDialog):
                 display_models.append(model_name)
             else:
                 display_models.append(model_entry)
-
-        # Sort naturally and remove duplicates
-        import natsort
-
-        unique_display_models = natsort.natsorted(
-            list(set(display_models)), key=str.lower
-        )
-
+        try:
+            import natsort
+            unique_display_models = natsort.natsorted(
+                list(set(display_models)), key=str.lower
+            )
+        except ImportError:
+            unique_display_models = sorted(list(set(display_models)), key=str.lower)
         for model in unique_display_models:
             self.available_models_list.addItem(model)
 
     def _filter_models_by_stem_compatibility(self, stem_pair: str):
         """Filter models to only include those compatible with the selected stem pair."""
-        # Parse stem pair to get primary and secondary stems
         primary_stem, secondary_stem = self._parse_stem_pair(stem_pair)
-
-        # Determine filtering mode based on stem pair
         is_4_stem_check = stem_pair == "4 Stem Ensemble"
         is_multi_stem = stem_pair == "Multi-stem Ensemble"
-
         filtered_models = []
-
-        # Get all available models with their metadata
         for model_type, models in self._available_models_by_type.items():
             for model_name in models:
                 try:
-                    # Create lightweight model info for filtering
                     model_info = self._get_model_data_for_filtering(
                         model_name, model_type
                     )
-
                     if not model_info or not model_info.model_status:
                         continue
-
-                    # Apply the filtering logic
                     if is_multi_stem:
-                        # Multi-stem ensemble: include all models
                         filtered_models.append(f"{model_type}:{model_name}")
                     elif is_4_stem_check:
-                        # 4-stem ensemble: only models with 4+ stems
                         if (
                             hasattr(model_info, "demucs_stem_count")
                             and model_info.demucs_stem_count == 4
@@ -486,24 +367,21 @@ class EnsembleAdvancedDialog(QDialog):
                         ):
                             filtered_models.append(f"{model_type}:{model_name}")
                     else:
-                        # Standard 2-stem filtering using matches_stem logic
                         if self._matches_stem(model_info, primary_stem, secondary_stem):
                             filtered_models.append(f"{model_type}:{model_name}")
-
                 except Exception as e:
                     logger.debug(
                         f"Error checking model compatibility for {model_name}: {e}"
                     )
                     continue
-
         return filtered_models
 
     def _parse_stem_pair(self, stem_pair: str):
         """Parse stem pair string to get primary and secondary stems."""
         if stem_pair == "4 Stem Ensemble":
-            return ac.VOCAL_STEM, ac.INST_STEM  # Default for 4-stem
+            return ac.VOCAL_STEM, ac.INST_STEM
         elif stem_pair == "Multi-stem Ensemble":
-            return ac.VOCAL_STEM, ac.INST_STEM  # Default for multi-stem
+            return ac.VOCAL_STEM, ac.INST_STEM
         elif stem_pair == "Vocals/Instrumental":
             return ac.VOCAL_STEM, ac.INST_STEM
         elif stem_pair == "Other/No Other":
@@ -541,7 +419,7 @@ class EnsembleAdvancedDialog(QDialog):
     def _get_model_data_for_filtering(
         self, model_name: str, model_type: str
     ) -> Optional[LightweightModelInfo]:
-        """Create lightweight model compatibility checker without full ModelData instantiation."""
+        """Create lightweight model compatibility checker using the centralized engine."""
         try:
             return ModelInferenceEngine.create_lightweight_model_info(
                 model_name, model_type
@@ -555,20 +433,15 @@ class EnsembleAdvancedDialog(QDialog):
     def _matches_stem(self, model_info, primary_stem: str, secondary_stem: str) -> bool:
         """Determines if a model is compatible with the selected stem pair."""
         try:
-            # PRIMARY MATCH: Check if model's primary stem matches either primary or secondary stem
             primary_match = False
             if hasattr(model_info, "primary_stem") and model_info.primary_stem:
                 primary_match = model_info.primary_stem in {
                     primary_stem,
                     secondary_stem,
                 }
-
-            # MDX STEM MATCH: Check MDX stem compatibility
             mdx_stem_match = False
             if hasattr(model_info, "mdx_model_stems") and model_info.mdx_model_stems:
                 mdx_stem_match = primary_stem in model_info.mdx_model_stems
-
-            # DEMUCS SOURCE MATCH: Check Demucs source compatibility
             demucs_source_match = False
             if (
                 hasattr(model_info, "demucs_source_list")
@@ -577,9 +450,7 @@ class EnsembleAdvancedDialog(QDialog):
                 demucs_source_match = primary_stem.lower() in [
                     s.lower() for s in model_info.demucs_source_list
                 ]
-
             return primary_match or mdx_stem_match or demucs_source_match
-
         except Exception as e:
             logger.debug(f"Error in matches_stem check: {e}")
             return False
@@ -597,7 +468,6 @@ class EnsembleAdvancedDialog(QDialog):
             model_name = item.text()
             if model_name not in self._currently_selected_models:
                 self._currently_selected_models.append(model_name)
-
         self._update_selected_models()
 
     def _remove_models_from_ensemble(self):
@@ -607,7 +477,6 @@ class EnsembleAdvancedDialog(QDialog):
             model_name = item.text()
             if model_name in self._currently_selected_models:
                 self._currently_selected_models.remove(model_name)
-
         self._update_selected_models()
 
     def _clear_selection(self):
@@ -619,7 +488,6 @@ class EnsembleAdvancedDialog(QDialog):
         """Load saved ensembles from filesystem."""
         self.saved_ensembles_combo.clear()
         self.saved_ensembles_combo.addItem("--- Select Saved Ensemble ---")
-
         ensemble_cache_dir = Path("config/saved_ensembles")
         if ensemble_cache_dir.exists():
             for json_file in ensemble_cache_dir.glob("*.json"):
@@ -628,24 +496,28 @@ class EnsembleAdvancedDialog(QDialog):
                     self.saved_ensembles_combo.addItem(display_name)
                 except Exception as e:
                     logger.warning(f"Error loading ensemble {json_file}: {e}")
+                    
+    def _show_message_box(self, title: str, text: str, icon: QMessageBox.Icon):
+        """Displays a standardized message box."""
+        msg_box = QMessageBox(self)
+        msg_box.setWindowIcon(QIcon(ac.QRC_ICON_PATH))
+        msg_box.setWindowTitle(title)
+        msg_box.setText(text)
+        msg_box.setIcon(icon)
+        msg_box.exec()
 
     def _load_ensemble(self):
         """Load selected ensemble configuration."""
         ensemble_name = self.saved_ensembles_combo.currentText()
         if ensemble_name == "--- Select Saved Ensemble ---":
             return
-
         ensemble_file = f"config/saved_ensembles/{ensemble_name.replace(' ', '_')}.json"
         if not os.path.exists(ensemble_file):
-            QMessageBox.warning(
-                self, "Error", f"Ensemble file not found: {ensemble_name}"
-            )
+            self._show_message_box("Error", f"Ensemble file not found: {ensemble_name}", QMessageBox.Warning)
             return
-
         try:
             with open(ensemble_file, "r") as f:
                 ensemble_data = json.load(f)
-
             self._current_main_stem_pair = ensemble_data.get(
                 "ensemble_main_stem", self._current_main_stem_pair
             )
@@ -653,89 +525,63 @@ class EnsembleAdvancedDialog(QDialog):
                 "ensemble_type", self._current_algorithm
             )
             self._currently_selected_models = ensemble_data.get("selected_models", [])
-
-            # Update UI
             self.stem_pair_combo.setCurrentText(self._current_main_stem_pair)
             self._update_algorithm_options()
             self.algorithm_combo.setCurrentText(self._current_algorithm)
             self._update_model_lists()
             self._update_selected_models()
-
-            QMessageBox.information(
-                self, "Success", f"Loaded ensemble: {ensemble_name}"
-            )
-
+            self._show_message_box("Success", f"Loaded ensemble: {ensemble_name}", QMessageBox.Information)
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to load ensemble: {e}")
+            self._show_message_box("Error", f"Failed to load ensemble: {e}", QMessageBox.Critical)
 
     def _save_ensemble(self):
         """Save current ensemble configuration."""
         if not self._currently_selected_models:
-            QMessageBox.warning(self, "Warning", "No models selected for ensemble.")
+            self._show_message_box("Warning", "No models selected for ensemble.", QMessageBox.Warning)
             return
-
         name, ok = QInputDialog.getText(self, "Save Ensemble", "Enter ensemble name:")
         if not ok or not name.strip():
             return
-
         if not all(c.isalnum() or c in " -_" for c in name):
-            QMessageBox.warning(
-                self,
-                "Invalid Name",
-                "Only letters, numbers, spaces, and dashes allowed.",
-            )
+            self._show_message_box("Invalid Name", "Only letters, numbers, spaces, and dashes allowed.", QMessageBox.Warning)
             return
-
         name = name.strip()
         ensemble_data = {
             "ensemble_main_stem": self._current_main_stem_pair,
             "ensemble_type": self._current_algorithm,
             "selected_models": self._currently_selected_models.copy(),
         }
-
         ensemble_dir = Path("config/saved_ensembles")
         ensemble_dir.mkdir(parents=True, exist_ok=True)
         ensemble_file = ensemble_dir / f"{name.replace(' ', '_')}.json"
-
         try:
             with open(ensemble_file, "w") as f:
                 json.dump(ensemble_data, f, indent=2)
-
-            QMessageBox.information(self, "Success", f"Ensemble saved as: {name}")
+            self._show_message_box("Success", f"Ensemble saved as: {name}", QMessageBox.Information)
             self._load_saved_ensembles()
-
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to save ensemble: {e}")
+            self._show_message_box("Error", f"Failed to save ensemble: {e}", QMessageBox.Critical)
 
     def _delete_ensemble(self):
         """Delete selected ensemble."""
         ensemble_name = self.saved_ensembles_combo.currentText()
         if ensemble_name == "--- Select Saved Ensemble ---":
-            QMessageBox.warning(self, "Warning", "Please select an ensemble to delete.")
+            self._show_message_box("Warning", "Please select an ensemble to delete.", QMessageBox.Warning)
             return
-
-        reply = QMessageBox.question(
-            self,
-            "Confirm Delete",
-            f"Are you sure you want to delete the ensemble '{ensemble_name}'?",
-            QMessageBox.Yes | QMessageBox.No,
-        )
-
+        reply = QMessageBox.question(self, "Confirm Delete", 
+                                     f"Are you sure you want to delete the ensemble '{ensemble_name}'?",
+                                     QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
-            ensemble_file = (
-                f"config/saved_ensembles/{ensemble_name.replace(' ', '_')}.json"
-            )
+            ensemble_file = f"config/saved_ensembles/{ensemble_name.replace(' ', '_')}.json"
             try:
                 if os.path.exists(ensemble_file):
                     os.remove(ensemble_file)
-                    QMessageBox.information(
-                        self, "Success", f"Deleted ensemble: {ensemble_name}"
-                    )
+                    self._show_message_box("Success", f"Deleted ensemble: {ensemble_name}", QMessageBox.Information)
                     self._load_saved_ensembles()
                 else:
-                    QMessageBox.warning(self, "Error", "Ensemble file not found.")
+                    self._show_message_box("Error", "Ensemble file not found.", QMessageBox.Warning)
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to delete ensemble: {e}")
+                self._show_message_box("Error", f"Failed to delete ensemble: {e}", QMessageBox.Critical)
 
     def _apply_settings(self):
         """Apply current settings without closing dialog."""

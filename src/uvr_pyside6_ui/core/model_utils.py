@@ -4,6 +4,7 @@ This module provides shared functionality without circular dependencies.
 """
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
@@ -12,14 +13,103 @@ from .logger_utils import get_logger
 
 logger = get_logger(__name__)
 
-# Import ModelData here to avoid in-method imports
-# Note: This may cause circular import in some cases, in which case the import
-# should be moved back inside the function
 try:
     from .model_data import ModelData
 except ImportError:
-    # If circular import occurs, we'll handle it in the function
     ModelData = None
+
+
+@dataclass
+class LightweightModelInfo:
+    """Lightweight model information for ensemble filtering without file I/O."""
+
+    model_name: str
+    model_type: str
+    model_status: bool = True
+    primary_stem: str = ac.VOCAL_STEM
+    secondary_stem: str = ac.INST_STEM
+    process_method: str = ac.VR_ARCH_TYPE
+    mdx_model_stems: Optional[List[str]] = None
+    mdx_stem_count: int = 2
+    demucs_source_list: Optional[List[str]] = None
+    demucs_stem_count: int = 4
+
+
+class ModelInferenceEngine:
+    """Engine for inferring model properties from names and types."""
+
+    @staticmethod
+    def _infer_primary_stem_from_name(model_name: str) -> str:
+        """Infer primary stem from model name patterns."""
+        name_lower = model_name.lower()
+        if any(pattern in name_lower for pattern in ["inst", "instrumental", "music"]):
+            return ac.INST_STEM
+        if any(pattern in name_lower for pattern in ["bass"]):
+            return ac.BASS_STEM
+        if any(pattern in name_lower for pattern in ["drum"]):
+            return ac.DRUM_STEM
+        if any(pattern in name_lower for pattern in ["other"]):
+            return ac.OTHER_STEM
+        return ac.VOCAL_STEM
+
+    @staticmethod
+    def _infer_secondary_stem(primary_stem: str) -> str:
+        """Get the secondary stem for a given primary stem."""
+        return ac.secondary_stem(primary_stem)
+
+    @staticmethod
+    def _infer_mdx_stems(model_name: str) -> list:
+        """Infer MDX model stems from name patterns."""
+        name_lower = model_name.lower()
+        if any(pattern in name_lower for pattern in ["4stem", "4_stem", "multi"]):
+            return [ac.VOCAL_STEM, ac.DRUM_STEM, ac.BASS_STEM, ac.OTHER_STEM]
+        primary_stem = ModelInferenceEngine._infer_primary_stem_from_name(model_name)
+        return [primary_stem, ModelInferenceEngine._infer_secondary_stem(primary_stem)]
+
+    @staticmethod
+    def _infer_demucs_sources(model_name: str) -> list:
+        """Infer Demucs source list from name patterns."""
+        name_lower = model_name.lower()
+        if any(pattern in name_lower for pattern in ["6stem", "6_stem"]):
+            return [
+                ac.VOCAL_STEM,
+                ac.DRUM_STEM,
+                ac.BASS_STEM,
+                ac.OTHER_STEM,
+                "piano",
+                "guitar",
+            ]
+        if any(pattern in name_lower for pattern in ["2stem", "2_stem", "vocals"]):
+            return [ac.VOCAL_STEM, ac.INST_STEM]
+        return [ac.VOCAL_STEM, ac.DRUM_STEM, ac.BASS_STEM, ac.OTHER_STEM]
+
+    @classmethod
+    def create_lightweight_model_info(
+        cls, model_name: str, model_type: str
+    ) -> "LightweightModelInfo":
+        """Create lightweight model info for the given model."""
+        primary_stem = cls._infer_primary_stem_from_name(model_name)
+        secondary_stem = cls._infer_secondary_stem(primary_stem)
+
+        info = LightweightModelInfo(
+            model_name=model_name,
+            model_type=model_type,
+            primary_stem=primary_stem,
+            secondary_stem=secondary_stem,
+        )
+
+        if model_type == ac.VR_ARCH_MODELS_KEY:
+            info.process_method = ac.VR_ARCH_TYPE
+        elif model_type == ac.MDX_NET_MODELS_KEY:
+            info.process_method = ac.MDX_ARCH_TYPE
+            info.mdx_model_stems = cls._infer_mdx_stems(model_name)
+            info.mdx_stem_count = len(info.mdx_model_stems)
+        elif model_type == ac.DEMUCS_MODELS_KEY:
+            info.process_method = ac.DEMUCS_ARCH_TYPE
+            info.demucs_source_list = cls._infer_demucs_sources(model_name)
+            info.demucs_stem_count = len(info.demucs_source_list)
+
+        return info
 
 
 def get_project_root() -> Path:

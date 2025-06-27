@@ -24,8 +24,6 @@ class ModelSelectionView(QWidget):
     process_method_changed = Signal(str)
     model_selected_by_user = Signal(str)
 
-    # ensemble_mode_changed = Signal(bool) # Removed, as checkbox is removed
-
     def __init__(self, parent=None):
         super().__init__(parent)
         self.model_combo_model = QStandardItemModel(self)

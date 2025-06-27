@@ -106,7 +106,6 @@ class ProcessingSettingsView(QWidget):
         self.show()
         self.setMinimumHeight(120)
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
-        # print("ProcessingSettingsView Initialized with QGridLayout.") # Debug print removed
 
     # --- Slots (Called by Presenter) ---
     @Slot(bool)

@@ -1157,9 +1157,7 @@ class ModelData:
                                 f"Found parameters for hash {self.model_hash} in master JSON."
                             )
                             # Optionally, create the specific hash.json file here for future faster lookups
-                            # with open(hash_json_path, 'w', encoding='utf-8') as f_hash_specific:
-                            #    json.dump(model_params_json, f_hash_specific, indent=4)
-                            # print(f"Created specific hash JSON: {hash_json_path}")
+                            # (Hash-specific JSON creation logic can be implemented here)
                         else:
                             logger.warning(
                                 f"Warning: Hash {self.model_hash} not found in master JSON: {master_json_path}"

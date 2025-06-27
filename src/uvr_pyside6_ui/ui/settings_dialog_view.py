@@ -29,8 +29,6 @@ class SettingsDialogView(QDialog):
     download_button_clicked = Signal()
     download_stop_requested = Signal()
 
-    # download_model_requested = Signal(str, str) # This was an example, presenter connects to button directly
-
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Settings")

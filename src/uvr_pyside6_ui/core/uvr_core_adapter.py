@@ -45,13 +45,8 @@ class UVRCoreAdapter(QObject):
         if self.processing_thread:
             # Ensure signals are disconnected if necessary, though deleteLater should handle much of this.
             # For safety, explicitly disconnect signals we connected if problems persist.
-            # self.processing_thread.progress_updated.disconnect(self.progress_updated)
-            # self.processing_thread.processing_finished.disconnect(self.processing_finished)
-            # self.processing_thread.finished.disconnect(self._on_processing_thread_finished)
-            # self.processing_thread.finished.connect(self.processing_thread.deleteLater) # Already connected
             pass
         self.processing_thread = None
-        # print("Processing thread has finished and reference cleared.")
 
     def set_vip_link(self, vip_link: str | None):
         """Set the VIP download link for premium models."""
@@ -611,7 +606,6 @@ class UVRCoreAdapter(QObject):
             try:
                 with open(mapper_file_path, encoding="utf-8") as f:
                     mapper_content = json.load(f)
-                    # print(f"Successfully loaded name mapper from: {mapper_file_path}")
                     return mapper_content
             except json.JSONDecodeError as e:
                 logger.error(

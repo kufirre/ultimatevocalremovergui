@@ -5,6 +5,7 @@ import platform
 from pathlib import Path
 from typing import Optional
 
+
 # --- Online Catalog and Cache ---
 DOWNLOAD_CHECKS_URL = "https://raw.githubusercontent.com/TRvlvr/application_data/main/filelists/download_checks.json"  # From UVR v5.6.0 constants
 MODEL_REPO_URL_BASE = "https://github.com/TRvlvr/model_repo/releases/download/all_public_uvr_models/"  # From UVR v5.6.0 constants
@@ -355,21 +356,19 @@ ERROR_MAPPER = {
 }
 
 # --- UI Message Placeholders (for console/logging in worker) ---
-# These are more for the worker's internal logging/progress reporting if it mimics original print statements.
+# These are more for the worker's internal logging/progress reporting
 # The GUI itself should use its own text management.
 SAVING_STEM_MESSAGE = ("Saving ", " stem...")
 DONE_MESSAGE = " Done!\n"
 INFERENCE_STEP_1_MESSAGE = "Running inference..."
 # Add other messages as needed, e.g.:
-# INFERENCE_STEP_2_SEC_MESSAGE_FORMAT = 'Loading secondary model ({process_method}: {model_basename})...'
+# (Additional message formats can be added here as needed)
 
 # --- Model File Extensions (already have some in DOWNLOADED_MODEL_PRIMARY_EXTENSIONS) ---
 ONNX_EXT = ".onnx"
 CKPT_EXT = ".ckpt"
 PTH_EXT = ".pth"
 YAML_EXT = ".yaml"
-# GZ_EXT = '.gz' # If needed for Demucs v1
-# TH_EXT = '.th' # If needed for Demucs v1
 
 # --- VR Model Specific ---
 # These might be better suited inside ModelData or VR specific logic if they vary per model
@@ -406,14 +405,9 @@ class DummyModelParameters:
                         json_params
                     )  # Simple update, might need deeper merge
             except Exception as e:
-                print(
-                    f"Warning: Could not load dummy model parameters from {model_path_or_json_str}: {e}"
-                )
+                pass
 
 
-# --- Ensure platform is imported if used by constants above ---
-import json  # For DummyModelParameters
-import platform
 
 # --- Settings File ---
 APP_SETTINGS_FILENAME = "uvr_pyside6_settings.json"

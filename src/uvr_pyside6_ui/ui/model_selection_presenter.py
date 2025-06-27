@@ -49,7 +49,6 @@ class ModelSelectionPresenter(QObject):
         for that method type has just completed.
         """
         if model_type_ui_name == self._current_method:
-            # print(f"ModelSelectionPresenter: Refreshing model list for {model_type_ui_name} due to download completion.")
             self.handle_method_change(self._current_method)
 
     @Slot(str)
@@ -98,7 +97,6 @@ class ModelSelectionPresenter(QObject):
                 # Ensure ensemble panel is contracted if another method is chosen
                 ensemble_view_widget.set_expanded_mode(False)
         elif method == ac.ENSEMBLE_MODELS_KEY:
-            # Debug print removed
             pass  # Log this properly
 
         self.view.show_settings_panel(self._current_method)

@@ -78,9 +78,7 @@ class AdvancedMDXSettingsPresenter(QObject):
         # For now, just show a confirmation message
         try:
             # Here you would typically clear cache files
-            # cache_dir = Path("models/MDX") / "cache"
-            # if cache_dir.exists():
-            #     shutil.rmtree(cache_dir)
+            # (Cache clearing logic can be implemented here)
 
             if self.view:
                 QMessageBox.information(

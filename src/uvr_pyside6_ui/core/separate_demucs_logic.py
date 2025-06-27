@@ -388,36 +388,36 @@ class SeparateDemucsLogic(SeparatorAttributesLogic):
                         from demucs.htdemucs import HTDemucs
 
                         safe_classes.append(HTDemucs)
-                    except ImportError:
-                        pass
+                    except ImportError as e:
+                        logger.debug(f"demucs.htdemucs.HTDemucs not available: {e}")
 
                     try:
                         from demucs.hdemucs import HDemucs
 
                         safe_classes.append(HDemucs)
-                    except ImportError:
-                        pass
+                    except ImportError as e:
+                        logger.debug(f"demucs.hdemucs.HDemucs not available: {e}")
 
                     try:
                         from demucs.demucs import Demucs
 
                         safe_classes.append(Demucs)
-                    except ImportError:
-                        pass
+                    except ImportError as e:
+                        logger.debug(f"demucs.demucs.Demucs not available: {e}")
 
                     try:
                         from demucs.model import Demucs as DemucsV1
 
                         safe_classes.append(DemucsV1)
-                    except ImportError:
-                        pass
+                    except ImportError as e:
+                        logger.debug(f"demucs.model.Demucs (v1) not available: {e}")
 
                     try:
                         from demucs.model_v2 import Demucs as DemucsV2
 
                         safe_classes.append(DemucsV2)
-                    except ImportError:
-                        pass
+                    except ImportError as e:
+                        logger.debug(f"demucs.model_v2.Demucs (v2) not available: {e}")
 
                     # Add numpy classes that are commonly needed
                     import numpy.core.multiarray

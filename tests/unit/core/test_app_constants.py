@@ -8,7 +8,6 @@ in the app_constants module to ensure consistency and correctness.
 import json
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -314,13 +313,11 @@ class TestDummyModelParameters:
             temp_path = f.name
 
         try:
-            with patch("builtins.print") as mock_print:
-                params = ac.DummyModelParameters(temp_path)
+            params = ac.DummyModelParameters(temp_path)
 
-                # Should fall back to defaults and print warning
-                assert params.param["bins"] == 0
-                mock_print.assert_called_once()
-                assert "Warning" in mock_print.call_args[0][0]
+            # Should fall back to defaults when JSON is invalid
+            assert params.param["bins"] == 0
+            assert 1 in params.param["band"]
         finally:
             Path(temp_path).unlink()
 

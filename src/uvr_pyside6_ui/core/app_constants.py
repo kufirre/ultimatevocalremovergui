@@ -5,7 +5,6 @@ import platform
 from pathlib import Path
 from typing import Optional
 
-
 # --- Online Catalog and Cache ---
 DOWNLOAD_CHECKS_URL = "https://raw.githubusercontent.com/TRvlvr/application_data/main/filelists/download_checks.json"  # From UVR v5.6.0 constants
 MODEL_REPO_URL_BASE = "https://github.com/TRvlvr/model_repo/releases/download/all_public_uvr_models/"  # From UVR v5.6.0 constants
@@ -406,7 +405,6 @@ class DummyModelParameters:
                     )  # Simple update, might need deeper merge
             except Exception as e:
                 pass
-
 
 
 # --- Settings File ---

@@ -1448,8 +1448,10 @@ class ProcessingWorker(QObject):
                                     f"  🗑️ Cleaned up ensemble source: {Path(individual_file).name}",
                                     "",
                                 )
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                logger.warning(
+                                    f"Could not clean up temporary file {individual_file}: {e}"
+                                )
 
                 except Exception as save_error:
                     self._write_to_console(
@@ -3454,7 +3456,10 @@ class ProcessingWorker(QObject):
             )[0]
             source = spec_utils.match_array_shapes(source, org_mix)
             return source
-        except Exception:  # noqa: S110
+        except Exception as e:
+            logger.warning(
+                f"Pitch correction failed for MDX, returning original source: {e}"
+            )
             return source
 
     def _get_demucs_source_map(self, num_sources: int) -> dict:
@@ -3472,7 +3477,10 @@ class ProcessingWorker(QObject):
             )[0]
             source = spec_utils.match_array_shapes(source, org_mix)
             return source
-        except Exception:  # noqa: S110
+        except Exception as e:
+            logger.warning(
+                f"Pitch correction failed for Demucs, returning original source: {e}"
+            )
             return source
 
     def _clean_model_name_for_filename(self, model_basename: str) -> str:

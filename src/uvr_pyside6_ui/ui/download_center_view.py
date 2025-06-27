@@ -72,8 +72,8 @@ class DownloadCenterView(QWidget):
             if not download_icon.isNull():
                 self.dc_download_btn.setIcon(download_icon)
                 self.dc_download_btn.setIconSize(QSize(20, 20))
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Could not load download icon for download button: {e}")
 
         self.dc_download_btn.clicked.connect(self.download_button_clicked.emit)
         download_layout.addWidget(self.dc_download_btn)
@@ -134,8 +134,8 @@ class DownloadCenterView(QWidget):
             if not key_icon.isNull():
                 self.dc_key_btn.setIcon(key_icon)
                 self.dc_key_btn.setIconSize(QSize(16, 16))
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Could not load key icon for VIP access button: {e}")
         controls_layout.addWidget(self.dc_key_btn, 1, 0)
 
         # Manual download button

@@ -334,8 +334,10 @@ def determine_model_process_method(model_name: str) -> Optional[str]:
             demucs_models = scan_models_directory(ac.DEMUCS_ARCH_TYPE)
             if model_name in demucs_models:
                 return ac.DEMUCS_ARCH_TYPE
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(
+                f"Could not scan model directories for fallback detection: {e}"
+            )
 
     logger.warning(
         f"Warning: Could not determine process method for model: {model_name}"

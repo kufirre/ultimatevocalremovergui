@@ -824,8 +824,8 @@ Valid VIP codes are encrypted and provided by the UVR development team."""
                 try:
                     with open(self._settings_file_path, encoding="utf-8") as f:
                         current_settings = json.load(f)
-                except (OSError, json.JSONDecodeError):
-                    pass
+                except (OSError, json.JSONDecodeError) as e:
+                    logger.warning(f"Could not load existing settings file: {e}")
 
             # Update with VIP settings
             current_settings.update(vip_settings)
@@ -916,6 +916,6 @@ Valid VIP codes are encrypted and provided by the UVR development team."""
                             # Set VIP link in the adapter for URL construction
                             self.adapter.set_vip_link(decoded_link)
                             return True
-        except (OSError, json.JSONDecodeError):
-            pass
+        except (OSError, json.JSONDecodeError) as e:
+            logger.debug(f"Could not read VIP settings file: {e}")
         return False

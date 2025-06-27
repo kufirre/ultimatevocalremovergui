@@ -147,8 +147,8 @@ class BatchFileView(QWidget):
         try:
             self.add_files_button.setIcon(QIcon(":/uvr/img/File.png"))
             self.add_files_button.setIconSize(QSize(16, 16))
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Could not load icon for add files button: {e}")
 
         self.add_folder_button = QPushButton("Add Folder...")
         self.add_folder_button.setToolTip(
@@ -160,8 +160,8 @@ class BatchFileView(QWidget):
         try:
             self.clear_button.setIcon(QIcon(":/uvr/img/clear.png"))
             self.clear_button.setIconSize(QSize(16, 16))
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Could not load icon for clear button: {e}")
 
         button_layout.addWidget(self.add_files_button)
         button_layout.addWidget(self.add_folder_button)
@@ -184,24 +184,24 @@ class BatchFileView(QWidget):
         try:
             self.move_up_button.setIcon(QIcon(":/uvr/img/up.png"))
             self.move_up_button.setIconSize(QSize(16, 16))
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Could not load icon for move up button: {e}")
 
         self.move_down_button = QPushButton("Move Down")
         self.move_down_button.setToolTip("Move selected files down in the queue")
         try:
             self.move_down_button.setIcon(QIcon(":/uvr/img/down.png"))
             self.move_down_button.setIconSize(QSize(16, 16))
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Could not load icon for move down button: {e}")
 
         self.duplicate_button = QPushButton("Duplicate")
         self.duplicate_button.setToolTip("Duplicate selected files in the queue")
         try:
             self.duplicate_button.setIcon(QIcon(":/uvr/img/copy.png"))
             self.duplicate_button.setIconSize(QSize(16, 16))
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Could not load icon for duplicate button: {e}")
 
         self.remove_button = QPushButton("Remove Selected")
         self.remove_button.setToolTip("Remove selected files from the queue")

@@ -18,11 +18,12 @@ from .logger_utils import get_logger
 logger = get_logger(__name__)
 
 # Ensure the main models directory and subdirectories exist
-MODELS_DIR = Path.cwd() / "models"
+# MODELS_DIR = Path.cwd() / "models"
+MODELS_DIR = ac.PathCache.get_models_dir()
 MODEL_TYPE_PATHS = {
-    ac.VR_ARCH_MODELS_KEY: MODELS_DIR / ac.MODEL_TYPE_SUBDIRS[ac.VR_ARCH_MODELS_KEY],
-    ac.MDX_NET_MODELS_KEY: MODELS_DIR / ac.MODEL_TYPE_SUBDIRS[ac.MDX_NET_MODELS_KEY],
-    ac.DEMUCS_MODELS_KEY: MODELS_DIR / ac.MODEL_TYPE_SUBDIRS[ac.DEMUCS_MODELS_KEY],
+    ac.VR_ARCH_MODELS_KEY: ac.PathCache.get_model_type_dir(ac.VR_ARCH_MODELS_KEY),
+    ac.MDX_NET_MODELS_KEY: ac.PathCache.get_model_type_dir(ac.MDX_NET_MODELS_KEY),
+    ac.DEMUCS_MODELS_KEY: ac.PathCache.get_model_type_dir(ac.DEMUCS_MODELS_KEY),
 }
 
 for path in MODEL_TYPE_PATHS.values():

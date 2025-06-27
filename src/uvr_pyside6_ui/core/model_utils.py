@@ -118,21 +118,17 @@ class ModelInferenceEngine:
 
 def get_project_root() -> Path:
     """Get the project root directory."""
-    try:
-        return Path(__file__).resolve().parents[3]
-    except IndexError:
-        return Path.cwd()
+    # Use cached version for better performance
+    return ac.PathCache.get_project_root()
 
 
 def get_models_dir_paths():
     """Get the model directory paths."""
-    models_dir_path = get_project_root() / "models"
+    # Use cached paths for better performance
     return {
-        ac.VR_ARCH_TYPE: models_dir_path / ac.MODEL_TYPE_SUBDIRS[ac.VR_ARCH_MODELS_KEY],
-        ac.MDX_ARCH_TYPE: models_dir_path
-        / ac.MODEL_TYPE_SUBDIRS[ac.MDX_NET_MODELS_KEY],
-        ac.DEMUCS_ARCH_TYPE: models_dir_path
-        / ac.MODEL_TYPE_SUBDIRS[ac.DEMUCS_MODELS_KEY],
+        ac.VR_ARCH_TYPE: ac.PathCache.get_model_type_dir(ac.VR_ARCH_MODELS_KEY),
+        ac.MDX_ARCH_TYPE: ac.PathCache.get_model_type_dir(ac.MDX_NET_MODELS_KEY),
+        ac.DEMUCS_ARCH_TYPE: ac.PathCache.get_model_type_dir(ac.DEMUCS_MODELS_KEY),
     }
 
 

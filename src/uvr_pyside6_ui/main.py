@@ -105,7 +105,8 @@ def run():
             stream = QTextStream(progress_qss_file)
             progress_stylesheet = stream.readAll()
             # Append to existing stylesheet
-            app.setStyleSheet(app.styleSheet() + "\n" + progress_stylesheet)
+            combined_stylesheet = "\n".join([app.styleSheet(), progress_stylesheet])
+            app.setStyleSheet(combined_stylesheet)
             logger.info(
                 f"Successfully loaded progress bar stylesheet from QRC: {ac.QRC_PROGRESS_STYLESHEET_PATH}"
             )

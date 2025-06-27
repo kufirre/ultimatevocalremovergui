@@ -127,7 +127,7 @@ class UVRCoreAdapter(QObject):
         # Ensure no double slashes when joining, and handle cases where base_url might not end with /
         # or path_or_url might start with /
 
-        final_url = base_url_to_use.rstrip("/") + "/" + path_or_url.lstrip("/")
+        final_url = ac.join_url_parts(base_url_to_use, path_or_url)
 
         return final_url
 

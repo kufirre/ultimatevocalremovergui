@@ -27,16 +27,15 @@ def get_project_root() -> Path:
         Path: The root directory path, either by navigating up from this file
               or falling back to the current working directory.
     """
-    try:
-        return Path(__file__).resolve().parents[3]
-    except IndexError:
-        return Path.cwd()
+    # Use cached version for better performance
+    return ac.PathCache.get_project_root()
 
 
-MODELS_DIR_PATH = get_project_root() / "models"
-VR_MODELS_DIR_PATH = MODELS_DIR_PATH / ac.MODEL_TYPE_SUBDIRS[ac.VR_ARCH_MODELS_KEY]
-MDX_MODELS_DIR_PATH = MODELS_DIR_PATH / ac.MODEL_TYPE_SUBDIRS[ac.MDX_NET_MODELS_KEY]
-DEMUCS_MODELS_DIR_PATH = MODELS_DIR_PATH / ac.MODEL_TYPE_SUBDIRS[ac.DEMUCS_MODELS_KEY]
+# Use cached paths for better performance
+MODELS_DIR_PATH = ac.PathCache.get_models_dir()
+VR_MODELS_DIR_PATH = ac.PathCache.get_model_type_dir(ac.VR_ARCH_MODELS_KEY)
+MDX_MODELS_DIR_PATH = ac.PathCache.get_model_type_dir(ac.MDX_NET_MODELS_KEY)
+DEMUCS_MODELS_DIR_PATH = ac.PathCache.get_model_type_dir(ac.DEMUCS_MODELS_KEY)
 DEMUCS_NEWER_REPO_DIR_PATH = DEMUCS_MODELS_DIR_PATH / "v3_v4_repo"
 VR_PARAM_DIR_PATH = get_project_root() / "lib_v5" / "vr_network" / "modelparams"
 MDX_HASH_DIR_PATH = MDX_MODELS_DIR_PATH / "model_data"
@@ -882,25 +881,28 @@ class ModelData:
                         name_mapper = json.load(f)
                     for file_name, display_name in name_mapper.items():
                         if display_name == current_display_name:
+                            # Cache potential paths to avoid repeated construction
+                            potential_paths = []
+
                             # MDX models don't have a separate v3/v4 repo structure like Demucs in this context
                             for (
                                 ext
                             ) in ac.MDX_SCAN_EXTENSIONS:  # Check with .onnx and .ckpt
-                                potential_path = (
+                                # file_name from mapper is usually without ext
+                                potential_paths.append(
                                     base_model_dir / f"{file_name}{ext}"
-                                )  # file_name from mapper is usually without ext
+                                )
+                                # If file_name from mapper already has extension
+                                potential_paths.append(base_model_dir / file_name)
+
+                            # Check all potential paths
+                            for potential_path in potential_paths:
                                 if potential_path.exists():
                                     logger.debug(
                                         f"Found MDX model via name mapper: {potential_path}"
                                     )
                                     return str(potential_path)
-                                # If file_name from mapper already has extension
-                                potential_path_direct = base_model_dir / file_name
-                                if potential_path_direct.exists():
-                                    logger.debug(
-                                        f"Found MDX model via name mapper (direct): {potential_path_direct}"
-                                    )
-                                    return str(potential_path_direct)
+
                             logger.info(
                                 f"MDX model file (from mapper) not found for: {file_name}"
                             )
@@ -910,31 +912,40 @@ class ModelData:
 
             # Fallback for MDX if not found via mapper
             current_model_basename_for_fallback = Path(current_display_name).stem
+
+            # Cache fallback paths to avoid repeated construction
+            fallback_paths = []
             for ext in ac.MDX_SCAN_EXTENSIONS:
-                if (
+                fallback_paths.append(
                     base_model_dir / f"{current_model_basename_for_fallback}{ext}"
-                ).exists():
-                    return str(
-                        base_model_dir / f"{current_model_basename_for_fallback}{ext}"
-                    )
-            # Check if current_display_name is the filename itself (e.g. .onnx or .ckpt)
-            if (base_model_dir / current_display_name).exists():
-                return str(base_model_dir / current_display_name)
+                )
+            fallback_paths.append(base_model_dir / current_display_name)
+
+            # Check fallback paths
+            for fallback_path in fallback_paths:
+                if fallback_path.exists():
+                    return str(fallback_path)
+
             return None  # Exhausted MDX checks
 
         # --- VR Arch Specific Logic ---
         elif self.process_method == ac.VR_ARCH_TYPE:
             current_model_basename_for_fallback = Path(current_display_name).stem
+
+            # Cache potential paths to avoid repeated construction
+            potential_paths = []
             for ext in ac.VR_ARCH_SCAN_EXTENSIONS:  # Should be just ['.pth']
-                if (
+                potential_paths.append(
                     base_model_dir / f"{current_model_basename_for_fallback}{ext}"
-                ).exists():
-                    return str(
-                        base_model_dir / f"{current_model_basename_for_fallback}{ext}"
-                    )
+                )
             # Check if current_display_name is the filename itself (e.g. model.pth)
-            if (base_model_dir / current_display_name).exists():
-                return str(base_model_dir / current_display_name)
+            potential_paths.append(base_model_dir / current_display_name)
+
+            # Check all potential paths
+            for path in potential_paths:
+                if path.exists():
+                    return str(path)
+
             return None  # Exhausted VR checks
 
         return None  # Default return if no specific logic matches or finds the file

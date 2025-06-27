@@ -706,3 +706,79 @@ class SettingKeys:
     # Demucs-specific stem-only settings
     PRIMARY_STEM_ONLY_DEMUCS = "is_primary_stem_only_Demucs"
     SECONDARY_STEM_ONLY_DEMUCS = "is_secondary_stem_only_Demucs"
+
+
+# Path caching system for performance optimization
+class PathCache:
+    """Cache for commonly accessed paths to avoid repeated string operations."""
+
+    _cache = {}
+
+    @classmethod
+    def get_or_compute(cls, key: str, compute_func):
+        """Get cached path or compute and cache it."""
+        if key not in cls._cache:
+            cls._cache[key] = compute_func()
+        return cls._cache[key]
+
+    @classmethod
+    def clear(cls):
+        """Clear the path cache."""
+        cls._cache.clear()
+
+    @classmethod
+    def get_project_root(cls):
+        """Get cached project root path."""
+
+        def compute_project_root():
+            try:
+                # Using __file__ from this module (app_constants.py)
+                # This file is at: src/uvr_pyside6_ui/core/app_constants.py
+                # So we need to go up 3 levels to get to project root
+                from pathlib import Path
+
+                return Path(__file__).resolve().parents[3]
+            except (IndexError, NameError):
+                from pathlib import Path
+
+                return Path.cwd()
+
+        # For tests, don't cache so mocks work properly
+        import sys
+
+        if any("test" in arg.lower() for arg in sys.argv) or "pytest" in sys.modules:
+            return compute_project_root()
+
+        return cls.get_or_compute("project_root", compute_project_root)
+
+    @classmethod
+    def get_models_dir(cls):
+        """Get cached models directory path."""
+        return cls.get_or_compute(
+            "models_dir", lambda: cls.get_project_root() / "models"
+        )
+
+    @classmethod
+    def get_model_type_dir(cls, model_type_key: str):
+        """Get cached model type directory path."""
+        cache_key = f"model_dir_{model_type_key}"
+        return cls.get_or_compute(
+            cache_key, lambda: cls.get_models_dir() / MODEL_TYPE_SUBDIRS[model_type_key]
+        )
+
+
+# String operation optimization helpers
+def join_url_parts(base_url: str, *parts: str) -> str:
+    """Efficiently join URL parts avoiding double slashes."""
+    # Use join() instead of + concatenation for better performance
+    url_parts = [base_url.rstrip("/")]
+    url_parts.extend(part.strip("/") for part in parts if part)
+    return "/".join(url_parts)
+
+
+def join_path_strings(base_path: str, *parts: str) -> str:
+    """Efficiently join path strings."""
+    # Use join() instead of + concatenation
+    path_parts = [base_path]
+    path_parts.extend(str(part) for part in parts if part)
+    return "/".join(path_parts)

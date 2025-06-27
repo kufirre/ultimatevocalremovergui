@@ -159,13 +159,13 @@ DEMUCS_V3 = "v3"
 DEMUCS_V4 = "v4"
 
 # --- Demucs Source Mapping (Optimized Static Approach) ---
-# 
+#
 # IMPORTANT: Demucs models naturally output stems in this order:
 # Model Output: [drums, bass, other, vocals]  (indices 0, 1, 2, 3)
-# 
+#
 # However, UVR interface expects this order:
 # UVR Expected: [bass, drums, other, vocals]  (indices 0, 1, 2, 3)
-# 
+#
 # We use static mapping + transformation to convert between these orders.
 
 # Model's natural output order (what Demucs actually produces)
@@ -175,8 +175,15 @@ DEMUCS_MODEL_OUTPUT_ORDER_2 = ["instrumental", "vocals"]
 
 # UVR interface expected order (what our UI and users expect)
 DEMUCS_2_SOURCE_LIST = [INST_STEM, VOCAL_STEM]
-DEMUCS_4_SOURCE_LIST = [BASS_STEM, DRUM_STEM, OTHER_STEM, VOCAL_STEM] 
-DEMUCS_6_SOURCE_LIST = [BASS_STEM, DRUM_STEM, OTHER_STEM, VOCAL_STEM, GUITAR_STEM, PIANO_STEM]
+DEMUCS_4_SOURCE_LIST = [BASS_STEM, DRUM_STEM, OTHER_STEM, VOCAL_STEM]
+DEMUCS_6_SOURCE_LIST = [
+    BASS_STEM,
+    DRUM_STEM,
+    OTHER_STEM,
+    VOCAL_STEM,
+    GUITAR_STEM,
+    PIANO_STEM,
+]
 
 # UVR interface mapping (maps stem names to expected UVR indices)
 DEMUCS_2_SOURCE_MAPPER = {INST_STEM: 0, VOCAL_STEM: 1}
@@ -193,10 +200,10 @@ DEMUCS_6_SOURCE_MAPPER = {
 
 def get_demucs_source_mapping(stem_count: int) -> tuple:
     """Get the UVR interface source list and mapper.
-    
+
     Args:
         stem_count: Number of stems (2, 4, or 6)
-        
+
     Returns:
         tuple: (uvr_source_list, uvr_source_mapper)
     """
@@ -210,21 +217,20 @@ def get_demucs_source_mapping(stem_count: int) -> tuple:
 
 def transform_demucs_output_to_uvr_order(model_output_array, stem_count: int):
     """Transform Demucs model output to UVR expected order.
-    
+
     Demucs models naturally output: [drums, bass, other, vocals, ...]
     UVR interface expects:           [bass, drums, other, vocals, ...]
-    
+
     This function performs the necessary index swapping to match UVR expectations.
-    
+
     Args:
         model_output_array: numpy array with shape (n_stems, channels, time)
         stem_count: Number of stems (2, 4, or 6)
-        
+
     Returns:
         numpy array: Reordered to match UVR interface expectations
     """
-    import numpy as np
-    
+
     if stem_count == 4 and model_output_array.shape[0] >= 2:
         # For 4-stem: swap drums (model index 0) with bass (model index 1)
         # Transform [drums, bass, other, vocals] → [bass, drums, other, vocals]
@@ -243,27 +249,31 @@ def transform_demucs_output_to_uvr_order(model_output_array, stem_count: int):
 
 def get_stem_index_safe(source_map: dict, stem_name: str) -> Optional[int]:
     """Case-insensitive stem lookup in source map.
-    
-    Handles case mismatches between our title-case constants (e.g., 'Vocals') 
+
+    Handles case mismatches between our title-case constants (e.g., 'Vocals')
     and any lowercase source map keys (e.g., 'vocals').
-    
+
     Args:
         source_map: Dictionary mapping stem names to indices
         stem_name: Stem name to look up (case-insensitive)
-        
+
     Returns:
         Index if found, None otherwise
     """
+    # Handle None or empty inputs
+    if not stem_name or not source_map:
+        return None
+
     # Try exact match first (most common case)
     if stem_name in source_map:
         return source_map[stem_name]
-    
+
     # Try case-insensitive lookup
     stem_lower = stem_name.lower()
     for key, value in source_map.items():
-        if key.lower() == stem_lower:
+        if key and key.lower() == stem_lower:
             return value
-    
+
     return None
 
 
@@ -423,7 +433,6 @@ DEMUCS_VERSION_STRING_MAP = {  # Used in model_data.py
     DEMUCS_V3: ["v3", "v3.mdx"],
     DEMUCS_V4: ["v4", "v4.mdx"],
 }
-DEMUCS_2_SOURCE_LIST = [VOCAL_STEM, INST_STEM]  # Used in model_data.py
 
 # --- Presenter Keys (for dictionary access) ---
 FILE_IO_PRESENTER_KEY = "file_io"

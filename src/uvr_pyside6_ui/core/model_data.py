@@ -1371,15 +1371,21 @@ class ModelData:
             ):
                 # 2-stem models
                 self.demucs_stem_count = 2
-                self.demucs_source_list, self.demucs_source_map = ac.get_demucs_source_mapping(2)
+                self.demucs_source_list, self.demucs_source_map = (
+                    ac.get_demucs_source_mapping(2)
+                )
             elif ac.DEMUCS_6_STEM_TAG in self.model_name:
                 # 6-stem models
                 self.demucs_stem_count = 6
-                self.demucs_source_list, self.demucs_source_map = ac.get_demucs_source_mapping(6)
+                self.demucs_source_list, self.demucs_source_map = (
+                    ac.get_demucs_source_mapping(6)
+                )
             else:  # Default to 4-stem for v3/v4 if not specified otherwise
                 # 4-stem models (most common)
                 self.demucs_stem_count = 4
-                self.demucs_source_list, self.demucs_source_map = ac.get_demucs_source_mapping(4)
+                self.demucs_source_list, self.demucs_source_map = (
+                    ac.get_demucs_source_mapping(4)
+                )
 
             # Determine primary stem based on user selection or defaults
             chosen_demucs_stems_output = settings.get("demucs_stems", ac.ALL_STEMS)
@@ -1570,11 +1576,13 @@ class ModelData:
         # Determine which stem-only flags to check based on model type
         if self.process_method == ac.DEMUCS_ARCH_TYPE:
             user_wants_primary_only = settings.get("is_primary_stem_only_Demucs", False)
-            user_wants_secondary_only = settings.get("is_secondary_stem_only_Demucs", False)
+            user_wants_secondary_only = settings.get(
+                "is_secondary_stem_only_Demucs", False
+            )
         else:
             user_wants_primary_only = settings.get("is_primary_stem_only", False)
             user_wants_secondary_only = settings.get("is_secondary_stem_only", False)
-        
+
         requested_primary_stem = settings.get("primary_stem_text", "")
         requested_secondary_stem = settings.get("secondary_stem_text", "")
 
@@ -1585,35 +1593,41 @@ class ModelData:
         elif user_wants_secondary_only and requested_secondary_stem:
             target_stem_name = requested_secondary_stem.replace(" Only", "").strip()
             return self._normalize_stem_name(target_stem_name)
-        
+
         return None
 
     def _apply_swapped_stem_logic(self) -> None:
         """Apply stem swapping logic based on user intent vs model capabilities."""
         if not (
             self.user_requested_stem
-            and not self.is_ensemble_member 
-            and not self.is_secondary_model 
-            and not self.is_pre_proc_model 
+            and not self.is_ensemble_member
+            and not self.is_secondary_model
+            and not self.is_pre_proc_model
             and not self.is_vocal_split_model
         ):
             return
-            
+
         model_primary = self.primary_stem
         model_secondary = self.secondary_stem
         user_requested = self.user_requested_stem
-        
+
         logger.debug(f"🔄 Checking stem assignment for {self.model_basename}")
-        logger.debug(f"  Model primary: {model_primary}, Model secondary: {model_secondary}")
+        logger.debug(
+            f"  Model primary: {model_primary}, Model secondary: {model_secondary}"
+        )
         logger.debug(f"  User requested: {user_requested}")
-        logger.debug(f"  Original flags - Primary only: {self.is_primary_stem_only}, Secondary only: {self.is_secondary_stem_only}")
-        
+        logger.debug(
+            f"  Original flags - Primary only: {self.is_primary_stem_only}, Secondary only: {self.is_secondary_stem_only}"
+        )
+
         # Check if model can produce the requested stem
         can_produce_as_primary = user_requested == model_primary
         can_produce_as_secondary = user_requested == model_secondary
-        
+
         # For Demucs, also check if the stem is in the source list
-        if self.process_method == ac.DEMUCS_ARCH_TYPE and hasattr(self, "demucs_source_list"):
+        if self.process_method == ac.DEMUCS_ARCH_TYPE and hasattr(
+            self, "demucs_source_list"
+        ):
             can_produce_as_demucs_stem = user_requested in self.demucs_source_list
             if can_produce_as_demucs_stem:
                 if can_produce_as_primary:
@@ -1626,20 +1640,30 @@ class ModelData:
             else:
                 self.is_primary_stem_only = False
                 self.is_secondary_stem_only = False
-                logger.debug(f"  ⚠️ Demucs can't produce requested stem {user_requested}")
+                logger.debug(
+                    f"  ⚠️ Demucs can't produce requested stem {user_requested}"
+                )
         else:
             # Standard VR/MDX logic
             if can_produce_as_primary:
                 self.is_primary_stem_only = True
                 self.is_secondary_stem_only = False
-                logger.debug(f"  ✅ User wants model's primary stem - keeping is_primary_stem_only=True")
+                logger.debug(
+                    "  ✅ User wants model's primary stem - keeping is_primary_stem_only=True"
+                )
             elif can_produce_as_secondary:
                 self.is_primary_stem_only = False
                 self.is_secondary_stem_only = True
-                logger.debug(f"  🔄 User wants model's secondary stem - swapping to is_secondary_stem_only=True")
+                logger.debug(
+                    "  🔄 User wants model's secondary stem - swapping to is_secondary_stem_only=True"
+                )
             else:
                 self.is_primary_stem_only = False
                 self.is_secondary_stem_only = False
-                logger.debug(f"  ⚠️ User wants stem model can't produce - outputting both stems")
-                
-        logger.debug(f"  Final flags - Primary only: {self.is_primary_stem_only}, Secondary only: {self.is_secondary_stem_only}")
+                logger.debug(
+                    "  ⚠️ User wants stem model can't produce - outputting both stems"
+                )
+
+        logger.debug(
+            f"  Final flags - Primary only: {self.is_primary_stem_only}, Secondary only: {self.is_secondary_stem_only}"
+        )

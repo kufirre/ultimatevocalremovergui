@@ -273,10 +273,13 @@ class SeparateDemucsLogic(SeparatorAttributesLogic):
                 logger.warning("Warning: Sources contain Inf values. Fixing...")
                 sources_np = np.nan_to_num(sources_np, posinf=1.0, neginf=-1.0)
 
-            # Transform model output to UVR interface order using centralized function
-            # This handles the proven transformation from original UVR
-            logger.info(f"Transforming Demucs output to UVR interface order ({md.demucs_stem_count} stems)")
-            sources_np = ac.transform_demucs_output_to_uvr_order(sources_np, md.demucs_stem_count)
+            # Transform model output to UVR interface order
+            logger.info(
+                f"Transforming Demucs output to UVR interface order ({md.demucs_stem_count} stems)"
+            )
+            sources_np = ac.transform_demucs_output_to_uvr_order(
+                sources_np, md.demucs_stem_count
+            )
         except Exception as e:
             logger.error(f"ERROR during denormalization: {e}")
             import traceback
@@ -525,20 +528,24 @@ class SeparateDemucsLogic(SeparatorAttributesLogic):
             # Use static source mappings like original UVR for reliability and performance
             # Instead of trying to detect what the model outputs, we use proven static mappings
             # and apply the necessary transformation to match UVR interface expectations
-            
+
             # Determine stem count from model if possible, otherwise default to 4-stem
             actual_stem_count = 4  # Safe default
             if hasattr(self.model_run_instance, "sources"):
                 actual_model_sources = list(self.model_run_instance.sources)
                 actual_stem_count = len(actual_model_sources)
-                logger.info(f"Model reports {actual_stem_count} stems: {actual_model_sources}")
+                logger.info(
+                    f"Model reports {actual_stem_count} stems: {actual_model_sources}"
+                )
             else:
                 logger.info("Model does not report sources, using 4-stem default")
 
             # Get UVR interface mapping (what our UI expects)
-            md.demucs_source_list, md.demucs_source_map = ac.get_demucs_source_mapping(actual_stem_count)
+            md.demucs_source_list, md.demucs_source_map = ac.get_demucs_source_mapping(
+                actual_stem_count
+            )
             md.demucs_stem_count = actual_stem_count
-            
+
             logger.info(f"Using {actual_stem_count}-stem mapping")
             logger.info(f"UVR interface expects: {md.demucs_source_list}")
             logger.info(f"UVR source mapping: {md.demucs_source_map}")
@@ -726,7 +733,9 @@ class SeparateDemucsLogic(SeparatorAttributesLogic):
                     )
 
             else:
-                stem_idx = ac.get_stem_index_safe(md.demucs_source_map, target_primary_stem_cap)
+                stem_idx = ac.get_stem_index_safe(
+                    md.demucs_source_map, target_primary_stem_cap
+                )
                 if stem_idx is not None and stem_idx < all_stems_output.shape[0]:
                     primary_stem_data = all_stems_output[stem_idx].T
 
@@ -752,7 +761,9 @@ class SeparateDemucsLogic(SeparatorAttributesLogic):
                             exclude_stem = md.secondary_stem[3:]  # Remove "No " prefix
 
                             # Be more permissive like original UVR - try different approaches
-                            exclude_idx = ac.get_stem_index_safe(md.demucs_source_map, exclude_stem)
+                            exclude_idx = ac.get_stem_index_safe(
+                                md.demucs_source_map, exclude_stem
+                            )
                             if exclude_idx is not None:
                                 # Model has the excluded stem, so create "No X" by combining other stems
                                 logger.debug(
@@ -805,7 +816,9 @@ class SeparateDemucsLogic(SeparatorAttributesLogic):
                                 outputs = {}
                         else:
                             # Direct secondary stem request
-                            stem_idx = ac.get_stem_index_safe(md.demucs_source_map, md.secondary_stem)
+                            stem_idx = ac.get_stem_index_safe(
+                                md.demucs_source_map, md.secondary_stem
+                            )
                             if stem_idx is not None:
                                 if stem_idx < all_stems_output.shape[0]:
                                     secondary_stem_data = all_stems_output[stem_idx].T
@@ -829,8 +842,13 @@ class SeparateDemucsLogic(SeparatorAttributesLogic):
                                     f"Secondary stem '{md.secondary_stem}' not available, trying subtraction fallback"
                                 )
                                 if hasattr(md, "primary_stem"):
-                                    primary_idx = ac.get_stem_index_safe(md.demucs_source_map, md.primary_stem)
-                                    if primary_idx is not None and primary_idx < all_stems_output.shape[0]:
+                                    primary_idx = ac.get_stem_index_safe(
+                                        md.demucs_source_map, md.primary_stem
+                                    )
+                                    if (
+                                        primary_idx is not None
+                                        and primary_idx < all_stems_output.shape[0]
+                                    ):
                                         primary_stem_data = all_stems_output[
                                             primary_idx
                                         ].T
@@ -879,7 +897,9 @@ class SeparateDemucsLogic(SeparatorAttributesLogic):
                             exclude_stem = md.secondary_stem[3:]  # Remove "No " prefix
 
                             # Check if this model actually produces the stem to exclude
-                            exclude_idx = ac.get_stem_index_safe(md.demucs_source_map, exclude_stem)
+                            exclude_idx = ac.get_stem_index_safe(
+                                md.demucs_source_map, exclude_stem
+                            )
                             if exclude_idx is not None:
                                 if md.is_demucs_combine_stems:
                                     # Combine all non-primary stems
@@ -931,8 +951,13 @@ class SeparateDemucsLogic(SeparatorAttributesLogic):
                             # Direct secondary stem (like "Instrumental")
                             if md.secondary_stem == ac.INST_STEM:
                                 # Create instrumental by subtracting vocals
-                                vocal_idx = ac.get_stem_index_safe(md.demucs_source_map, ac.VOCAL_STEM)
-                                if vocal_idx is not None and vocal_idx < all_stems_output.shape[0]:
+                                vocal_idx = ac.get_stem_index_safe(
+                                    md.demucs_source_map, ac.VOCAL_STEM
+                                )
+                                if (
+                                    vocal_idx is not None
+                                    and vocal_idx < all_stems_output.shape[0]
+                                ):
                                     vocal_data = all_stems_output[vocal_idx].T
                                     secondary_stem_data = mix_audio_norm_np - vocal_data
                                     self._write_stem(
@@ -946,8 +971,13 @@ class SeparateDemucsLogic(SeparatorAttributesLogic):
                                     )
                             else:
                                 # Direct secondary stem exists in model output
-                                secondary_idx = ac.get_stem_index_safe(md.demucs_source_map, md.secondary_stem)
-                                if secondary_idx is not None and secondary_idx < all_stems_output.shape[0]:
+                                secondary_idx = ac.get_stem_index_safe(
+                                    md.demucs_source_map, md.secondary_stem
+                                )
+                                if (
+                                    secondary_idx is not None
+                                    and secondary_idx < all_stems_output.shape[0]
+                                ):
                                     secondary_stem_data = all_stems_output[
                                         secondary_idx
                                     ].T

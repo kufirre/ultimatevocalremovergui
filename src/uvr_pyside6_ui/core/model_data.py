@@ -73,7 +73,7 @@ class ModelData:
     compensate_str: str = ac.AUTO_SELECT
     overlap_mdx: float = 0.25
     overlap_mdx23: str = "8"
-    margin: int = 44100
+    margin: int = ac.DEFAULT_SAMPLE_RATE
     denoise_option: str = ac.DENOISE_NONE
     is_mdx_c_seg_def: bool = True
     is_mdx_combine_stems: bool = True
@@ -149,7 +149,7 @@ class ModelData:
     user_requested_stem: Optional[str] = None  # What the user actually wants to extract
 
     vr_model_param: Optional[ModelParameters] = None
-    model_samplerate: int = 44100
+    model_samplerate: int = ac.DEFAULT_SAMPLE_RATE
     model_capacity: List[int] = field(default_factory=lambda: [32, 128])
     is_vr_51_model: bool = False
 
@@ -941,7 +941,7 @@ class ModelData:
             return None
         try:
             with open(model_path_obj, "rb") as f:
-                f.seek(-10000 * 1024, 2)
+                f.seek(-ac.MODEL_READ_BUFFER_SIZE, 2)
                 return hashlib.md5(f.read(), usedforsecurity=False).hexdigest()
         except OSError:
             try:
@@ -1244,7 +1244,9 @@ class ModelData:
                     self.model_status = False
 
                 if self.vr_model_param:
-                    self.model_samplerate = self.vr_model_param.param.get("sr", 44100)
+                    self.model_samplerate = self.vr_model_param.param.get(
+                        "sr", ac.DEFAULT_SAMPLE_RATE
+                    )
                 if "nout" in model_params_json and "nout_lstm" in model_params_json:
                     self.model_capacity = [
                         model_params_json["nout"],

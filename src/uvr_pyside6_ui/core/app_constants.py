@@ -88,7 +88,7 @@ ENSEMBLE_ALGORITHM_OPTIONS = [
     "Average/Min Spec",
     "Average/Average",
 ]
-# For 4-Stem ensemble, UVR.py just uses Max Spec, Min Spec, Average directly. We can handle this in presenter.
+# For 4-Stem ensemble, use Max Spec, Min Spec, Average directly.
 ENSEMBLE_ALGORITHM_4_STEM_OPTIONS = ["Max Spec", "Min Spec", "Average"]
 
 # Specific Ensemble Algorithm Types (used in logic and potentially in ensemble JSON files)
@@ -161,10 +161,10 @@ DEMUCS_V4 = "v4"
 # --- Demucs Source Mapping (Optimized Static Approach) ---
 #
 # IMPORTANT: Demucs models naturally output stems in this order:
-# Model Output: [drums, bass, other, vocals]  (indices 0, 1, 2, 3)
+# [drums, bass, other, vocals]  (indices 0, 1, 2, 3)
 #
 # However, UVR interface expects this order:
-# UVR Expected: [bass, drums, other, vocals]  (indices 0, 1, 2, 3)
+# [bass, drums, other, vocals]  (indices 0, 1, 2, 3)
 #
 # We use static mapping + transformation to convert between these orders.
 
@@ -378,6 +378,24 @@ VR_AGGRESSION_DEFAULT = 5
 # --- MDX Model Specific ---
 MDX_SEGMENT_SIZE_DEFAULT = 256
 MDX_OVERLAP_DEFAULT = 0.25
+
+# --- Audio Processing Constants ---
+# Common hop lengths for audio processing
+DEFAULT_HOP_LENGTH = 1024
+
+# Common FFT sizes for spectral processing
+DEFAULT_N_FFT = 2048
+
+# Common scaling factors
+DEFAULT_SCALE_FACTOR = 0.5
+
+# File I/O Constants
+BYTES_TO_KB = 1024
+MODEL_READ_BUFFER_SIZE = 10000 * 1024  # 10MB buffer for model file reading
+
+# Progress tracking constants
+PROGRESS_COMPLETE = 100
+PROGRESS_INITIAL = 0
 
 
 # --- Fallback for ModelParameters if lib_v5 is not fully integrated yet ---

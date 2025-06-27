@@ -737,7 +737,9 @@ class ProcessingWorker(QObject):
             537227,
         ]
         vr_5_1_models = [56817, 218409]
-        model_size = math.ceil(os.stat(self.model_data.model_path).st_size / 1024)
+        model_size = math.ceil(
+            os.stat(self.model_data.model_path).st_size / ac.BYTES_TO_KB
+        )
         nn_arch_size = min(nn_arch_sizes, key=lambda x: abs(x - model_size))
 
         # Load model
@@ -785,16 +787,16 @@ class ProcessingWorker(QObject):
         secondary_audio = self._spec_to_wav_vr(v_spec, is_vr_51_model).T
 
         # Resample if needed
-        if self.model_data.model_samplerate != 44100:
+        if self.model_data.model_samplerate != ac.DEFAULT_SAMPLE_RATE:
             primary_audio = librosa.resample(
                 primary_audio.T,
                 orig_sr=self.model_data.model_samplerate,
-                target_sr=44100,
+                target_sr=ac.DEFAULT_SAMPLE_RATE,
             ).T
             secondary_audio = librosa.resample(
                 secondary_audio.T,
                 orig_sr=self.model_data.model_samplerate,
-                target_sr=44100,
+                target_sr=ac.DEFAULT_SAMPLE_RATE,
             ).T
 
         # Save results
@@ -848,7 +850,7 @@ class ProcessingWorker(QObject):
                 .eval()
             )
         else:
-            dim_c, hop_length = 4, 1024
+            dim_c, hop_length = 4, ac.DEFAULT_HOP_LENGTH
             if (
                 self.model_data.mdx_segment_size == self.model_data.mdx_dim_t_set
                 and self.device != "mps"
@@ -1283,7 +1285,7 @@ class ProcessingWorker(QObject):
                             sf.write(
                                 str(individual_output_path),
                                 stem_audio_to_save,
-                                44100,
+                                ac.DEFAULT_SAMPLE_RATE,
                             )
 
                             # Track saved files for potential cleanup
@@ -2899,7 +2901,9 @@ class ProcessingWorker(QObject):
             X_mag_pad /= X_mag_pad.max()
             mask_tta = _execute(X_mag_pad, roi_size)
             mask_tta = mask_tta[:, :, roi_size // 2 :]
-            mask = (mask[:, :, :n_frame] + mask_tta[:, :, :n_frame]) * 0.5
+            mask = (
+                mask[:, :, :n_frame] + mask_tta[:, :, :n_frame]
+            ) * ac.DEFAULT_SCALE_FACTOR
         else:
             mask = mask[:, :, :n_frame]
 

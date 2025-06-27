@@ -1216,6 +1216,11 @@ class ProcessingWorker(QObject):
                 member_model_data, initial_input_audio
             )
 
+            self._write_to_console(
+                f"🔍 DEBUG: Model {member_model_data.model_basename} processing result: {list(member_results.keys()) if member_results else 'None'}",
+                "",
+            )
+
             if member_results and self._is_running:
                 successful_models += 1
                 self._write_to_console(
@@ -1543,11 +1548,14 @@ class ProcessingWorker(QObject):
                     model_data.is_primary_stem_only = False
                     model_data.is_secondary_stem_only = False
                     self._write_to_console(
-                        f"  🎸 Demucs model will output all stems, target: {target_stem_type}", ""
+                        f"  🎸 Demucs model will output all stems, target: {target_stem_type}",
+                        "",
                     )
                 else:
                     # For VR and MDX models, try to match stems
-                    model_primary_stem = getattr(model_data, "primary_stem", ac.VOCAL_STEM)
+                    model_primary_stem = getattr(
+                        model_data, "primary_stem", ac.VOCAL_STEM
+                    )
                     model_secondary_stem = getattr(
                         model_data, "secondary_stem", ac.INST_STEM
                     )
@@ -1760,11 +1768,10 @@ class ProcessingWorker(QObject):
                                 f"    ⚠️ {stem_name}: invalid or empty", ""
                             )
 
-                    # For Demucs models in ensemble mode, filter to only return the target stem
-                    if (model_data.process_method == ac.DEMUCS_ARCH_TYPE and 
-                        (master_is_primary_stem_only or master_is_secondary_stem_only) and
-                        valid_results):
-                        
+                    # For ensemble mode with stem-only options, apply filtering
+                    if (
+                        master_is_primary_stem_only or master_is_secondary_stem_only
+                    ) and valid_results:
                         # Determine the target stem
                         ensemble_primary_stem = getattr(
                             self.model_data, "ensemble_primary_stem", ac.VOCAL_STEM
@@ -1772,24 +1779,173 @@ class ProcessingWorker(QObject):
                         ensemble_secondary_stem = getattr(
                             self.model_data, "ensemble_secondary_stem", ac.INST_STEM
                         )
-                        
-                        if master_is_primary_stem_only:
-                            target_stem = ensemble_primary_stem
-                        else:
-                            target_stem = ensemble_secondary_stem
-                        
-                        # Filter results to only include the target stem
-                        if target_stem in valid_results:
-                            filtered_results = {target_stem: valid_results[target_stem]}
-                            self._write_to_console(
-                                f"  🎯 Filtered Demucs results to target stem: {target_stem}", ""
+
+                        target_stem = (
+                            ensemble_primary_stem
+                            if master_is_primary_stem_only
+                            else ensemble_secondary_stem
+                        )
+
+                        self._write_to_console(
+                            f"🎯 DEBUG: Target stem for {model_data.model_basename}: {target_stem}",
+                            "",
+                        )
+                        self._write_to_console(
+                            f"🎯 DEBUG: Model method: {model_data.process_method}", ""
+                        )
+                        self._write_to_console(
+                            f"🎯 DEBUG: Available results: {list(valid_results.keys())}",
+                            "",
+                        )
+
+                        # For Demucs models - simply filter to target stem
+                        if model_data.process_method == ac.DEMUCS_ARCH_TYPE:
+                            if target_stem in valid_results:
+                                filtered_results = {
+                                    target_stem: valid_results[target_stem]
+                                }
+                                self._write_to_console(
+                                    f"  ✅ Demucs: Filtered to target stem: {target_stem}",
+                                    "",
+                                )
+                                return filtered_results
+                            elif target_stem.startswith("No "):
+                                # Handle "No Bass", "No Drums" etc. by combining other stems
+                                exclude_stem = target_stem[3:]  # Remove "No " prefix
+                                self._write_to_console(
+                                    f"  🔄 Demucs: Creating '{target_stem}' by excluding '{exclude_stem}'",
+                                    "",
+                                )
+
+                                # Check if this model actually produces the stem to exclude
+                                if exclude_stem not in valid_results:
+                                    self._write_to_console(
+                                        f"  ❌ Demucs: Model doesn't separate '{exclude_stem}' - cannot contribute to '{target_stem}'",
+                                        "",
+                                    )
+                                    return None
+
+                                # Combine all stems except the excluded one
+                                stems_to_combine = []
+                                for stem_name, stem_audio in valid_results.items():
+                                    if stem_name != exclude_stem:
+                                        stems_to_combine.append((stem_name, stem_audio))
+
+                                if stems_to_combine:
+                                    combined_audio = None
+                                    for stem_name, stem_audio in stems_to_combine:
+                                        if combined_audio is None:
+                                            combined_audio = stem_audio.copy()
+                                        else:
+                                            combined_audio += stem_audio
+
+                                    filtered_results = {target_stem: combined_audio}
+                                    self._write_to_console(
+                                        f"  ✅ Demucs: Created {target_stem} by combining {len(stems_to_combine)} stems",
+                                        "",
+                                    )
+                                    return filtered_results
+                                else:
+                                    self._write_to_console(
+                                        f"  ❌ Demucs: No stems available to create {target_stem}",
+                                        "",
+                                    )
+                                    return None
+                            else:
+                                self._write_to_console(
+                                    f"  ❌ Demucs: Target stem '{target_stem}' not found in results: {list(valid_results.keys())}",
+                                    "",
+                                )
+                                return None
+
+                        # For VR and MDX models - apply permissive logic
+                        elif model_data.process_method in [
+                            ac.VR_ARCH_TYPE,
+                            ac.MDX_ARCH_TYPE,
+                        ]:
+                            model_primary_stem = getattr(
+                                model_data, "primary_stem", ac.VOCAL_STEM
                             )
-                            return filtered_results
-                        else:
-                            self._write_to_console(
-                                f"  ❌ Target stem '{target_stem}' not found in Demucs results: {list(valid_results.keys())}", ""
+                            model_secondary_stem = getattr(
+                                model_data, "secondary_stem", ac.INST_STEM
                             )
-                            return None
+
+                            self._write_to_console(
+                                f"  🎯 VR/MDX: Model produces: {model_primary_stem}, {model_secondary_stem}",
+                                "",
+                            )
+
+                            # Check if target stem is "No ..." type (like "No Bass")
+                            if target_stem.startswith("No "):
+                                exclude_stem = target_stem[3:]  # Remove "No " prefix
+
+                                self._write_to_console(
+                                    f"  🔄 VR/MDX: Target '{target_stem}' means exclude '{exclude_stem}'",
+                                    "",
+                                )
+
+                                # Permissive logic: try different approaches
+                                if (
+                                    exclude_stem == model_primary_stem
+                                    and model_secondary_stem in valid_results
+                                ):
+                                    # Model's primary is the excluded stem, so use secondary as "No X"
+                                    filtered_results = {
+                                        target_stem: valid_results[model_secondary_stem]
+                                    }
+                                    self._write_to_console(
+                                        f"  ✅ VR/MDX: Using secondary stem ({model_secondary_stem}) as {target_stem}",
+                                        "",
+                                    )
+                                    return filtered_results
+                                elif (
+                                    exclude_stem == model_secondary_stem
+                                    and model_primary_stem in valid_results
+                                ):
+                                    # Model's secondary is the excluded stem, so use primary as "No X"
+                                    filtered_results = {
+                                        target_stem: valid_results[model_primary_stem]
+                                    }
+                                    self._write_to_console(
+                                        f"  ✅ VR/MDX: Using primary stem ({model_primary_stem}) as {target_stem}",
+                                        "",
+                                    )
+                                    return filtered_results
+                                else:
+                                    # Model doesn't produce the excluded stem - cannot contribute to "No X"
+                                    # because its outputs still contain the excluded stem mixed in
+                                    self._write_to_console(
+                                        f"  ❌ VR/MDX: Model doesn't separate '{exclude_stem}' - cannot contribute to '{target_stem}'",
+                                        "",
+                                    )
+                                    return None
+                            else:
+                                # Direct stem request (like "Bass", "Vocals")
+                                if target_stem in [
+                                    model_primary_stem,
+                                    model_secondary_stem,
+                                ]:
+                                    if target_stem in valid_results:
+                                        filtered_results = {
+                                            target_stem: valid_results[target_stem]
+                                        }
+                                        self._write_to_console(
+                                            f"  ✅ VR/MDX: Model can produce target stem: {target_stem}",
+                                            "",
+                                        )
+                                        return filtered_results
+                                    else:
+                                        self._write_to_console(
+                                            f"  ❌ VR/MDX: Target stem '{target_stem}' not in results: {list(valid_results.keys())}",
+                                            "",
+                                        )
+                                        return None
+                                else:
+                                    self._write_to_console(
+                                        f"  ⚠️ VR/MDX: Model doesn't produce target stem '{target_stem}' directly - skipping",
+                                        "",
+                                    )
+                                    return None
 
                     if valid_results:
                         return valid_results

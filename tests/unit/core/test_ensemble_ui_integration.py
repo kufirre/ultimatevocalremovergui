@@ -416,8 +416,7 @@ class TestEnsembleAdvancedDialog:
 
     @patch("builtins.open", new_callable=mock_open)
     @patch("uvr_pyside6_ui.ui.ensemble_advanced_dialog.QInputDialog.getText")
-    @patch("uvr_pyside6_ui.ui.ensemble_advanced_dialog.QMessageBox.information")
-    def test_save_ensemble_success(self, mock_msg_info, mock_input, mock_open, qapp):
+    def test_save_ensemble_success(self, mock_input, mock_open, qapp):
         """Test successful ensemble saving."""
         current_settings = {
             "ensemble_main_stem_pair": "Vocals/Instrumental",
@@ -433,6 +432,9 @@ class TestEnsembleAdvancedDialog:
 
         mock_input.return_value = ("Test Ensemble", True)
 
+        # Mock the message box method instead of patching QMessageBox
+        dialog._show_message_box = Mock()
+
         dialog._save_ensemble()
 
         # The mock_open will be called multiple times:
@@ -446,37 +448,36 @@ class TestEnsembleAdvancedDialog:
         assert final_call[0][1] == "w"  # Write mode
 
         mock_input.assert_called_once()
-        mock_msg_info.assert_called_once()  # Assert that the non-blocking method was called
+        dialog._show_message_box.assert_called_once()  # Assert that the message box method was called
 
-    @patch("uvr_pyside6_ui.ui.ensemble_advanced_dialog.QMessageBox.warning")
-    def test_save_ensemble_no_models(self, mock_msg_warning, qapp):
+    def test_save_ensemble_no_models(self, qapp):
         """Test save ensemble with no models selected."""
-        mock_msg_warning.return_value = Mock()
-
         dialog = EnsembleAdvancedDialog({})
         dialog._currently_selected_models = []
 
+        # Mock the message box method to prevent UI blocking
+        dialog._show_message_box = Mock()
+
         dialog._save_ensemble()
 
-        # Should show warning message
-        mock_msg_warning.assert_called_once()
+        # Should show warning message via our custom method
+        dialog._show_message_box.assert_called_once()
 
     @patch("uvr_pyside6_ui.ui.ensemble_advanced_dialog.QInputDialog")
-    @patch("uvr_pyside6_ui.ui.ensemble_advanced_dialog.QMessageBox.warning")
-    def test_save_ensemble_invalid_name(
-        self, mock_msg_warning, mock_input_dialog, qapp
-    ):
+    def test_save_ensemble_invalid_name(self, mock_input_dialog, qapp):
         """Test save ensemble with invalid name."""
         mock_input_dialog.getText.return_value = ("Invalid@Name!", True)
-        mock_msg_warning.return_value = Mock()
 
         dialog = EnsembleAdvancedDialog({})
         dialog._currently_selected_models = ["Model1", "Model2"]
 
+        # Mock the message box method to prevent UI blocking
+        dialog._show_message_box = Mock()
+
         dialog._save_ensemble()
 
         # Should show invalid name warning
-        mock_msg_warning.assert_called_once()
+        dialog._show_message_box.assert_called_once()
 
     def test_apply_settings(self, qapp):
         """Test applying settings."""

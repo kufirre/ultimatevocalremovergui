@@ -5,7 +5,8 @@ This module contains tests that prevent regression of the critical stem assignme
 issues where selecting "vocal only" would output instrumental and vice versa.
 """
 
-from unittest.mock import Mock
+import json
+from unittest.mock import Mock, mock_open, patch
 
 import pytest
 
@@ -249,3 +250,157 @@ class TestStemAssignmentIntegration:
         assert (
             separator.md.primary_stem == ac.VOCAL_STEM
         ), "Demucs separator should have correct primary stem assignment"
+
+
+@pytest.mark.critical
+@pytest.mark.regression
+class TestSwappedStemLogic:
+    """Test swapped stem logic for single model processing."""
+
+    def _create_mock_vr_model(self, settings, primary_stem="Vocals"):
+        """Helper method to create a mocked VR model with consistent setup."""
+        hash_json_data = {"primary_stem": primary_stem, "vr_model_param": "test.json"}
+        
+        with patch("uvr_pyside6_ui.core.model_data.VR_HASH_DIR_PATH") as mock_hash_dir, \
+             patch("builtins.open", mock_open(read_data=json.dumps(hash_json_data))), \
+             patch("uvr_pyside6_ui.core.model_data.Path") as mock_path, \
+             patch("uvr_pyside6_ui.core.model_data.ModelParameters") as mock_model_params, \
+             patch("uvr_pyside6_ui.core.model_data.hashlib") as mock_hashlib:
+            
+            # Setup common mocks
+            mock_path.return_value.exists.return_value = True
+            mock_path.return_value.stem = "test_model"
+            mock_hashlib.md5.return_value.hexdigest.return_value = "fake_hash"
+            mock_model_params.return_value = Mock()
+            
+            return ModelData.from_settings_dict(settings)
+
+    def _create_mock_mdx_model(self, settings, primary_stem="Vocals"):
+        """Helper method to create a mocked MDX model with consistent setup."""
+        hash_json_data = {"primary_stem": primary_stem}
+        
+        with patch("uvr_pyside6_ui.core.model_data.MDX_HASH_DIR_PATH") as mock_hash_dir, \
+             patch("builtins.open", mock_open(read_data=json.dumps(hash_json_data))), \
+             patch("uvr_pyside6_ui.core.model_data.Path") as mock_path:
+            
+            mock_path.return_value.exists.return_value = True
+            mock_path.return_value.stem = "test_mdx_model"
+            
+            return ModelData.from_settings_dict(settings)
+
+    def _create_mock_demucs_model(self, settings):
+        """Helper method to create a mocked Demucs model with consistent setup."""
+        with patch("uvr_pyside6_ui.core.model_data.Path") as mock_path:
+            mock_path.return_value.exists.return_value = True
+            mock_path.return_value.stem = "test_demucs"
+            
+            return ModelData.from_settings_dict(settings)
+
+    def test_vr_model_with_swapped_stems(self):
+        """Test VR model where user wants secondary stem only."""
+        # Create settings where user wants Instrumental Only
+        settings = {
+            "chosen_process_method": ac.VR_ARCH_TYPE,
+            "vr_model": "test_model.pth",
+            "is_primary_stem_only": False,
+            "is_secondary_stem_only": True,
+            "primary_stem_text": "Vocals Only",  # Model's primary
+            "secondary_stem_text": "Instrumental Only",  # What user wants
+            "output_path": "/tmp/test",
+        }
+
+        # Mock a VR model where Vocals is primary (normal case)
+        model_data = self._create_mock_vr_model(settings)
+
+        # Verify the model loaded successfully
+        assert (
+            model_data.model_status == True
+        ), f"Model should load successfully, but status is {model_data.model_status}"
+
+        # Verify the model correctly identifies user intent
+        assert model_data.user_requested_stem == ac.INST_STEM
+        # Since user wants Instrumental (secondary), should swap to secondary_only
+        assert model_data.is_secondary_stem_only == True
+        assert model_data.is_primary_stem_only == False
+
+    def test_vr_model_with_instrumental_primary(self):
+        """Test VR model where Instrumental is the primary stem."""
+        # Create settings where user wants Instrumental Only
+        settings = {
+            "chosen_process_method": ac.VR_ARCH_TYPE,
+            "vr_model": "instrumental_model.pth",
+            "is_primary_stem_only": True,
+            "is_secondary_stem_only": False,
+            "primary_stem_text": "Instrumental Only",  # What user wants
+            "secondary_stem_text": "Vocals Only",  # Model's secondary
+            "output_path": "/tmp/test",
+        }
+
+        # Mock a VR model where Instrumental is primary (swapped model)
+        model_data = self._create_mock_vr_model(settings, primary_stem="Instrumental")
+
+        # Verify the model correctly identifies user intent
+        assert model_data.user_requested_stem == ac.INST_STEM
+        # Since user wants Instrumental and it's the model's primary, keep primary_only
+        assert model_data.is_primary_stem_only == True
+        assert model_data.is_secondary_stem_only == False
+
+    def test_mdx_model_stem_swapping(self):
+        """Test MDX model stem swapping logic."""
+        settings = {
+            "chosen_process_method": ac.MDX_ARCH_TYPE,
+            "mdx_net_model": "test_mdx.onnx",
+            "is_primary_stem_only": False,
+            "is_secondary_stem_only": True,
+            "primary_stem_text": "Vocals Only",
+            "secondary_stem_text": "Instrumental Only",  # What user wants
+            "output_path": "/tmp/test",
+        }
+
+        model_data = self._create_mock_mdx_model(settings)
+
+        # Verify MDX model handles swapping correctly
+        assert model_data.user_requested_stem == ac.INST_STEM
+        assert model_data.is_secondary_stem_only == True
+        assert model_data.is_primary_stem_only == False
+
+    def test_demucs_model_stem_swapping(self):
+        """Test Demucs model stem swapping logic."""
+        settings = {
+            "chosen_process_method": ac.DEMUCS_ARCH_TYPE,
+            "demucs_model": "test_demucs.yaml",
+            "is_primary_stem_only_Demucs": True,
+            "is_secondary_stem_only_Demucs": False,
+            "primary_stem_text": "Bass Only",  # What user wants
+            "secondary_stem_text": "No Bass",
+            "demucs_stems": "Bass",
+            "output_path": "/tmp/test",
+        }
+
+        model_data = self._create_mock_demucs_model(settings)
+
+        # Verify Demucs model handles bass extraction correctly
+        assert model_data.user_requested_stem == ac.BASS_STEM
+        assert model_data.demucs_source_list == ac.DEMUCS_4_SOURCE_LIST
+        # Bass should be available in 4-stem model
+        assert ac.BASS_STEM in model_data.demucs_source_list
+
+    def test_model_cannot_produce_requested_stem(self):
+        """Test when model cannot produce the requested stem."""
+        settings = {
+            "chosen_process_method": ac.VR_ARCH_TYPE,
+            "vr_model": "vocals_only_model.pth",
+            "is_primary_stem_only": True,
+            "is_secondary_stem_only": False,
+            "primary_stem_text": "Bass Only",  # User wants bass
+            "secondary_stem_text": "No Bass",
+            "output_path": "/tmp/test",
+        }
+
+        # Mock a VR model that only does vocals/instrumental
+        model_data = self._create_mock_vr_model(settings, primary_stem="Vocals")
+
+        # Verify model outputs both stems when it can't produce requested stem
+        assert model_data.user_requested_stem == ac.BASS_STEM
+        assert model_data.is_primary_stem_only == False
+        assert model_data.is_secondary_stem_only == False

@@ -523,8 +523,28 @@ class SeparateDemucsLogic(SeparatorAttributesLogic):
 
             self.model_run_instance.to(self.device).eval()
 
+            # Get actual stems from the loaded model instead of using hardcoded lists
             if hasattr(self.model_run_instance, "sources"):
-                logger.debug(f"Model sources: {list(self.model_run_instance.sources)}")
+                actual_model_sources = list(self.model_run_instance.sources)
+                logger.info(f"Model sources from loaded model: {actual_model_sources}")
+
+                # Update ModelData with actual sources from the model
+                md.demucs_source_list = actual_model_sources
+                md.demucs_stem_count = len(actual_model_sources)
+
+                # Create source map from actual model sources
+                md.demucs_source_map = {
+                    source: idx for idx, source in enumerate(actual_model_sources)
+                }
+
+                logger.info(f"Updated demucs_source_list: {md.demucs_source_list}")
+                logger.info(f"Updated demucs_source_map: {md.demucs_source_map}")
+            else:
+                logger.warning(
+                    "Model does not have 'sources' attribute, "
+                    "using configured source list"
+                )
+
             if hasattr(self.model_run_instance, "audio_channels"):
                 logger.debug(
                     f"Model audio_channels: {self.model_run_instance.audio_channels}"
@@ -580,13 +600,57 @@ class SeparateDemucsLogic(SeparatorAttributesLogic):
             for stem_name, stem_idx in md.demucs_source_map.items():
                 if stem_idx < all_stems_output.shape[0]:  # Ensure index is valid
                     stem_data = all_stems_output[stem_idx].T
-                    self._write_stem(stem_name, stem_data, md.model_samplerate)
                     outputs[stem_name] = stem_data
+
+            # For ensemble members, apply stem filtering based on stem-only flags
+            if md.is_ensemble_member:
+                logger.debug("Applying ensemble stem filtering for Demucs member")
+                filtered_outputs = {}
+
+                # Apply primary stem only filtering
+                if md.is_primary_stem_only and not md.is_secondary_stem_only:
+                    logger.debug(
+                        f"Primary stem only mode - keeping only {md.primary_stem}"
+                    )
+                    if md.primary_stem in outputs:
+                        filtered_outputs[md.primary_stem] = outputs[md.primary_stem]
+
+                # Apply secondary stem only filtering
+                elif md.is_secondary_stem_only and not md.is_primary_stem_only:
+                    logger.debug(
+                        f"Secondary stem only mode - keeping only {md.secondary_stem}"
+                    )
+                    if md.secondary_stem in outputs:
+                        filtered_outputs[md.secondary_stem] = outputs[md.secondary_stem]
+                    # Handle instrumental stem creation if needed
+                    elif md.secondary_stem == ac.INST_STEM and ac.VOCAL_STEM in outputs:
+                        logger.debug("Creating instrumental stem from vocals")
+                        vocal_data = outputs[ac.VOCAL_STEM]
+                        instrumental_data = mix_audio_norm_np - vocal_data
+                        filtered_outputs[ac.INST_STEM] = instrumental_data
+
+                # If filtering was applied, replace outputs with filtered results and write stems
+                if filtered_outputs:
+                    outputs = filtered_outputs
+                    logger.debug(f"Filtered outputs to: {list(outputs.keys())}")
+                    # Write the filtered stems
+                    for stem_name, stem_data in outputs.items():
+                        self._write_stem(stem_name, stem_data, md.model_samplerate)
+                else:
+                    # No filtering applied, write all stems
+                    for stem_name, stem_data in outputs.items():
+                        self._write_stem(stem_name, stem_data, md.model_samplerate)
+            else:
+                # Not an ensemble member, write all stems
+                for stem_name, stem_data in outputs.items():
+                    self._write_stem(stem_name, stem_data, md.model_samplerate)
+
             # Instrumental creation logic (if needed and vocals exist)
             if (
                 not md.is_primary_stem_only
                 and md.secondary_stem == ac.INST_STEM
                 and ac.VOCAL_STEM in md.demucs_source_map
+                and not md.is_ensemble_member  # Only for non-ensemble runs
             ):
                 vocal_idx = md.demucs_source_map[ac.VOCAL_STEM]
                 if vocal_idx < all_stems_output.shape[0]:
@@ -684,28 +748,122 @@ class SeparateDemucsLogic(SeparatorAttributesLogic):
                         logger.debug(
                             "Secondary stem only mode - outputting single stem"
                         )
-                        if md.is_demucs_combine_stems:
-                            # Combine all non-primary stems
-                            combined_stem = np.zeros_like(primary_stem_data)
-                            for other_stem, other_idx in md.demucs_source_map.items():
-                                if (
-                                    other_stem != target_primary_stem_cap
-                                    and other_idx < all_stems_output.shape[0]
-                                ):
-                                    combined_stem += all_stems_output[other_idx].T
-                            self._write_stem(
-                                md.secondary_stem, combined_stem, md.model_samplerate
-                            )
-                            outputs[md.secondary_stem] = combined_stem
+
+                        # Check if we can create the secondary stem
+                        if md.secondary_stem.startswith("No "):
+                            # Secondary stem like "No Bass", "No Drums" - exclude a specific stem
+                            exclude_stem = md.secondary_stem[3:]  # Remove "No " prefix
+
+                            # Be more permissive like original UVR - try different approaches
+                            if exclude_stem in md.demucs_source_map:
+                                # Model has the excluded stem, so create "No X" by combining other stems
+                                logger.debug(
+                                    f"Creating '{md.secondary_stem}' by excluding '{exclude_stem}' from available stems"
+                                )
+
+                                # Get indices of all stems except the excluded one
+                                other_indices = [
+                                    idx
+                                    for stem, idx in md.demucs_source_map.items()
+                                    if stem != exclude_stem
+                                ]
+
+                                if other_indices:
+                                    # Combine all other stems
+                                    combined_stem = None
+                                    for idx in other_indices:
+                                        if idx < all_stems_output.shape[0]:
+                                            stem_data = all_stems_output[idx].T
+                                            if combined_stem is None:
+                                                combined_stem = stem_data.copy()
+                                            else:
+                                                combined_stem += stem_data
+
+                                    if combined_stem is not None:
+                                        self._write_stem(
+                                            md.secondary_stem,
+                                            combined_stem,
+                                            md.model_samplerate,
+                                        )
+                                        outputs[md.secondary_stem] = combined_stem
+                                        logger.debug(
+                                            f"Created {md.secondary_stem} by combining stems at indices {other_indices}"
+                                        )
+                                    else:
+                                        logger.warning(
+                                            f"Failed to combine stems for {md.secondary_stem}"
+                                        )
+                                        outputs = {}
+                                else:
+                                    logger.warning(
+                                        f"No other stems available to create {md.secondary_stem}"
+                                    )
+                                    outputs = {}
+                            else:
+                                # Model doesn't have the excluded stem - cannot create "No X" properly
+                                logger.warning(
+                                    f"Model doesn't produce '{exclude_stem}' - cannot create '{md.secondary_stem}' correctly"
+                                )
+                                outputs = {}
                         else:
-                            # Create secondary by subtraction
-                            secondary_stem_data = mix_audio_norm_np - primary_stem_data
-                            self._write_stem(
-                                md.secondary_stem,
-                                secondary_stem_data,
-                                md.model_samplerate,
-                            )
-                            outputs[md.secondary_stem] = secondary_stem_data
+                            # Direct secondary stem request
+                            if md.secondary_stem in md.demucs_source_map:
+                                stem_idx = md.demucs_source_map[md.secondary_stem]
+                                if stem_idx < all_stems_output.shape[0]:
+                                    secondary_stem_data = all_stems_output[stem_idx].T
+                                    self._write_stem(
+                                        md.secondary_stem,
+                                        secondary_stem_data,
+                                        md.model_samplerate,
+                                    )
+                                    outputs[md.secondary_stem] = secondary_stem_data
+                                    logger.debug(
+                                        f"Output secondary stem: {md.secondary_stem}"
+                                    )
+                                else:
+                                    logger.error(
+                                        f"Stem index {stem_idx} out of range for model output shape {all_stems_output.shape}"
+                                    )
+                                    outputs = {}
+                            else:
+                                # Try subtraction as fallback for missing secondary stems
+                                logger.debug(
+                                    f"Secondary stem '{md.secondary_stem}' not available, trying subtraction fallback"
+                                )
+                                if (
+                                    hasattr(md, "primary_stem")
+                                    and md.primary_stem in md.demucs_source_map
+                                ):
+                                    primary_idx = md.demucs_source_map[md.primary_stem]
+                                    if primary_idx < all_stems_output.shape[0]:
+                                        primary_stem_data = all_stems_output[
+                                            primary_idx
+                                        ].T
+                                        # Use mix subtraction as fallback
+                                        secondary_stem_data = (
+                                            mix_audio_norm_np - primary_stem_data
+                                        )
+                                        self._write_stem(
+                                            md.secondary_stem,
+                                            secondary_stem_data,
+                                            md.model_samplerate,
+                                        )
+                                        outputs[md.secondary_stem] = secondary_stem_data
+                                        logger.debug(
+                                            f"Created {md.secondary_stem} by subtraction fallback"
+                                        )
+                                    else:
+                                        logger.error(
+                                            f"Primary stem index {primary_idx} out of range for model output shape {all_stems_output.shape}"
+                                        )
+                                        outputs = {}
+                                else:
+                                    logger.warning(
+                                        f"Ensemble mode: secondary stem {md.secondary_stem} not available and no fallback possible"
+                                    )
+                                    outputs = (
+                                        {}
+                                    )  # Return empty if we can't provide the requested stem
 
                     # Handle normal dual stem output case (both stems)
                     else:
@@ -720,28 +878,97 @@ class SeparateDemucsLogic(SeparatorAttributesLogic):
                         )
                         outputs[target_primary_stem_cap] = primary_stem_data
 
-                        # Create secondary stem if needed
-                        if not md.secondary_stem.startswith("No "):
-                            if md.is_demucs_combine_stems:
-                                # Combine all non-primary stems
-                                combined_stem = np.zeros_like(primary_stem_data)
-                                for (
-                                    other_stem,
-                                    other_idx,
-                                ) in md.demucs_source_map.items():
-                                    if (
-                                        other_stem != target_primary_stem_cap
-                                        and other_idx < all_stems_output.shape[0]
-                                    ):
-                                        combined_stem += all_stems_output[other_idx].T
-                                self._write_stem(
-                                    md.secondary_stem,
-                                    combined_stem,
-                                    md.model_samplerate,
-                                )
-                                outputs[md.secondary_stem] = combined_stem
+                        # Create secondary stem if needed and possible
+                        if md.secondary_stem.startswith("No "):
+                            # Secondary stem like "No Bass", "No Drums" - exclude a specific stem
+                            exclude_stem = md.secondary_stem[3:]  # Remove "No " prefix
+
+                            # Check if this model actually produces the stem to exclude
+                            if exclude_stem in md.demucs_source_map:
+                                if md.is_demucs_combine_stems:
+                                    # Combine all non-primary stems
+                                    combined_stem = np.zeros_like(primary_stem_data)
+                                    for (
+                                        other_stem,
+                                        other_idx,
+                                    ) in md.demucs_source_map.items():
+                                        if (
+                                            other_stem != exclude_stem
+                                            and other_idx < all_stems_output.shape[0]
+                                        ):
+                                            combined_stem += all_stems_output[
+                                                other_idx
+                                            ].T
+                                    self._write_stem(
+                                        md.secondary_stem,
+                                        combined_stem,
+                                        md.model_samplerate,
+                                    )
+                                    outputs[md.secondary_stem] = combined_stem
+                                    logger.debug(
+                                        f"Created {md.secondary_stem} by combining stems (excluding {exclude_stem})"
+                                    )
+                                else:
+                                    # Create secondary by subtracting the excluded stem from mix
+                                    exclude_idx = md.demucs_source_map[exclude_stem]
+                                    if exclude_idx < all_stems_output.shape[0]:
+                                        exclude_stem_data = all_stems_output[
+                                            exclude_idx
+                                        ].T
+                                        secondary_stem_data = (
+                                            mix_audio_norm_np - exclude_stem_data
+                                        )
+                                        self._write_stem(
+                                            md.secondary_stem,
+                                            secondary_stem_data,
+                                            md.model_samplerate,
+                                        )
+                                        outputs[md.secondary_stem] = secondary_stem_data
+                                        logger.debug(
+                                            f"Created {md.secondary_stem} by subtracting {exclude_stem}"
+                                        )
                             else:
-                                # Create secondary by subtraction
+                                logger.warning(
+                                    f"Cannot create {md.secondary_stem} - model doesn't produce {exclude_stem}"
+                                )
+                        else:
+                            # Direct secondary stem (like "Instrumental")
+                            if (
+                                md.secondary_stem == ac.INST_STEM
+                                and ac.VOCAL_STEM in md.demucs_source_map
+                            ):
+                                # Create instrumental by subtracting vocals
+                                vocal_idx = md.demucs_source_map[ac.VOCAL_STEM]
+                                if vocal_idx < all_stems_output.shape[0]:
+                                    vocal_data = all_stems_output[vocal_idx].T
+                                    secondary_stem_data = mix_audio_norm_np - vocal_data
+                                    self._write_stem(
+                                        md.secondary_stem,
+                                        secondary_stem_data,
+                                        md.model_samplerate,
+                                    )
+                                    outputs[md.secondary_stem] = secondary_stem_data
+                                    logger.debug(
+                                        "Created instrumental by subtracting vocals"
+                                    )
+                            elif md.secondary_stem in md.demucs_source_map:
+                                # Direct secondary stem exists in model output
+                                secondary_idx = md.demucs_source_map[md.secondary_stem]
+                                if secondary_idx < all_stems_output.shape[0]:
+                                    secondary_stem_data = all_stems_output[
+                                        secondary_idx
+                                    ].T
+                                    self._write_stem(
+                                        md.secondary_stem,
+                                        secondary_stem_data,
+                                        md.model_samplerate,
+                                    )
+                                    outputs[md.secondary_stem] = secondary_stem_data
+                                    logger.debug(
+                                        f"Output direct secondary stem: {md.secondary_stem}"
+                                    )
+                            else:
+                                # Create secondary by subtraction as fallback
                                 secondary_stem_data = (
                                     mix_audio_norm_np - primary_stem_data
                                 )
@@ -751,6 +978,9 @@ class SeparateDemucsLogic(SeparatorAttributesLogic):
                                     md.model_samplerate,
                                 )
                                 outputs[md.secondary_stem] = secondary_stem_data
+                                logger.debug(
+                                    f"Created {md.secondary_stem} by subtraction fallback"
+                                )
                 else:
                     logger.error(
                         f"Stem index {stem_idx} out of range for model output shape {all_stems_output.shape}"

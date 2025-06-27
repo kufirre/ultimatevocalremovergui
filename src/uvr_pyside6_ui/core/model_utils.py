@@ -13,9 +13,13 @@ from .logger_utils import get_logger
 
 logger = get_logger(__name__)
 
+# Import ModelData here to avoid in-method imports
+# Note: This may cause circular import in some cases, in which case the import
+# should be moved back inside the function
 try:
     from .model_data import ModelData
 except ImportError:
+    # If circular import occurs, we'll handle it in the function
     ModelData = None
 
 

@@ -3458,27 +3458,9 @@ class ProcessingWorker(QObject):
             return source
 
     def _get_demucs_source_map(self, num_sources: int) -> dict:
-        """Get Demucs source mapping based on number of sources"""
-        if num_sources == 2:
-            return {ac.VOCAL_STEM: 1, ac.INST_STEM: 0}
-        elif num_sources == 6:
-            return {
-                ac.VOCAL_STEM: 4,
-                ac.INST_STEM: 3,
-                ac.BASS_STEM: 0,
-                ac.DRUM_STEM: 1,
-                ac.OTHER_STEM: 2,
-                ac.GUITAR_STEM: 5,
-                ac.PIANO_STEM: 5,  # Same as guitar for 6-stem
-            }
-        else:  # 4 sources
-            return {
-                ac.VOCAL_STEM: 3,
-                ac.INST_STEM: 2,
-                ac.BASS_STEM: 0,
-                ac.DRUM_STEM: 1,
-                ac.OTHER_STEM: 2,
-            }
+        """Get Demucs source mapping based on number of sources using centralized constants"""
+        source_list, source_mapper = ac.get_demucs_source_mapping(num_sources)
+        return source_mapper
 
     def _pitch_fix_demucs(
         self, source: np.ndarray, sr_pitched: int, org_mix: np.ndarray

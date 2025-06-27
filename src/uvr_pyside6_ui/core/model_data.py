@@ -1363,29 +1363,23 @@ class ModelData:
             # Extract what the user actually wants to extract
             self.user_requested_stem = self._extract_user_requested_stem(settings)
 
-            # Determine source list, map, and count based on model name and version
+            # Determine source list, map, and count based on model name and version using centralized helper
             if (
                 ac.DEMUCS_UVR_MODEL_TAG in self.model_name
                 or self.demucs_version == ac.DEMUCS_V1
                 or self.demucs_version == ac.DEMUCS_V2
             ):
-                (
-                    self.demucs_source_list,
-                    self.demucs_source_map,
-                    self.demucs_stem_count,
-                ) = (ac.DEMUCS_2_SOURCE_LIST, ac.DEMUCS_2_SOURCE_MAPPER, 2)
+                # 2-stem models
+                self.demucs_stem_count = 2
+                self.demucs_source_list, self.demucs_source_map = ac.get_demucs_source_mapping(2)
             elif ac.DEMUCS_6_STEM_TAG in self.model_name:
-                (
-                    self.demucs_source_list,
-                    self.demucs_source_map,
-                    self.demucs_stem_count,
-                ) = (ac.DEMUCS_6_SOURCE_LIST, ac.DEMUCS_6_SOURCE_MAPPER, 6)
+                # 6-stem models
+                self.demucs_stem_count = 6
+                self.demucs_source_list, self.demucs_source_map = ac.get_demucs_source_mapping(6)
             else:  # Default to 4-stem for v3/v4 if not specified otherwise
-                (
-                    self.demucs_source_list,
-                    self.demucs_source_map,
-                    self.demucs_stem_count,
-                ) = (ac.DEMUCS_4_SOURCE_LIST, ac.DEMUCS_4_SOURCE_MAPPER, 4)
+                # 4-stem models (most common)
+                self.demucs_stem_count = 4
+                self.demucs_source_list, self.demucs_source_map = ac.get_demucs_source_mapping(4)
 
             # Determine primary stem based on user selection or defaults
             chosen_demucs_stems_output = settings.get("demucs_stems", ac.ALL_STEMS)

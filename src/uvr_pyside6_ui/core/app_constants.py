@@ -3,6 +3,7 @@
 import json
 import platform
 from pathlib import Path
+from typing import Optional
 
 # --- Online Catalog and Cache ---
 DOWNLOAD_CHECKS_URL = "https://raw.githubusercontent.com/TRvlvr/application_data/main/filelists/download_checks.json"  # From UVR v5.6.0 constants
@@ -157,9 +158,113 @@ DEMUCS_V2 = "v2"
 DEMUCS_V3 = "v3"
 DEMUCS_V4 = "v4"
 
-# --- Demucs Source Mapping ---
-DEMUCS_4_SOURCE_LIST = [BASS_STEM, DRUM_STEM, OTHER_STEM, VOCAL_STEM]
+# --- Demucs Source Mapping (Optimized Static Approach) ---
+# 
+# IMPORTANT: Demucs models naturally output stems in this order:
+# Model Output: [drums, bass, other, vocals]  (indices 0, 1, 2, 3)
+# 
+# However, UVR interface expects this order:
+# UVR Expected: [bass, drums, other, vocals]  (indices 0, 1, 2, 3)
+# 
+# We use static mapping + transformation to convert between these orders.
+
+# Model's natural output order (what Demucs actually produces)
+DEMUCS_MODEL_OUTPUT_ORDER_4 = ["drums", "bass", "other", "vocals"]
+DEMUCS_MODEL_OUTPUT_ORDER_6 = ["drums", "bass", "other", "vocals", "guitar", "piano"]
+DEMUCS_MODEL_OUTPUT_ORDER_2 = ["instrumental", "vocals"]
+
+# UVR interface expected order (what our UI and users expect)
+DEMUCS_2_SOURCE_LIST = [INST_STEM, VOCAL_STEM]
+DEMUCS_4_SOURCE_LIST = [BASS_STEM, DRUM_STEM, OTHER_STEM, VOCAL_STEM] 
+DEMUCS_6_SOURCE_LIST = [BASS_STEM, DRUM_STEM, OTHER_STEM, VOCAL_STEM, GUITAR_STEM, PIANO_STEM]
+
+# UVR interface mapping (maps stem names to expected UVR indices)
+DEMUCS_2_SOURCE_MAPPER = {INST_STEM: 0, VOCAL_STEM: 1}
 DEMUCS_4_SOURCE_MAPPER = {BASS_STEM: 0, DRUM_STEM: 1, OTHER_STEM: 2, VOCAL_STEM: 3}
+DEMUCS_6_SOURCE_MAPPER = {
+    BASS_STEM: 0,
+    DRUM_STEM: 1,
+    OTHER_STEM: 2,
+    VOCAL_STEM: 3,
+    GUITAR_STEM: 4,
+    PIANO_STEM: 5,
+}
+
+
+def get_demucs_source_mapping(stem_count: int) -> tuple:
+    """Get the UVR interface source list and mapper.
+    
+    Args:
+        stem_count: Number of stems (2, 4, or 6)
+        
+    Returns:
+        tuple: (uvr_source_list, uvr_source_mapper)
+    """
+    if stem_count == 2:
+        return DEMUCS_2_SOURCE_LIST, DEMUCS_2_SOURCE_MAPPER
+    elif stem_count == 6:
+        return DEMUCS_6_SOURCE_LIST, DEMUCS_6_SOURCE_MAPPER
+    else:  # 4-stem default
+        return DEMUCS_4_SOURCE_LIST, DEMUCS_4_SOURCE_MAPPER
+
+
+def transform_demucs_output_to_uvr_order(model_output_array, stem_count: int):
+    """Transform Demucs model output to UVR expected order.
+    
+    Demucs models naturally output: [drums, bass, other, vocals, ...]
+    UVR interface expects:           [bass, drums, other, vocals, ...]
+    
+    This function performs the necessary index swapping to match UVR expectations.
+    
+    Args:
+        model_output_array: numpy array with shape (n_stems, channels, time)
+        stem_count: Number of stems (2, 4, or 6)
+        
+    Returns:
+        numpy array: Reordered to match UVR interface expectations
+    """
+    import numpy as np
+    
+    if stem_count == 4 and model_output_array.shape[0] >= 2:
+        # For 4-stem: swap drums (model index 0) with bass (model index 1)
+        # Transform [drums, bass, other, vocals] → [bass, drums, other, vocals]
+        reordered = model_output_array.copy()
+        reordered[[0, 1]] = reordered[[1, 0]]  # Swap drums and bass
+        return reordered
+    elif stem_count == 6 and model_output_array.shape[0] >= 2:
+        # For 6-stem: same drums/bass swap as 4-stem
+        reordered = model_output_array.copy()
+        reordered[[0, 1]] = reordered[[1, 0]]  # Swap drums and bass
+        return reordered
+    else:
+        # For 2-stem or edge cases, no transformation needed
+        return model_output_array.copy()
+
+
+def get_stem_index_safe(source_map: dict, stem_name: str) -> Optional[int]:
+    """Case-insensitive stem lookup in source map.
+    
+    Handles case mismatches between our title-case constants (e.g., 'Vocals') 
+    and any lowercase source map keys (e.g., 'vocals').
+    
+    Args:
+        source_map: Dictionary mapping stem names to indices
+        stem_name: Stem name to look up (case-insensitive)
+        
+    Returns:
+        Index if found, None otherwise
+    """
+    # Try exact match first (most common case)
+    if stem_name in source_map:
+        return source_map[stem_name]
+    
+    # Try case-insensitive lookup
+    stem_lower = stem_name.lower()
+    for key, value in source_map.items():
+        if key.lower() == stem_lower:
+            return value
+    
+    return None
 
 
 MODEL_SUBDIRS = {
@@ -454,7 +559,7 @@ LOG_LEVEL_ERROR = "ERROR"
 LOG_LEVEL_CRITICAL = "CRITICAL"
 
 # Default log level for production (can be overridden by environment variable)
-DEFAULT_LOG_LEVEL = LOG_LEVEL_INFO
+DEFAULT_LOG_LEVEL = LOG_LEVEL_DEBUG
 DEBUG_LOG_LEVEL = LOG_LEVEL_DEBUG
 
 # Log format

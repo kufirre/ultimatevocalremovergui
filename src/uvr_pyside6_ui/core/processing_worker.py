@@ -1536,41 +1536,51 @@ class ProcessingWorker(QObject):
                         f"  🎯 User wants secondary stem only: {target_stem_type}", ""
                     )
 
-                # Now configure this model's stem-only flags based on its stem assignments
-                model_primary_stem = getattr(model_data, "primary_stem", ac.VOCAL_STEM)
-                model_secondary_stem = getattr(
-                    model_data, "secondary_stem", ac.INST_STEM
-                )
-
-                self._write_to_console(
-                    f"  🎯 Model {model_data.model_basename}: primary={model_primary_stem}, secondary={model_secondary_stem}",
-                    "",
-                )
-
-                if target_stem_type == model_primary_stem:
-                    # User wants this model's primary stem
-                    model_data.is_primary_stem_only = True
+                # Special handling for Demucs models in ensemble mode
+                if model_data.process_method == ac.DEMUCS_ARCH_TYPE:
+                    # For Demucs models, always output all stems and filter afterward
+                    # This is because Demucs can produce any stem regardless of its configured primary/secondary
+                    model_data.is_primary_stem_only = False
                     model_data.is_secondary_stem_only = False
                     self._write_to_console(
-                        f"  ✅ Configured model to output primary stem only: {model_primary_stem}",
-                        "",
-                    )
-                elif target_stem_type == model_secondary_stem:
-                    # User wants this model's secondary stem
-                    model_data.is_primary_stem_only = False
-                    model_data.is_secondary_stem_only = True
-                    self._write_to_console(
-                        f"  ✅ Configured model to output secondary stem only: {model_secondary_stem}",
-                        "",
+                        f"  🎸 Demucs model will output all stems, target: {target_stem_type}", ""
                     )
                 else:
-                    # This model doesn't produce the stem the user wants - skip it
+                    # For VR and MDX models, try to match stems
+                    model_primary_stem = getattr(model_data, "primary_stem", ac.VOCAL_STEM)
+                    model_secondary_stem = getattr(
+                        model_data, "secondary_stem", ac.INST_STEM
+                    )
+
                     self._write_to_console(
-                        f"  ⚠️ Model doesn't produce target stem {target_stem_type}, will output both stems",
+                        f"  🎯 Model {model_data.model_basename}: primary={model_primary_stem}, secondary={model_secondary_stem}",
                         "",
                     )
-                    model_data.is_primary_stem_only = False
-                    model_data.is_secondary_stem_only = False
+
+                    if target_stem_type == model_primary_stem:
+                        # User wants this model's primary stem
+                        model_data.is_primary_stem_only = True
+                        model_data.is_secondary_stem_only = False
+                        self._write_to_console(
+                            f"  ✅ Configured model to output primary stem only: {model_primary_stem}",
+                            "",
+                        )
+                    elif target_stem_type == model_secondary_stem:
+                        # User wants this model's secondary stem
+                        model_data.is_primary_stem_only = False
+                        model_data.is_secondary_stem_only = True
+                        self._write_to_console(
+                            f"  ✅ Configured model to output secondary stem only: {model_secondary_stem}",
+                            "",
+                        )
+                    else:
+                        # This model doesn't produce the stem the user wants - skip it
+                        self._write_to_console(
+                            f"  ⚠️ Model doesn't produce target stem {target_stem_type}, will output both stems",
+                            "",
+                        )
+                        model_data.is_primary_stem_only = False
+                        model_data.is_secondary_stem_only = False
             else:
                 # User wants both stems - let model use its default settings
                 self._write_to_console(
@@ -1749,6 +1759,37 @@ class ProcessingWorker(QObject):
                             self._write_to_console(
                                 f"    ⚠️ {stem_name}: invalid or empty", ""
                             )
+
+                    # For Demucs models in ensemble mode, filter to only return the target stem
+                    if (model_data.process_method == ac.DEMUCS_ARCH_TYPE and 
+                        (master_is_primary_stem_only or master_is_secondary_stem_only) and
+                        valid_results):
+                        
+                        # Determine the target stem
+                        ensemble_primary_stem = getattr(
+                            self.model_data, "ensemble_primary_stem", ac.VOCAL_STEM
+                        )
+                        ensemble_secondary_stem = getattr(
+                            self.model_data, "ensemble_secondary_stem", ac.INST_STEM
+                        )
+                        
+                        if master_is_primary_stem_only:
+                            target_stem = ensemble_primary_stem
+                        else:
+                            target_stem = ensemble_secondary_stem
+                        
+                        # Filter results to only include the target stem
+                        if target_stem in valid_results:
+                            filtered_results = {target_stem: valid_results[target_stem]}
+                            self._write_to_console(
+                                f"  🎯 Filtered Demucs results to target stem: {target_stem}", ""
+                            )
+                            return filtered_results
+                        else:
+                            self._write_to_console(
+                                f"  ❌ Target stem '{target_stem}' not found in Demucs results: {list(valid_results.keys())}", ""
+                            )
+                            return None
 
                     if valid_results:
                         return valid_results

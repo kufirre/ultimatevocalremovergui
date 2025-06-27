@@ -462,8 +462,10 @@ class ModelData:
                 _is_secondary_model_instance,
                 _is_pre_proc_model_instance,
                 _is_vocal_split_model_instance,
+                # Exclude Demucs models from this branch since they need Demucs-specific keys
+                (init_kwargs["process_method"] == ac.DEMUCS_ARCH_TYPE),
             ]
-        ):  # For non-Demucs models (VR, MDX) and ensemble members
+        ):  # For non-Demucs models (VR, MDX)
             init_kwargs["is_primary_stem_only"] = settings.get(
                 "is_primary_stem_only", False
             )
@@ -1463,13 +1465,10 @@ class ModelData:
 
                     # Pass ensemble stem-only settings to members using appropriate keys
                     if model_process_method == ac.DEMUCS_ARCH_TYPE:
-                        # Demucs members need Demucs-specific keys
-                        member_settings["is_primary_stem_only_Demucs"] = (
-                            ensemble_primary_stem_only
-                        )
-                        member_settings["is_secondary_stem_only_Demucs"] = (
-                            ensemble_secondary_stem_only
-                        )
+                        # For Demucs models in ensemble mode, don't pass stem-only flags
+                        # Let them output all stems and filter afterward in ProcessingWorker
+                        # This is because Demucs can produce any stem regardless of its configured primary/secondary
+                        pass  # Don't set any stem-only flags for Demucs
                     else:
                         # Other methods use generic keys
                         member_settings["is_primary_stem_only"] = (

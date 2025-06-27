@@ -232,7 +232,11 @@ class SeparatorAttributesLogic:
         self.base_text_console = process_data.get("base_text_console", "")
 
     def _console_log_base(self, message: str):
-        """Log message with base console text."""
+        """Log message with base console text.
+
+        Args:
+            message: The message to log
+        """
         logger.info(message)
 
     def _console_log(self, message: str):

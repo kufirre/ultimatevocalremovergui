@@ -628,6 +628,16 @@ class UVRCoreAdapter(QObject):
     def _get_display_name_from_mapper(
         self, scanned_identifier: str, name_mapper: dict
     ) -> tuple[str, bool]:
+        """Get display name from mapper and indicate if mapping was applied.
+
+        Args:
+            scanned_identifier: Raw identifier found during file scanning
+            name_mapper: Dictionary mapping filenames to display names
+
+        Returns:
+            tuple: (display_name, was_mapped) where was_mapped indicates if
+                   the identifier was found in the mapper
+        """
         if not name_mapper:
             return scanned_identifier, False
         for mapper_key_filename, display_name_from_mapper in name_mapper.items():

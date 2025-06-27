@@ -21,6 +21,12 @@ logger = get_logger(__name__)
 
 
 def get_project_root() -> Path:
+    """Get the project root directory path.
+
+    Returns:
+        Path: The root directory path, either by navigating up from this file
+              or falling back to the current working directory.
+    """
     try:
         return Path(__file__).resolve().parents[3]
     except IndexError:

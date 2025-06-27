@@ -2,6 +2,13 @@ from PySide6.QtCore import QObject, Slot
 
 
 class ProcessingSettingsPresenter(QObject):
+    """Presenter for managing processing settings like GPU usage, normalization, and output format.
+
+    This presenter handles user interactions for general processing options that apply
+    to all separation methods, including GPU conversion, output normalization,
+    file format selection, and stem-only output options.
+    """
+
     def __init__(self, view):
         super().__init__()
         self.view = view

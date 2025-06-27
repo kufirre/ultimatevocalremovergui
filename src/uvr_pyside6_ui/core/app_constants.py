@@ -6,10 +6,14 @@ from pathlib import Path
 from typing import Optional
 
 # --- Online Catalog and Cache ---
-DOWNLOAD_CHECKS_URL = "https://raw.githubusercontent.com/TRvlvr/application_data/main/filelists/download_checks.json"  # From UVR v5.6.0 constants
-MODEL_REPO_URL_BASE = "https://github.com/TRvlvr/model_repo/releases/download/all_public_uvr_models/"  # From UVR v5.6.0 constants
-DEMUCS_URL_BASE = "https://dl.fbaipublicfiles.com/"  # For some Demucs models
-DEMUCS_CONFIG_URL_BASE = "https://raw.githubusercontent.com/facebookresearch/demucs/main/demucs/remote/"  # For Demucs .yaml configs
+DOWNLOAD_CHECKS_URL = "https://raw.githubusercontent.com/TRvlvr/application_data/main/filelists/download_checks.json"
+MODEL_REPO_URL_BASE = (
+    "https://github.com/TRvlvr/model_repo/releases/download/all_public_uvr_models/"
+)
+DEMUCS_URL_BASE = "https://dl.fbaipublicfiles.com/"
+DEMUCS_CONFIG_URL_BASE = (
+    "https://raw.githubusercontent.com/facebookresearch/demucs/main/demucs/remote/"
+)
 
 CACHE_DIR_NAME = ".uvr_pyside6_cache"
 ONLINE_CATALOG_CACHE_FILENAME = "online_model_catalog_v2.json"

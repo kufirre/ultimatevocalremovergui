@@ -102,12 +102,30 @@ class FileIOView(QWidget):
     # --- Slots (Called by the Presenter) ---
 
     @Slot(str)
-    def set_input_path_text(self, path):
-        """Updates the input path QLineEdit without emitting textChanged signal."""
-        # Block signals temporarily to avoid loops if presenter sets text
-        self.input_path_edit.blockSignals(True)
+    def set_input_path_text(self, path: str):
+        """Update the input path text display."""
         self.input_path_edit.setText(path)
-        self.input_path_edit.blockSignals(False)
+
+        # Provide visual feedback about the file
+        if path:
+            from pathlib import Path
+
+            file_path = Path(path)
+            if file_path.exists():
+                # Show file size in tooltip
+                try:
+                    file_size = file_path.stat().st_size
+                    size_mb = file_size / (1024 * 1024)
+                    tooltip = (
+                        f"File: {file_path.name}\nSize: {size_mb:.1f} MB\nPath: {path}"
+                    )
+                    self.input_path_edit.setToolTip(tooltip)
+                except OSError:
+                    self.input_path_edit.setToolTip(path)
+            else:
+                self.input_path_edit.setToolTip("File not found")
+        else:
+            self.input_path_edit.setToolTip("")
 
     @Slot(str)
     def set_output_path_text(self, path):

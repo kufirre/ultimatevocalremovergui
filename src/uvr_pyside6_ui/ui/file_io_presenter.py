@@ -1,6 +1,12 @@
+from pathlib import Path
 from typing import List
 
 from PySide6.QtCore import QObject, Signal, Slot
+
+from ..core.logger_utils import get_logger
+from ..core.validation_manager import ValidationManager
+
+logger = get_logger(__name__)
 
 
 class FileIOPresenter(QObject):
@@ -11,6 +17,7 @@ class FileIOPresenter(QObject):
 
     # Signals
     processing_mode_changed = Signal(str)  # "single" or "batch"
+    input_path_changed = Signal(str)
 
     def __init__(self, view, batch_presenter=None):
         super().__init__()
@@ -21,6 +28,12 @@ class FileIOPresenter(QObject):
         self._input_path = ""
         self._output_path = ""
         self._processing_mode = "single"  # "single" or "batch"
+
+        # Initialize validation manager
+        self.validation_manager = ValidationManager()
+        self.validation_manager.validation_completed.connect(
+            self._on_validation_completed
+        )
 
         # --- Connect signals from View to Presenter's slots ---
         self.view.select_input_clicked.connect(self.handle_select_input)
@@ -58,6 +71,7 @@ class FileIOPresenter(QObject):
         """Updates the internal state when input path changes."""
         if self._input_path != path:
             self._input_path = path
+            self.input_path_changed.emit(path)
 
     @Slot(str)
     def handle_output_path_update(self, path):
@@ -140,10 +154,10 @@ class FileIOPresenter(QObject):
         return self._output_path
 
     def set_input_path(self, path: str):
-        """Set the input path (for single file mode)."""
-        if self._processing_mode == "single":
+        """Set input path."""
+        if path != self._input_path:
             self._input_path = path
-            self.view.set_input_path_text(path)
+            self.input_path_changed.emit(path)
 
     def set_output_path(self, path: str):
         """Set the output path."""
@@ -164,17 +178,36 @@ class FileIOPresenter(QObject):
                 return False
 
     def validate_paths(self) -> tuple:
-        """Validate current paths. Returns (is_valid, error_message)."""
+        """Basic path validation - librosa will handle detailed audio validation."""
         if not self._output_path:
             return False, "Output folder not selected"
 
         if self._processing_mode == "single":
             if not self._input_path:
                 return False, "Input file not selected"
-            # Could add more validation here (file exists, format, etc.)
+
+            # Basic file path validation only
+            result = self.validation_manager.validate_file_path(self._input_path)
+            if not result.can_proceed:
+                return False, f"File access error: {result.message}"
         else:
             if not self.batch_presenter or not self.batch_presenter.is_batch_ready():
                 return False, "No files in batch queue"
+
+            # Validate batch file access
+            batch_files = self.batch_presenter.get_batch_files()
+            if batch_files:
+                invalid_files = []
+                for file_path in batch_files:
+                    result = self.validation_manager.validate_file_path(file_path)
+                    if not result.can_proceed:
+                        invalid_files.append(Path(file_path).name)
+
+                if invalid_files:
+                    return (
+                        False,
+                        f"Cannot access files: {', '.join(invalid_files[:3])}{'...' if len(invalid_files) > 3 else ''}",
+                    )
 
         return True, ""
 
@@ -198,3 +231,13 @@ class FileIOPresenter(QObject):
         # Set proper placeholder text
         self.view.input_path_edit.setPlaceholderText("Select Input File...")
         self.view.output_path_edit.setPlaceholderText("Select Output Folder...")
+
+    def _on_validation_completed(self, result):
+        """Handle validation completion signal - mainly for model output validation."""
+        if result.category.value == "model_output":
+            logger.info(f"Model output validation: {result.message}")
+            if not result.can_proceed:
+                logger.warning(f"Model output issue: {result.message}")
+        else:
+            # Basic file validation - no need for complex UI
+            logger.debug(f"File validation: {result.message}")

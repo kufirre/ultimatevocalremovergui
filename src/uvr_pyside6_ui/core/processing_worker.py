@@ -47,6 +47,7 @@ from .separate_logic_base import (
 from .separate_mdx_logic import SeparateMDXLogic
 from .separate_mdxc_logic import SeparateMDXCLogic
 from .separate_vr_logic import SeparateVRLogic
+from .validation_manager import ValidationManager, ValidationSeverity
 
 logger = get_logger(__name__)
 
@@ -196,6 +197,9 @@ class ProcessingWorker(QObject):
         except Exception as e:
             logger.error(f"Error creating ModelData: {e}\n{traceback.format_exc()}")
             self.model_data = None
+
+        # Initialize validation manager for model outputs
+        self.validation_manager = ValidationManager()
 
     @property
     def settings(self):
@@ -1362,29 +1366,131 @@ class ProcessingWorker(QObject):
                         )
 
                         try:
-                            # Ensure proper audio format for writing
-                            if stem_audio.ndim == 1:
-                                stem_audio_to_save = np.column_stack(
-                                    [stem_audio, stem_audio]
+                            # Validate model output before saving
+                            validation_result = (
+                                self.validation_manager.validate_model_output(
+                                    stem_audio,
+                                    self.model_data.model_basename,
+                                    stem_name,
                                 )
-                            elif stem_audio.ndim == 2:
-                                if stem_audio.shape[0] == 2:
-                                    stem_audio_to_save = stem_audio.T
-                                else:
-                                    stem_audio_to_save = stem_audio
-                            else:
+                            )
+
+                            # Log validation results
+                            if validation_result.severity == ValidationSeverity.ERROR:
+                                logger.error(
+                                    f"❌ Model output validation failed for {stem_name}: {validation_result.message}"
+                                )
                                 self._write_to_console(
-                                    f"❌ Invalid audio dimensions for {stem_name}: {stem_audio.shape}",
+                                    f"⚠️ Quality issue detected in {stem_name}:", ""
+                                )
+                                self._write_to_console(
+                                    f"   {validation_result.message}", ""
+                                )
+
+                                # Show suggestions to user
+                                if validation_result.suggestions:
+                                    self._write_to_console("   Suggestions:", "")
+                                    for suggestion in validation_result.suggestions[
+                                        :2
+                                    ]:  # Show top 2
+                                        self._write_to_console(f"   • {suggestion}", "")
+
+                            elif (
+                                validation_result.severity == ValidationSeverity.WARNING
+                            ):
+                                logger.warning(
+                                    f"⚠️ Model output validation warning for {stem_name}: {validation_result.message}"
+                                )
+                                self._write_to_console(
+                                    f"ℹ️ Quality note for {stem_name}: {validation_result.message}",
                                     "",
                                 )
-                                continue
 
-                            # Save individual output
-                            sf.write(
-                                str(individual_output_path),
-                                stem_audio_to_save,
-                                ac.DEFAULT_SAMPLE_RATE,
-                            )
+                            else:
+                                logger.info(
+                                    f"✅ Model output validation passed for {stem_name}"
+                                )
+
+                            # Proceed with saving even if there are warnings (but log the issues)
+                            try:
+                                # Create output path
+                                save_format = getattr(
+                                    self.model_data, "save_format", "WAV"
+                                ).upper()
+                                file_ext = save_format.lower()
+                                output_filename = (
+                                    f"{ensemble_output_base}_{stem_name}.{file_ext}"
+                                )
+                                output_path = (
+                                    Path(self.model_data.export_path) / output_filename
+                                )
+
+                                # Log what we're saving
+                                self._write_to_console(
+                                    f"Saving {stem_name} to: {output_filename}", ""
+                                )
+
+                                # Ensure audio is in the right format for writing
+                                if stem_audio.ndim == 1:
+                                    # Convert mono to stereo
+                                    stem_audio_final = np.column_stack(
+                                        [stem_audio, stem_audio]
+                                    )
+                                elif stem_audio.ndim == 2:
+                                    if stem_audio.shape[0] == 2:  # (channels, samples)
+                                        stem_audio_final = (
+                                            stem_audio.T
+                                        )  # Convert to (samples, channels)
+                                    else:
+                                        stem_audio_final = stem_audio
+                                else:
+                                    logger.error(
+                                        f"Invalid audio dimensions for {stem_name}: {stem_audio.shape}"
+                                    )
+                                    self._write_to_console(
+                                        f"❌ Cannot save {stem_name}: invalid audio format",
+                                        "",
+                                    )
+                                    return
+
+                                # Write the audio file
+                                sf.write(
+                                    str(output_path),
+                                    stem_audio_final,
+                                    ac.DEFAULT_SAMPLE_RATE,
+                                )
+
+                                # Verify the saved file
+                                try:
+                                    saved_info = sf.info(str(output_path))
+                                    logger.info(
+                                        f"✅ Successfully saved {stem_name}: {saved_info.frames} samples, {saved_info.channels} channels"
+                                    )
+                                    self._write_to_console(
+                                        f"✅ {stem_name} saved successfully", ""
+                                    )
+                                except Exception as verify_error:
+                                    logger.warning(
+                                        f"Could not verify saved file {output_path}: {verify_error}"
+                                    )
+
+                            except Exception as save_error:
+                                logger.error(
+                                    f"Failed to save {stem_name}: {save_error}"
+                                )
+                                self._write_to_console(
+                                    f"❌ Error saving {stem_name}: {save_error}", ""
+                                )
+
+                                # If saving failed due to validation issues, provide guidance
+                                if validation_result.severity in [
+                                    ValidationSeverity.ERROR,
+                                    ValidationSeverity.CRITICAL,
+                                ]:
+                                    self._write_to_console(
+                                        "   This error may be related to the quality issues detected above.",
+                                        "",
+                                    )
 
                             # Track saved files for potential cleanup
                             all_saved_files_by_stem[stem_name].append(
@@ -2678,29 +2784,131 @@ class ProcessingWorker(QObject):
                         )
 
                         try:
-                            # Ensure proper audio format for writing
-                            if stem_audio.ndim == 1:
-                                stem_audio_to_save = np.column_stack(
-                                    [stem_audio, stem_audio]
+                            # Validate model output before saving
+                            validation_result = (
+                                self.validation_manager.validate_model_output(
+                                    stem_audio,
+                                    self.model_data.model_basename,
+                                    stem_name,
                                 )
-                            elif stem_audio.ndim == 2:
-                                if stem_audio.shape[0] == 2:
-                                    stem_audio_to_save = stem_audio.T
-                                else:
-                                    stem_audio_to_save = stem_audio
-                            else:
+                            )
+
+                            # Log validation results
+                            if validation_result.severity == ValidationSeverity.ERROR:
+                                logger.error(
+                                    f"❌ Model output validation failed for {stem_name}: {validation_result.message}"
+                                )
                                 self._write_to_console(
-                                    f"❌ Invalid audio dimensions for {stem_name}: {stem_audio.shape}",
+                                    f"⚠️ Quality issue detected in {stem_name}:", ""
+                                )
+                                self._write_to_console(
+                                    f"   {validation_result.message}", ""
+                                )
+
+                                # Show suggestions to user
+                                if validation_result.suggestions:
+                                    self._write_to_console("   Suggestions:", "")
+                                    for suggestion in validation_result.suggestions[
+                                        :2
+                                    ]:  # Show top 2
+                                        self._write_to_console(f"   • {suggestion}", "")
+
+                            elif (
+                                validation_result.severity == ValidationSeverity.WARNING
+                            ):
+                                logger.warning(
+                                    f"⚠️ Model output validation warning for {stem_name}: {validation_result.message}"
+                                )
+                                self._write_to_console(
+                                    f"ℹ️ Quality note for {stem_name}: {validation_result.message}",
                                     "",
                                 )
-                                continue
 
-                            # Save individual output
-                            sf.write(
-                                str(individual_output_path),
-                                stem_audio_to_save,
-                                ac.DEFAULT_SAMPLE_RATE,
-                            )
+                            else:
+                                logger.info(
+                                    f"✅ Model output validation passed for {stem_name}"
+                                )
+
+                            # Proceed with saving even if there are warnings (but log the issues)
+                            try:
+                                # Create output path
+                                save_format = getattr(
+                                    self.model_data, "save_format", "WAV"
+                                ).upper()
+                                file_ext = save_format.lower()
+                                output_filename = (
+                                    f"{ensemble_output_base}_{stem_name}.{file_ext}"
+                                )
+                                output_path = (
+                                    Path(self.model_data.export_path) / output_filename
+                                )
+
+                                # Log what we're saving
+                                self._write_to_console(
+                                    f"Saving {stem_name} to: {output_filename}", ""
+                                )
+
+                                # Ensure audio is in the right format for writing
+                                if stem_audio.ndim == 1:
+                                    # Convert mono to stereo
+                                    stem_audio_final = np.column_stack(
+                                        [stem_audio, stem_audio]
+                                    )
+                                elif stem_audio.ndim == 2:
+                                    if stem_audio.shape[0] == 2:  # (channels, samples)
+                                        stem_audio_final = (
+                                            stem_audio.T
+                                        )  # Convert to (samples, channels)
+                                    else:
+                                        stem_audio_final = stem_audio
+                                else:
+                                    logger.error(
+                                        f"Invalid audio dimensions for {stem_name}: {stem_audio.shape}"
+                                    )
+                                    self._write_to_console(
+                                        f"❌ Cannot save {stem_name}: invalid audio format",
+                                        "",
+                                    )
+                                    return
+
+                                # Write the audio file
+                                sf.write(
+                                    str(output_path),
+                                    stem_audio_final,
+                                    ac.DEFAULT_SAMPLE_RATE,
+                                )
+
+                                # Verify the saved file
+                                try:
+                                    saved_info = sf.info(str(output_path))
+                                    logger.info(
+                                        f"✅ Successfully saved {stem_name}: {saved_info.frames} samples, {saved_info.channels} channels"
+                                    )
+                                    self._write_to_console(
+                                        f"✅ {stem_name} saved successfully", ""
+                                    )
+                                except Exception as verify_error:
+                                    logger.warning(
+                                        f"Could not verify saved file {output_path}: {verify_error}"
+                                    )
+
+                            except Exception as save_error:
+                                logger.error(
+                                    f"Failed to save {stem_name}: {save_error}"
+                                )
+                                self._write_to_console(
+                                    f"❌ Error saving {stem_name}: {save_error}", ""
+                                )
+
+                                # If saving failed due to validation issues, provide guidance
+                                if validation_result.severity in [
+                                    ValidationSeverity.ERROR,
+                                    ValidationSeverity.CRITICAL,
+                                ]:
+                                    self._write_to_console(
+                                        "   This error may be related to the quality issues detected above.",
+                                        "",
+                                    )
 
                             # Track saved files for potential cleanup
                             all_saved_files_by_stem[stem_name].append(
@@ -4934,6 +5142,151 @@ class ProcessingWorker(QObject):
             aligned_specs.append(aligned_spec)
 
         return aligned_specs
+
+    def _save_stem_with_validation(
+        self,
+        stem_name: str,
+        stem_audio: np.ndarray,
+        model_name: str,
+        file_base: str = None,
+    ):
+        """
+        Save a stem with comprehensive validation and quality checks.
+
+        Args:
+            stem_name: Name of the stem (e.g., "Vocals", "Instrumental")
+            stem_audio: Audio data to save
+            model_name: Name of the model that produced this output
+            file_base: Base filename (optional, defaults to model_name)
+        """
+        if stem_audio is None or stem_audio.size == 0:
+            logger.warning(f"Skipping {stem_name}: no audio data")
+            return
+
+        if file_base is None:
+            file_base = getattr(self.model_data, "audio_file_basename", "output")
+
+        # Validate model output before saving
+        validation_result = self.validation_manager.validate_model_output(
+            stem_audio, model_name, stem_name
+        )
+
+        # Log validation results with appropriate severity
+        if validation_result.severity == ValidationSeverity.ERROR:
+            logger.error(
+                f"❌ Model output validation failed for {stem_name}: {validation_result.message}"
+            )
+            self._write_to_console(f"⚠️ Quality issue detected in {stem_name}:", "")
+            self._write_to_console(f"   {validation_result.message}", "")
+
+            # Show top suggestions to user
+            if validation_result.suggestions:
+                self._write_to_console("   Suggestions:", "")
+                for suggestion in validation_result.suggestions[:2]:  # Show top 2
+                    self._write_to_console(f"   • {suggestion}", "")
+
+        elif validation_result.severity == ValidationSeverity.WARNING:
+            logger.warning(
+                f"⚠️ Model output validation warning for {stem_name}: {validation_result.message}"
+            )
+            self._write_to_console(
+                f"ℹ️ Quality note for {stem_name}: {validation_result.message}", ""
+            )
+
+        elif validation_result.severity == ValidationSeverity.CRITICAL:
+            logger.critical(
+                f"💥 Critical validation failure for {stem_name}: {validation_result.message}"
+            )
+            self._write_to_console(
+                f"💥 Critical issue in {stem_name}: {validation_result.message}", ""
+            )
+            self._write_to_console(
+                "   Processing will continue but output quality may be severely affected.",
+                "",
+            )
+
+        else:
+            logger.info(f"✅ Model output validation passed for {stem_name}")
+
+        # Proceed with saving (even with warnings, but log the issues)
+        try:
+            # Create output path
+            save_format = getattr(self.model_data, "save_format", "WAV").upper()
+            file_ext = save_format.lower()
+
+            # Create filename with model name
+            if model_name and model_name != file_base:
+                output_filename = f"{file_base}_{model_name}_({stem_name}).{file_ext}"
+            else:
+                output_filename = f"{file_base}_({stem_name}).{file_ext}"
+
+            output_path = Path(self.model_data.export_path) / output_filename
+
+            # Log what we're saving
+            self._write_to_console(f"Saving {stem_name} to: {output_filename}", "")
+
+            # Ensure audio is in the right format for writing
+            if stem_audio.ndim == 1:
+                # Convert mono to stereo
+                stem_audio_final = np.column_stack([stem_audio, stem_audio])
+            elif stem_audio.ndim == 2:
+                if stem_audio.shape[0] == 2:  # (channels, samples)
+                    stem_audio_final = stem_audio.T  # Convert to (samples, channels)
+                else:
+                    stem_audio_final = stem_audio
+            else:
+                logger.error(
+                    f"Invalid audio dimensions for {stem_name}: {stem_audio.shape}"
+                )
+                self._write_to_console(
+                    f"❌ Cannot save {stem_name}: invalid audio format", ""
+                )
+                return
+
+            # Write the audio file
+            sf.write(str(output_path), stem_audio_final, ac.DEFAULT_SAMPLE_RATE)
+
+            # Verify the saved file
+            try:
+                saved_info = sf.info(str(output_path))
+                logger.info(
+                    f"✅ Successfully saved {stem_name}: {saved_info.frames} samples, {saved_info.channels} channels"
+                )
+                self._write_to_console(f"✅ {stem_name} saved successfully", "")
+
+                # Additional quality feedback based on validation
+                if validation_result.severity == ValidationSeverity.WARNING:
+                    self._write_to_console(
+                        f"   Note: Check audio quality - {validation_result.message}",
+                        "",
+                    )
+                elif validation_result.severity == ValidationSeverity.ERROR:
+                    self._write_to_console(
+                        "   Warning: Output may have quality issues", ""
+                    )
+
+            except Exception as verify_error:
+                logger.warning(
+                    f"Could not verify saved file {output_path}: {verify_error}"
+                )
+
+        except Exception as save_error:
+            logger.error(f"Failed to save {stem_name}: {save_error}")
+            self._write_to_console(f"❌ Error saving {stem_name}: {save_error}", "")
+
+            # If saving failed and there were validation issues, provide guidance
+            if validation_result.severity in [
+                ValidationSeverity.ERROR,
+                ValidationSeverity.CRITICAL,
+            ]:
+                self._write_to_console(
+                    "   This error may be related to the quality issues detected above.",
+                    "",
+                )
+                if validation_result.suggestions:
+                    self._write_to_console("   Try the following:", "")
+                    for suggestion in validation_result.suggestions[:2]:
+                        self._write_to_console(f"   • {suggestion}", "")
 
 
 class ProcessingThread(QThread):

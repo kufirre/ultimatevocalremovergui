@@ -315,6 +315,113 @@ class ModelOutputValidator:
             )
 
 
+class ModelFileValidator:
+    """Validation for model files and model configuration."""
+
+    @classmethod
+    def validate_model_file(cls, model_data) -> ValidationResult:
+        """
+        Validate that a model is ready for processing.
+
+        Args:
+            model_data: ModelData object to validate
+
+        Returns:
+            ValidationResult with model validation status
+        """
+        model_name = getattr(model_data, 'model_basename', 'Unknown Model')
+        
+        # Check model status first
+        if not getattr(model_data, 'model_status', False):
+            return ValidationResult(
+                is_valid=False,
+                severity=ValidationSeverity.ERROR,
+                category=ValidationCategory.FORMAT_COMPATIBILITY,
+                message=f"Model configuration invalid: {model_name}",
+                technical_details="model_data.model_status is False",
+                suggestions=[
+                    "Model may not be properly loaded",
+                    "Check if model file is compatible with UVR",
+                    "Try reselecting the model",
+                    "Verify model file integrity",
+                ],
+            )
+
+        # Check model path exists
+        model_path = getattr(model_data, 'model_path', None)
+        if not model_path:
+            return ValidationResult(
+                is_valid=False,
+                severity=ValidationSeverity.ERROR,
+                category=ValidationCategory.PATH_VALIDATION,
+                message=f"Model path not set: {model_name}",
+                technical_details="model_data.model_path is None or empty",
+                suggestions=[
+                    "Model file path is missing",
+                    "Try reselecting the model",
+                    "Check model configuration",
+                ],
+            )
+
+        model_path = Path(model_path)
+        if not model_path.exists():
+            return ValidationResult(
+                is_valid=False,
+                severity=ValidationSeverity.ERROR,
+                category=ValidationCategory.PATH_VALIDATION,
+                message=f"Model file not found: {model_name}",
+                technical_details=f"Model file does not exist: {model_path}",
+                suggestions=[
+                    "Model file may have been moved or deleted",
+                    "Check the model file path is correct",
+                    "Re-download the model if necessary",
+                    "Try selecting a different model",
+                ],
+            )
+
+        # Basic model file checks
+        try:
+            file_size = model_path.stat().st_size
+            if file_size == 0:
+                return ValidationResult(
+                    is_valid=False,
+                    severity=ValidationSeverity.ERROR,
+                    category=ValidationCategory.FORMAT_COMPATIBILITY,
+                    message=f"Model file is empty: {model_name}",
+                    technical_details="Model file size is 0 bytes",
+                    suggestions=[
+                        "Model file download may have failed",
+                        "Try re-downloading the model",
+                        "Use a different model file",
+                    ],
+                )
+        except OSError as e:
+            return ValidationResult(
+                is_valid=False,
+                severity=ValidationSeverity.ERROR,
+                category=ValidationCategory.PATH_VALIDATION,
+                message=f"Cannot access model file: {model_name}",
+                technical_details=f"OS error accessing model file: {str(e)}",
+                suggestions=[
+                    "Check file permissions for model file",
+                    "Ensure model file is not being used by another application",
+                    "Try running UVR as administrator",
+                ],
+            )
+
+        return ValidationResult(
+            is_valid=True,
+            severity=ValidationSeverity.INFO,
+            category=ValidationCategory.FORMAT_COMPATIBILITY,
+            message=f"Model ready for processing: {model_name}",
+            technical_details=f"Model file accessible: {model_path}",
+            suggestions=[
+                "Model validation passed successfully",
+                f"File size: {file_size:,} bytes",
+            ],
+        )
+
+
 class ValidationManager(QObject):
     """Streamlined validation manager focused on model output validation."""
 
@@ -325,11 +432,20 @@ class ValidationManager(QObject):
         super().__init__()
         self.file_validator = BasicFileValidator()
         self.output_validator = ModelOutputValidator()
+        self.model_validator = ModelFileValidator()
 
     def validate_file_path(self, file_path: Union[str, Path]) -> ValidationResult:
         """Basic file path validation - librosa will handle the rest."""
         self.validation_progress.emit(f"Checking file: {Path(file_path).name}")
         result = self.file_validator.validate_file_path(file_path)
+        self.validation_completed.emit(result)
+        return result
+
+    def validate_model_file(self, model_data) -> ValidationResult:
+        """Validate model file and configuration."""
+        model_name = getattr(model_data, 'model_basename', 'Unknown Model')
+        self.validation_progress.emit(f"Validating model: {model_name}")
+        result = self.model_validator.validate_model_file(model_data)
         self.validation_completed.emit(result)
         return result
 

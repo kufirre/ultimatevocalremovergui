@@ -9,7 +9,6 @@ import os
 import shutil
 import tempfile
 import traceback
-from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -36,6 +35,7 @@ from lib_v5.tfc_tdf_v3 import STFT, TFC_TDF_net
 from lib_v5.vr_network import nets, nets_new
 
 from . import app_constants as ac
+from .audio_utils import gpu_memory_management, temporary_audio_file, temporary_directory
 from .logger_utils import get_logger
 from .model_data import ModelData
 from .separate_demucs_logic import SeparateDemucsLogic
@@ -50,102 +50,6 @@ from .separate_vr_logic import SeparateVRLogic
 from .validation_manager import ValidationManager, ValidationSeverity
 
 logger = get_logger(__name__)
-
-
-@contextmanager
-def temporary_audio_file(audio: np.ndarray):
-    """Context manager for temporary audio files with automatic cleanup.
-
-    Args:
-        audio: Audio array to save to temporary file
-
-    Yields:
-        str: Path to the temporary audio file
-    """
-    temp_file_path = None
-    try:
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-            temp_file_path = f.name
-            # Ensure audio is in correct format for saving
-            if audio.ndim == 1:
-                # Mono audio
-                sf.write(temp_file_path, audio, ac.DEFAULT_SAMPLE_RATE)
-            elif audio.ndim == 2:
-                if audio.shape[0] == 2:
-                    # (2, N) format - transpose to (N, 2) for soundfile
-                    sf.write(temp_file_path, audio.T, ac.DEFAULT_SAMPLE_RATE)
-                else:
-                    # (N, 2) format - use as is
-                    sf.write(temp_file_path, audio, ac.DEFAULT_SAMPLE_RATE)
-
-        yield temp_file_path
-
-    except Exception as e:
-        logger.warning(f"Error creating temporary audio file: {e}")
-        # Fallback: try with simple format
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-            temp_file_path = f.name
-            if audio.ndim == 2 and audio.shape[0] == 2:
-                sf.write(temp_file_path, audio.T, ac.DEFAULT_SAMPLE_RATE)
-            else:
-                sf.write(temp_file_path, audio, ac.DEFAULT_SAMPLE_RATE)
-
-        yield temp_file_path
-
-    finally:
-        # Cleanup temporary file
-        if temp_file_path and os.path.exists(temp_file_path):
-            try:
-                os.unlink(temp_file_path)
-                logger.debug(f"Cleaned up temporary audio file: {temp_file_path}")
-            except OSError as e:
-                logger.warning(
-                    f"Failed to clean up temporary audio file {temp_file_path}: {e}"
-                )
-
-
-@contextmanager
-def temporary_directory(prefix="temp_"):
-    """Context manager for temporary directories with automatic cleanup.
-
-    Args:
-        prefix: Prefix for the temporary directory name
-
-    Yields:
-        str: Path to the temporary directory
-    """
-    temp_dir_path = None
-    try:
-        temp_dir_path = tempfile.mkdtemp(prefix=prefix)
-        yield temp_dir_path
-    finally:
-        # Cleanup temporary directory
-        if temp_dir_path and os.path.exists(temp_dir_path):
-            try:
-                shutil.rmtree(temp_dir_path, ignore_errors=True)
-                logger.debug(f"Cleaned up temporary directory: {temp_dir_path}")
-            except OSError as e:
-                logger.warning(
-                    f"Failed to clean up temporary directory {temp_dir_path}: {e}"
-                )
-
-
-@contextmanager
-def gpu_memory_management():
-    """Context manager for GPU memory cleanup."""
-    try:
-        yield
-    finally:
-        # Clear GPU cache if available
-        if hasattr(torch, "cuda") and torch.cuda.is_available():
-            try:
-                torch.cuda.empty_cache()
-                logger.debug("Cleared GPU cache")
-            except Exception as e:
-                logger.debug(f"Could not clear GPU cache: {e}")
-
-        # Force garbage collection
-        gc.collect()
 
 
 class ProcessingWorker(QObject):
@@ -1701,107 +1605,17 @@ class ProcessingWorker(QObject):
             self._write_to_console(f"  Model status: {model_data.model_status}", "")
             self._write_to_console(f"  Input audio shape: {input_audio.shape}", "")
 
-            # Check model status first
-            if not model_data.model_status:
-                self._write_to_console(
-                    f"❌ Model {model_data.model_basename} has invalid status", ""
-                )
+            # Validate model is ready for processing
+            validation_result = self.validation_manager.validate_model_file(model_data)
+            if not validation_result.is_valid:
+                self._write_to_console(f"❌ {validation_result.message}", "")
+                if validation_result.suggestions:
+                    for suggestion in validation_result.suggestions[:2]:  # Show top 2
+                        self._write_to_console(f"   • {suggestion}", "")
                 return None
 
-            # Check model path exists
-            if not model_data.model_path or not Path(model_data.model_path).exists():
-                self._write_to_console(
-                    f"❌ Model file not found: {model_data.model_path}", ""
-                )
-                return None
-
-            # Each model in the ensemble should respect its own stem settings.
-
-            # However, for ensemble mode, we need to translate the user's stem selection
-            # (from the master model_data) to each individual model's stem configuration
-            master_is_primary_stem_only = getattr(
-                self.model_data, "is_primary_stem_only", False
-            )
-            master_is_secondary_stem_only = getattr(
-                self.model_data, "is_secondary_stem_only", False
-            )
-
-            if master_is_primary_stem_only or master_is_secondary_stem_only:
-                # User selected either "Vocals Only" or "Instruments Only"
-                # We need to determine what stem type the user wants
-                ensemble_primary_stem = getattr(
-                    self.model_data, "ensemble_primary_stem", ac.VOCAL_STEM
-                )
-                ensemble_secondary_stem = getattr(
-                    self.model_data, "ensemble_secondary_stem", ac.INST_STEM
-                )
-
-                if master_is_primary_stem_only:
-                    # User wants primary stem only (typically vocals)
-                    target_stem_type = ensemble_primary_stem
-                    self._write_to_console(
-                        f"  🎯 User wants primary stem only: {target_stem_type}", ""
-                    )
-                elif master_is_secondary_stem_only:
-                    # User wants secondary stem only (typically instrumental)
-                    target_stem_type = ensemble_secondary_stem
-                    self._write_to_console(
-                        f"  🎯 User wants secondary stem only: {target_stem_type}", ""
-                    )
-
-                # Special handling for Demucs models in ensemble mode
-                if model_data.process_method == ac.DEMUCS_ARCH_TYPE:
-                    # For Demucs models, always output all stems and filter afterward
-                    # This is because Demucs can produce any stem regardless of its configured primary/secondary
-                    model_data.is_primary_stem_only = False
-                    model_data.is_secondary_stem_only = False
-                    self._write_to_console(
-                        f"  🎸 Demucs model will output all stems, target: {target_stem_type}",
-                        "",
-                    )
-                else:
-                    # For VR and MDX models, try to match stems
-                    model_primary_stem = getattr(
-                        model_data, "primary_stem", ac.VOCAL_STEM
-                    )
-                    model_secondary_stem = getattr(
-                        model_data, "secondary_stem", ac.INST_STEM
-                    )
-
-                    self._write_to_console(
-                        f"  🎯 Model {model_data.model_basename}: primary={model_primary_stem}, secondary={model_secondary_stem}",
-                        "",
-                    )
-
-                    if target_stem_type == model_primary_stem:
-                        # User wants this model's primary stem
-                        model_data.is_primary_stem_only = True
-                        model_data.is_secondary_stem_only = False
-                        self._write_to_console(
-                            f"  ✅ Configured model to output primary stem only: {model_primary_stem}",
-                            "",
-                        )
-                    elif target_stem_type == model_secondary_stem:
-                        # User wants this model's secondary stem
-                        model_data.is_primary_stem_only = False
-                        model_data.is_secondary_stem_only = True
-                        self._write_to_console(
-                            f"  ✅ Configured model to output secondary stem only: {model_secondary_stem}",
-                            "",
-                        )
-                    else:
-                        # This model doesn't produce the stem the user wants - skip it
-                        self._write_to_console(
-                            f"  ⚠️ Model doesn't produce target stem {target_stem_type}, will output both stems",
-                            "",
-                        )
-                        model_data.is_primary_stem_only = False
-                        model_data.is_secondary_stem_only = False
-            else:
-                # User wants both stems - let model use its default settings
-                self._write_to_console(
-                    "  🎯 User wants both stems - using model defaults", ""
-                )
+            # Configure ensemble stem settings
+            target_stem_type = self._configure_ensemble_stem_settings(model_data)
 
             # Log the model's actual stem configuration for debugging
             self._write_to_console(
@@ -1838,50 +1652,8 @@ class ProcessingWorker(QObject):
             }
 
             # Create the appropriate separator
-            separator = None
-            try:
-                if model_data.process_method == ac.VR_ARCH_TYPE:
-                    self._write_to_console("  🎵 Creating VR separator...", "")
-                    separator = SeparateVRLogic(
-                        model_data=model_data, process_data=process_data
-                    )
-                elif model_data.process_method == ac.MDX_ARCH_TYPE:
-                    if model_data.is_mdx_c:
-                        self._write_to_console("  🎛️ Creating MDX-C separator...", "")
-                        separator = SeparateMDXCLogic(
-                            model_data=model_data, process_data=process_data
-                        )
-                    else:
-                        self._write_to_console("  🎛️ Creating MDX separator...", "")
-                        separator = SeparateMDXLogic(
-                            model_data=model_data, process_data=process_data
-                        )
-                elif model_data.process_method == ac.DEMUCS_ARCH_TYPE:
-                    self._write_to_console("  🎸 Creating Demucs separator...", "")
-                    separator = SeparateDemucsLogic(
-                        model_data=model_data, process_data=process_data
-                    )
-                else:
-                    self._write_to_console(
-                        f"❌ Unsupported method: {model_data.process_method}", ""
-                    )
-                    return None
-
-                if not separator:
-                    self._write_to_console(
-                        f"❌ Failed to create separator for {model_data.model_basename}",
-                        "",
-                    )
-                    return None
-
-            except Exception as separator_error:
-                self._write_to_console(
-                    f"❌ Error creating separator for {model_data.model_basename}: {separator_error}",
-                    "",
-                )
-                self._write_to_console(
-                    f"❌ Separator creation traceback: {traceback.format_exc()}", ""
-                )
+            separator = self._create_separator_for_individual_model(model_data, process_data)
+            if not separator:
                 return None
 
             # Run the separator
@@ -1978,7 +1750,8 @@ class ProcessingWorker(QObject):
 
                     # For ensemble mode with stem-only options, apply filtering
                     if (
-                        master_is_primary_stem_only or master_is_secondary_stem_only
+                        target_stem_type == "Vocals"
+                        or target_stem_type == "Instruments"
                     ) and valid_results:
                         # Determine the target stem
                         ensemble_primary_stem = getattr(
@@ -1990,7 +1763,7 @@ class ProcessingWorker(QObject):
 
                         target_stem = (
                             ensemble_primary_stem
-                            if master_is_primary_stem_only
+                            if target_stem_type == "Vocals"
                             else ensemble_secondary_stem
                         )
 
@@ -2084,11 +1857,11 @@ class ProcessingWorker(QObject):
                             )
 
                             # Check if target stem is "No ..." type (like "No Bass")
-                            if target_stem.startswith("No "):
-                                exclude_stem = target_stem[3:]  # Remove "No " prefix
+                            if target_stem_type.startswith("No "):
+                                exclude_stem = target_stem_type[3:]  # Remove "No " prefix
 
                                 self._write_to_console(
-                                    f"  🔄 VR/MDX: Target '{target_stem}' means exclude '{exclude_stem}'",
+                                    f"  🔄 VR/MDX: Target '{target_stem_type}' means exclude '{exclude_stem}'",
                                     "",
                                 )
 
@@ -2099,10 +1872,10 @@ class ProcessingWorker(QObject):
                                 ):
                                     # Model's primary is the excluded stem, so use secondary as "No X"
                                     filtered_results = {
-                                        target_stem: valid_results[model_secondary_stem]
+                                        target_stem_type: valid_results[model_secondary_stem]
                                     }
                                     self._write_to_console(
-                                        f"  ✅ VR/MDX: Using secondary stem ({model_secondary_stem}) as {target_stem}",
+                                        f"  ✅ VR/MDX: Using secondary stem ({model_secondary_stem}) as {target_stem_type}",
                                         "",
                                     )
                                     return filtered_results
@@ -2112,10 +1885,10 @@ class ProcessingWorker(QObject):
                                 ):
                                     # Model's secondary is the excluded stem, so use primary as "No X"
                                     filtered_results = {
-                                        target_stem: valid_results[model_primary_stem]
+                                        target_stem_type: valid_results[model_primary_stem]
                                     }
                                     self._write_to_console(
-                                        f"  ✅ VR/MDX: Using primary stem ({model_primary_stem}) as {target_stem}",
+                                        f"  ✅ VR/MDX: Using primary stem ({model_primary_stem}) as {target_stem_type}",
                                         "",
                                     )
                                     return filtered_results
@@ -2123,34 +1896,34 @@ class ProcessingWorker(QObject):
                                     # Model doesn't produce the excluded stem - cannot contribute to "No X"
                                     # because its outputs still contain the excluded stem mixed in
                                     self._write_to_console(
-                                        f"  ❌ VR/MDX: Model doesn't separate '{exclude_stem}' - cannot contribute to '{target_stem}'",
+                                        f"  ❌ VR/MDX: Model doesn't separate '{exclude_stem}' - cannot contribute to '{target_stem_type}'",
                                         "",
                                     )
                                     return None
                             else:
                                 # Direct stem request (like "Bass", "Vocals")
-                                if target_stem in [
+                                if target_stem_type in [
                                     model_primary_stem,
                                     model_secondary_stem,
                                 ]:
-                                    if target_stem in valid_results:
+                                    if target_stem_type in valid_results:
                                         filtered_results = {
-                                            target_stem: valid_results[target_stem]
+                                            target_stem_type: valid_results[target_stem_type]
                                         }
                                         self._write_to_console(
-                                            f"  ✅ VR/MDX: Model can produce target stem: {target_stem}",
+                                            f"  ✅ VR/MDX: Model can produce target stem: {target_stem_type}",
                                             "",
                                         )
                                         return filtered_results
                                     else:
                                         self._write_to_console(
-                                            f"  ❌ VR/MDX: Target stem '{target_stem}' not in results: {list(valid_results.keys())}",
+                                            f"  ❌ VR/MDX: Target stem '{target_stem_type}' not in results: {list(valid_results.keys())}",
                                             "",
                                         )
                                         return None
                                 else:
                                     self._write_to_console(
-                                        f"  ⚠️ VR/MDX: Model doesn't produce target stem '{target_stem}' directly - skipping",
+                                        f"  ⚠️ VR/MDX: Model doesn't produce target stem '{target_stem_type}' directly - skipping",
                                         "",
                                     )
                                     return None
@@ -3832,6 +3605,134 @@ class ProcessingWorker(QObject):
                     self._write_to_console("   Try the following:", "")
                     for suggestion in validation_result.suggestions[:2]:
                         self._write_to_console(f"   • {suggestion}", "")
+
+
+
+    def _configure_ensemble_stem_settings(self, model_data: ModelData) -> Optional[str]:
+        """Configure stem settings for ensemble processing.
+        
+        Args:
+            model_data: Model data to configure
+            
+        Returns:
+            Optional[str]: Target stem type if filtering is needed, None otherwise
+        """
+        master_is_primary_stem_only = getattr(
+            self.model_data, "is_primary_stem_only", False
+        )
+        master_is_secondary_stem_only = getattr(
+            self.model_data, "is_secondary_stem_only", False
+        )
+
+        if not (master_is_primary_stem_only or master_is_secondary_stem_only):
+            # User wants both stems - let model use its default settings
+            self._write_to_console(
+                "  🎯 User wants both stems - using model defaults", ""
+            )
+            return None
+
+        # User selected either "Vocals Only" or "Instruments Only"
+        ensemble_primary_stem = getattr(
+            self.model_data, "ensemble_primary_stem", ac.VOCAL_STEM
+        )
+        ensemble_secondary_stem = getattr(
+            self.model_data, "ensemble_secondary_stem", ac.INST_STEM
+        )
+
+        if master_is_primary_stem_only:
+            target_stem_type = ensemble_primary_stem
+            self._write_to_console(
+                f"  🎯 User wants primary stem only: {target_stem_type}", ""
+            )
+        else:
+            target_stem_type = ensemble_secondary_stem
+            self._write_to_console(
+                f"  🎯 User wants secondary stem only: {target_stem_type}", ""
+            )
+
+        # Special handling for Demucs models in ensemble mode
+        if model_data.process_method == ac.DEMUCS_ARCH_TYPE:
+            # For Demucs models, always output all stems and filter afterward
+            model_data.is_primary_stem_only = False
+            model_data.is_secondary_stem_only = False
+            self._write_to_console(
+                f"  🎸 Demucs model will output all stems, target: {target_stem_type}",
+                "",
+            )
+        else:
+            # For VR and MDX models, try to match stems
+            model_primary_stem = getattr(model_data, "primary_stem", ac.VOCAL_STEM)
+            model_secondary_stem = getattr(model_data, "secondary_stem", ac.INST_STEM)
+
+            self._write_to_console(
+                f"  🎯 Model {model_data.model_basename}: primary={model_primary_stem}, secondary={model_secondary_stem}",
+                "",
+            )
+
+            if target_stem_type == model_primary_stem:
+                model_data.is_primary_stem_only = True
+                model_data.is_secondary_stem_only = False
+                self._write_to_console(
+                    f"  ✅ Configured model to output primary stem only: {model_primary_stem}",
+                    "",
+                )
+            elif target_stem_type == model_secondary_stem:
+                model_data.is_primary_stem_only = False
+                model_data.is_secondary_stem_only = True
+                self._write_to_console(
+                    f"  ✅ Configured model to output secondary stem only: {model_secondary_stem}",
+                    "",
+                )
+            else:
+                self._write_to_console(
+                    f"  ⚠️ Model doesn't produce target stem {target_stem_type}, will output both stems",
+                    "",
+                )
+                model_data.is_primary_stem_only = False
+                model_data.is_secondary_stem_only = False
+
+        return target_stem_type
+
+    def _create_separator_for_individual_model(
+        self, model_data: ModelData, process_data: Dict[str, Any]
+    ) -> Optional[Any]:
+        """Create the appropriate separator for the model.
+        
+        Args:
+            model_data: Model data
+            process_data: Processing data dictionary
+            
+        Returns:
+            Optional[Any]: Separator instance or None if failed
+        """
+        try:
+            if model_data.process_method == ac.VR_ARCH_TYPE:
+                self._write_to_console("  🎵 Creating VR separator...", "")
+                return SeparateVRLogic(model_data=model_data, process_data=process_data)
+            elif model_data.process_method == ac.MDX_ARCH_TYPE:
+                if model_data.is_mdx_c:
+                    self._write_to_console("  🎛️ Creating MDX-C separator...", "")
+                    return SeparateMDXCLogic(model_data=model_data, process_data=process_data)
+                else:
+                    self._write_to_console("  🎛️ Creating MDX separator...", "")
+                    return SeparateMDXLogic(model_data=model_data, process_data=process_data)
+            elif model_data.process_method == ac.DEMUCS_ARCH_TYPE:
+                self._write_to_console("  🎸 Creating Demucs separator...", "")
+                return SeparateDemucsLogic(model_data=model_data, process_data=process_data)
+            else:
+                self._write_to_console(
+                    f"❌ Unsupported method: {model_data.process_method}", ""
+                )
+                return None
+        except Exception as separator_error:
+            self._write_to_console(
+                f"❌ Error creating separator for {model_data.model_basename}: {separator_error}",
+                "",
+            )
+            self._write_to_console(
+                f"❌ Separator creation traceback: {traceback.format_exc()}", ""
+            )
+            return None
 
 
 class ProcessingThread(QThread):
